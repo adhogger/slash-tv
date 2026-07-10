@@ -30,6 +30,23 @@
   DA.state = { mode: 'title' };
   var startWasHeld = false; // require a release between screens
 
+  var showDebug = false;    // G toggles a raw-gamepad readout for troubleshooting
+  window.addEventListener('keydown', function (e) { if (e.code === 'KeyG') showDebug = !showDebug; });
+
+  function drawDebug(ctx) {
+    var info = DA.input.debugInfo();
+    var lines = info ?
+      ['pad: ' + info.id, 'mapping: ' + info.mapping, 'axes: ' + info.axes,
+       'buttons down: ' + info.pressed, 'aim uses: ' + info.aimAxes] :
+      ['no gamepad detected — press a button on it'];
+    ctx.textAlign = 'left';
+    ctx.font = '15px monospace';
+    ctx.fillStyle = 'rgba(10,10,15,0.8)';
+    ctx.fillRect(50, DA.H - 40 - lines.length * 20, 720, lines.length * 20 + 12);
+    ctx.fillStyle = '#7ee081';
+    for (var i = 0; i < lines.length; i++) ctx.fillText(lines[i], 60, DA.H - 36 - (lines.length - 1 - i) * 20);
+  }
+
   var last = performance.now();
   function frame(now) {
     var dt = Math.min((now - last) / 1000, 0.05); // cap dt: tab-switch safety
@@ -153,7 +170,7 @@
     if (st.mode === 'title') {
       drawArena(ctx);
       var hint = DA.input.gamepadConnected() ?
-        '🎮 gamepad detected — left stick moves, right stick fires' :
+        '🎮 gamepad detected — left stick moves, push right stick to fire that way' :
         'WASD moves — mouse aims — click fires (or plug in a gamepad)';
       drawCenteredScreen(ctx, [
         { text: 'DEAD AIR', font: 'bold 96px monospace', color: '#e8d44d', y: 300 },
@@ -162,11 +179,13 @@
         { text: hint, font: '18px monospace', color: '#8888a0', y: 480 }
       ]);
       DA.drawFxOver(ctx);
+      if (showDebug) drawDebug(ctx);
       return;
     }
 
     drawWorld(ctx, st);
     drawHud(ctx, st);
+    if (showDebug) drawDebug(ctx);
 
     if (st.mode === 'gameover') {
       drawCenteredScreen(ctx, [

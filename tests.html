@@ -50,6 +50,22 @@ test('applyDeadzone kills drift below threshold, rescales above', function () {
   assert(DA.applyDeadzone(0.6) > 0 && DA.applyDeadzone(0.6) < 0.6);
 });
 
+test('pickAimAxes finds the real right-stick vertical axis', function () {
+  // args: zeroFrac (time spent near zero), min seen, max seen — per axis
+  // healthy standard pad: axis 3 idles at zero and moves both ways → picked
+  var r = DA.pickAimAxes([0.9,0.9,0.9,0.9], [-1,-1,-1,-1], [1,1,1,1]);
+  assert(r.x === 2 && r.y === 3, 'standard pad should use axis 3');
+  // broken pad: axis 3 dead (never moves), axis 5 is the live vertical
+  r = DA.pickAimAxes([0.9,0.9,0.9,1,1,0.9], [-1,-1,-1,0,0,-1], [1,1,1,0,0,1]);
+  assert(r.y === 5, 'dead axis 3 should fall through to live axis 5');
+  // nothing moved yet, axis 3 idles at zero → trust the spec default
+  r = DA.pickAimAxes([1,1,1,1], [0,0,0,0], [0,0,0,0]);
+  assert(r.y === 3, 'unproven pad should default to axis 3');
+  // axis 3 is a trigger idling at -1 (even if pressed sometimes) → never aim with it
+  r = DA.pickAimAxes([1,1,1,0.05], [0,0,0,-1], [0,0,0,1]);
+  assert(r.y === -1, 'trigger-like axis 3 must not be used as aim');
+});
+
 // player tests
 test('player stays inside arena walls', function () {
   var p = DA.makePlayer();

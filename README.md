@@ -9,7 +9,8 @@ single-screen studios of zombies for cash while the announcer eggs you on.
 
 Open `index.html` in any browser. No install, no build step, no server needed.
 
-**Gamepad (recommended):** left stick moves, right stick aims + fires (right trigger also fires).
+**Gamepad (recommended):** left stick moves; push the right stick in any direction to fire
+that way (right trigger also fires). Press **G** for a raw controller readout if inputs act oddly.
 **Keyboard + mouse:** WASD moves, mouse aims, click (hold) fires.
 Whichever you touched last wins.
 
