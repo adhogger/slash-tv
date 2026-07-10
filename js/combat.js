@@ -35,7 +35,7 @@
         if (DA.onKill) DA.onKill(st, e);
         continue;
       }
-      if (p.invuln <= 0 && DA.circleHit(e.x, e.y, e.r, p.x, p.y, p.r)) {
+      if (p.invuln <= 0 && !(e.grace > 0) && DA.circleHit(e.x, e.y, e.r, p.x, p.y, p.r)) {
         p.hearts--;
         p.invuln = 1.5;
         var v = DA.norm(e.x - p.x, e.y - p.y); // knock enemy back

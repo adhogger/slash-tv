@@ -1,9 +1,9 @@
 (function () {
   var TYPES = {
-    shambler: { r: 12, speed: 70,  hp: 2,  score: 100, color: '#6fae5c' },
-    sprinter: { r: 12, speed: 210, hp: 1,  score: 250, color: '#c95d63' },
-    swarmer:  { r: 7,  speed: 130, hp: 1,  score: 50,  color: '#5bc8d6' },
-    brute:    { r: 20, speed: 45,  hp: 10, score: 500, color: '#9b6bb3' }
+    shambler: { r: 12, speed: 60,  hp: 2,  score: 100, color: '#6fae5c' },
+    sprinter: { r: 12, speed: 180, hp: 1,  score: 250, color: '#c95d63' },
+    swarmer:  { r: 7,  speed: 110, hp: 1,  score: 50,  color: '#5bc8d6' },
+    brute:    { r: 20, speed: 40,  hp: 10, score: 500, color: '#9b6bb3' }
   };
   // 4 spawn doors, one per wall; dir names match room exit directions
   DA.DOORS = [
@@ -20,14 +20,20 @@
              score: t.score, color: t.color, wobble: Math.random() * 6.28 };
   };
   // doors: optional array of door objects to spawn from (staggered-door waves)
+  // Fresh spawns get a short "emerging" grace: they can be shot but can't hurt
+  // the player, so walking past a door isn't an instant ambush.
+  DA.SPAWN_GRACE = 0.6;
   DA.spawnAtDoor = function (arr, type, speed, doors) {
     var pool = (doors && doors.length) ? doors : DA.DOORS;
     var d = pool[Math.floor(Math.random() * pool.length)];
-    arr.push(DA.makeEnemy(type, d.x + DA.rand(-30, 30), d.y + DA.rand(-30, 30), speed));
+    var e = DA.makeEnemy(type, d.x + DA.rand(-30, 30), d.y + DA.rand(-30, 30), speed);
+    e.grace = DA.SPAWN_GRACE;
+    arr.push(e);
   };
   DA.updateEnemies = function (arr, player, dt) {
     for (var i = 0; i < arr.length; i++) {
       var e = arr[i];
+      if (e.grace > 0) e.grace -= dt;
       if (e.isBoss) continue; // the boss moves itself (js/boss.js)
       var v = DA.norm(player.x - e.x, player.y - e.y);
       e.wobble += dt * 5;
@@ -66,12 +72,14 @@
     for (var i = 0; i < arr.length; i++) {
       var e = arr[i];
       if (e.isBoss) { if (DA.drawBoss) DA.drawBoss(ctx, e); continue; }
+      if (e.grace > 0) ctx.globalAlpha = 0.45; // emerging from the door, harmless
       ctx.fillStyle = e.color;
       ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 7); ctx.fill();
       ctx.fillStyle = '#1a1a1a'; // dead eyes, scaled to body size
       var eye = e.r * 0.28, off = e.r * 0.38;
       ctx.fillRect(e.x - off - eye / 2, e.y - e.r * 0.25, eye, eye);
       ctx.fillRect(e.x + off - eye / 2, e.y - e.r * 0.25, eye, eye);
+      ctx.globalAlpha = 1;
     }
   };
 })();

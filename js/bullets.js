@@ -3,7 +3,7 @@
   // across `fan` radians; jitter = random aim wobble; pierce = bullet passes
   // through zombies (hits each once); dmg = hp removed per hit.
   DA.GUNS = {
-    pistol:  { label: 'PISTOL',  color: '#e8d44d', rate: 0.14,  pellets: 1, fan: 0,    jitter: 0,    speed: 700,  dmg: 1 },
+    pistol:  { label: 'PISTOL',  color: '#e8d44d', rate: 0.11,  pellets: 1, fan: 0,    jitter: 0,    speed: 700,  dmg: 1 },
     triple:  { label: 'TRIPLE',  color: '#ff9f1c', rate: 0.14,  pellets: 3, fan: 0.44, jitter: 0,    speed: 700,  dmg: 1 },
     smg:     { label: 'SMG',     color: '#7ee081', rate: 0.06,  pellets: 1, fan: 0,    jitter: 0.09, speed: 780,  dmg: 1 },
     shotgun: { label: 'SHOTGUN', color: '#c95d63', rate: 0.55,  pellets: 7, fan: 0.55, jitter: 0.05, speed: 620,  dmg: 1 },
@@ -45,7 +45,7 @@
   };
 
   // ---- enemy projectiles (the boss's "paparazzi flashes") ----
-  var EB_SPEED = 240;
+  var EB_SPEED = 200;
   DA.fireEnemyBullet = function (arr, x, y, dx, dy) {
     arr.push({ x: x, y: y, dx: dx, dy: dy, r: 6 });
   };

@@ -131,7 +131,30 @@ test('wave data can slow a specific enemy group', function () {
   var slow = DA.makeEnemy('sprinter', 0, 0, 130);
   assert(slow.speed === 130, 'speed override should apply');
   var normal = DA.makeEnemy('sprinter', 0, 0);
-  assert(normal.speed === 210, 'no override keeps the type speed');
+  assert(normal.speed === 180, 'no override keeps the type speed');
+});
+test('fresh spawns get a grace period where they cannot hurt the player', function () {
+  var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1 };
+  var arr = [];
+  DA.spawnAtDoor(arr, 'shambler');
+  assert(arr[0].grace > 0, 'door spawns start with grace');
+  var e = arr[0];
+  e.x = st.player.x; e.y = st.player.y;
+  st.enemies.push(e);
+  var hearts = st.player.hearts;
+  DA.resolveCombat(st);
+  assert(st.player.hearts === hearts, 'graced zombie must not hurt the player');
+  e.grace = 0;
+  DA.resolveCombat(st);
+  assert(st.player.hearts === hearts - 1, 'grace over: contact hurts again');
+});
+test('the same gun never drops twice in a row or while held', function () {
+  var p = DA.makePlayer();
+  p.gun = 'smg';
+  for (var i = 0; i < 100; i++) {
+    assert(DA.pickDropType(p, 'gun_railgun') !== 'gun_smg', 'never the held gun');
+    assert(DA.pickDropType(p, 'gun_railgun') !== 'gun_railgun', 'never the last drop');
+  }
 });
 
 // combat tests

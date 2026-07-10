@@ -164,10 +164,13 @@
     for (var r = 80; r <= 320; r += 80) {
       ctx.beginPath(); ctx.arc(DA.W / 2, DA.H / 2, r, 0, 7); ctx.stroke();
     }
+    var active = (st.waveManager && st.waveManager.activeDoors) || [];
     for (var i = 0; i < DA.DOORS.length; i++) {       // doors: gaps in the walls
       var d = DA.DOORS[i];
       var isExit = st.room && st.room.exits[d.dir] && st.roomCleared;
-      ctx.fillStyle = isExit ? '#2e6b3a' : '#101018';
+      var isSpawning = active.indexOf(d) !== -1;      // red = zombies use this door
+      ctx.fillStyle = isExit ? '#2e6b3a' :
+        (isSpawning ? 'rgba(150, 35, 45, ' + (0.65 + Math.sin(performance.now() / 200) * 0.25) + ')' : '#101018');
       if (d.dir === 'N' || d.dir === 'S') ctx.fillRect(d.x - 50, d.y - 20, 100, 40);
       else ctx.fillRect(d.x - 20, d.y - 50, 40, 100);
       if (isExit) {

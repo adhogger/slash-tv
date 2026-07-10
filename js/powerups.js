@@ -15,11 +15,16 @@
     return type.toUpperCase();
   }
 
-  // hearts never drop when the meter is full — no wasted gifts
-  DA.pickDropType = function (player) {
+  // hearts never drop when the meter is full; the same gun never drops twice
+  // in a row, and never the one the player is already holding
+  DA.pickDropType = function (player, lastGunDrop) {
     var pool = ['boots', 'boots'];
     if (player.hearts < DA.MAX_HEARTS) pool.push('heart', 'heart');
-    for (var i = 0; i < GUN_TYPES.length; i++) pool.push('gun_' + GUN_TYPES[i]);
+    for (var i = 0; i < GUN_TYPES.length; i++) {
+      var g = 'gun_' + GUN_TYPES[i];
+      if (GUN_TYPES[i] === player.gun || g === lastGunDrop) continue;
+      pool.push(g);
+    }
     return pool[Math.floor(Math.random() * pool.length)];
   };
 
@@ -41,7 +46,8 @@
       st.powerupT -= dt;
       if (st.powerupT <= 0) {
         st.powerupT = DA.rand(12, 18);
-        var type = DA.pickDropType(st.player);
+        var type = DA.pickDropType(st.player, st.lastGunDrop);
+        if (type.indexOf('gun_') === 0) st.lastGunDrop = type;
         st.powerups.push({ type: type, t: LIFETIME,
                            x: DA.rand(DA.ARENA.x0 + 120, DA.ARENA.x1 - 120),
                            y: DA.rand(DA.ARENA.y0 + 120, DA.ARENA.y1 - 120) });

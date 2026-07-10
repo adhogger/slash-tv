@@ -8,17 +8,17 @@
       name: 'STUDIO 1', floor: '#1c1c26',
       exits: { E: 'greenroom', S: 'makeup' },
       waves: [
-        { doors: 1, groups: [{ type: 'shambler', count: 80,  interval: 0.08 }] },
-        { doors: 2, groups: [{ type: 'shambler', count: 110, interval: 0.07 }] }
+        { doors: 1, groups: [{ type: 'shambler', count: 120,  interval: 0.08 }] },
+        { doors: 2, groups: [{ type: 'shambler', count: 165, interval: 0.07 }] }
       ]
     },
     greenroom: {
       name: 'THE GREEN ROOM', floor: '#1a2119',
       exits: { E: 'props', S: 'cafeteria' },
       waves: [
-        { doors: 2, groups: [{ type: 'shambler', count: 80,  interval: 0.08 },
+        { doors: 2, groups: [{ type: 'shambler', count: 120,  interval: 0.08 },
                              { type: 'swarmer',  count: 24, interval: 0.5 }] },
-        { doors: 3, groups: [{ type: 'shambler', count: 100, interval: 0.07 },
+        { doors: 3, groups: [{ type: 'shambler', count: 150, interval: 0.07 },
                              { type: 'swarmer',  count: 40, interval: 0.35 }] }
       ]
     },
@@ -26,10 +26,10 @@
       name: 'MAKEUP', floor: '#221a20',
       exits: { E: 'cafeteria', S: 'props' },
       waves: [
-        { doors: 2, groups: [{ type: 'shambler', count: 90,  interval: 0.08 },
-                             { type: 'sprinter', count: 12, interval: 2.0, speed: 130 }] },
-        { doors: 3, groups: [{ type: 'shambler', count: 110, interval: 0.06 },
-                             { type: 'sprinter', count: 18, interval: 1.6, speed: 150 }] }
+        { doors: 2, groups: [{ type: 'shambler', count: 135,  interval: 0.08 },
+                             { type: 'sprinter', count: 12, interval: 2.0, speed: 110 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 165, interval: 0.06 },
+                             { type: 'sprinter', count: 18, interval: 1.6, speed: 130 }] }
       ]
     },
     props: {
@@ -37,45 +37,45 @@
       exits: { S: 'controlroom', E: 'editing' },
       waves: [
         { doors: 3, groups: [{ type: 'swarmer',  count: 60, interval: 0.25 },
-                             { type: 'sprinter', count: 16, interval: 1.8, speed: 150 }] },
-        { doors: 3, groups: [{ type: 'shambler', count: 100, interval: 0.06 },
+                             { type: 'sprinter', count: 16, interval: 1.8, speed: 130 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 150, interval: 0.06 },
                              { type: 'swarmer',  count: 50, interval: 0.3 },
-                             { type: 'sprinter', count: 16, interval: 1.5, speed: 160 }] }
+                             { type: 'sprinter', count: 16, interval: 1.5, speed: 140 }] }
       ]
     },
     cafeteria: {
       name: 'STAFF CAFETERIA', floor: '#1a1f22',
       exits: { E: 'controlroom', N: 'editing' },
       waves: [
-        { doors: 3, groups: [{ type: 'shambler', count: 100, interval: 0.07 },
+        { doors: 3, groups: [{ type: 'shambler', count: 150, interval: 0.07 },
                              { type: 'brute',    count: 4,  interval: 8 }] },
-        { doors: 3, groups: [{ type: 'shambler', count: 120, interval: 0.06 },
+        { doors: 3, groups: [{ type: 'shambler', count: 160, interval: 0.07 },
                              { type: 'brute',    count: 6,  interval: 7 },
-                             { type: 'sprinter', count: 16, interval: 1.5, speed: 170 }] }
+                             { type: 'sprinter', count: 16, interval: 1.5, speed: 145 }] }
       ]
     },
     editing: {
       name: 'EDITING BAY', floor: '#1d1a22',
       exits: { E: 'stage', S: 'controlroom' },
       waves: [
-        { doors: 3, groups: [{ type: 'shambler', count: 110, interval: 0.06 },
+        { doors: 3, groups: [{ type: 'shambler', count: 140, interval: 0.07 },
                              { type: 'swarmer',  count: 50, interval: 0.3 },
-                             { type: 'sprinter', count: 20, interval: 1.4, speed: 180 }] },
-        { doors: 3, groups: [{ type: 'shambler', count: 140, interval: 0.05 },
+                             { type: 'sprinter', count: 20, interval: 1.4, speed: 155 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 170, interval: 0.06 },
                              { type: 'brute',    count: 6,  interval: 6 },
-                             { type: 'sprinter', count: 24, interval: 1.2, speed: 180 }] }
+                             { type: 'sprinter', count: 24, interval: 1.2, speed: 155 }] }
       ]
     },
     controlroom: {
       name: 'CONTROL ROOM', floor: '#221d1a',
       exits: { E: 'stage', N: 'editing' },
       waves: [
-        { doors: 3, groups: [{ type: 'shambler', count: 140, interval: 0.05 },
-                             { type: 'swarmer',  count: 60, interval: 0.25 },
-                             { type: 'sprinter', count: 24, interval: 1.2, speed: 190 }] },
-        { doors: 3, groups: [{ type: 'shambler', count: 180, interval: 0.05 },
-                             { type: 'brute',    count: 8,  interval: 5 },
-                             { type: 'sprinter', count: 30, interval: 1.0, speed: 200 }] }
+        { doors: 3, groups: [{ type: 'shambler', count: 120, interval: 0.08 },
+                             { type: 'swarmer',  count: 30, interval: 0.35 },
+                             { type: 'sprinter', count: 20, interval: 1.3, speed: 165 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 150, interval: 0.07 },
+                             { type: 'brute',    count: 5,  interval: 5 },
+                             { type: 'sprinter', count: 24, interval: 1.1, speed: 170 }] }
       ]
     },
     stage: {

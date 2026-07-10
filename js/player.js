@@ -2,7 +2,7 @@
   DA.ARENA = { x0: 40, y0: 40, x1: 1240, y1: 680 };
   DA.MAX_HEARTS = 5;
   DA.makePlayer = function () {
-    return { x: DA.W / 2, y: DA.H / 2, r: 12, speed: 260, vx: 0, vy: 0,
+    return { x: DA.W / 2, y: DA.H / 2, r: 12, speed: 240, vx: 0, vy: 0,
              hearts: 3, invuln: 0, aimX: 1, aimY: 0, fireCooldown: 0, firing: false,
              gun: 'pistol', gunT: 0, bootsT: 0 };
   };
