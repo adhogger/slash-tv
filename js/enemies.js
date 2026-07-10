@@ -8,14 +8,14 @@
     { x: DA.W / 2, y: 20 }, { x: DA.W / 2, y: DA.H - 20 },
     { x: 20, y: DA.H / 2 }, { x: DA.W - 20, y: DA.H / 2 }
   ];
-  DA.makeEnemy = function (type, x, y) {
+  DA.makeEnemy = function (type, x, y, speed) {
     var t = TYPES[type];
-    return { type: type, x: x, y: y, r: t.r, speed: t.speed, hp: t.hp,
+    return { type: type, x: x, y: y, r: t.r, speed: speed || t.speed, hp: t.hp,
              score: t.score, color: t.color, wobble: Math.random() * 6.28 };
   };
-  DA.spawnAtDoor = function (arr, type) {
+  DA.spawnAtDoor = function (arr, type, speed) {
     var d = DA.DOORS[Math.floor(Math.random() * DA.DOORS.length)];
-    arr.push(DA.makeEnemy(type, d.x + DA.rand(-30, 30), d.y + DA.rand(-30, 30)));
+    arr.push(DA.makeEnemy(type, d.x + DA.rand(-30, 30), d.y + DA.rand(-30, 30), speed));
   };
   DA.updateEnemies = function (arr, player, dt) {
     for (var i = 0; i < arr.length; i++) {

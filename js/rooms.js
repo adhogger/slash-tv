@@ -4,9 +4,9 @@
     testRoom: {
       name: 'STUDIO 1',
       waves: [
-        [{ type: 'shambler', count: 24, interval: 0.08 }],
-        [{ type: 'shambler', count: 30, interval: 0.06 }, { type: 'sprinter', count: 9,  interval: 2.0 }],
-        [{ type: 'shambler', count: 42, interval: 0.05 }, { type: 'sprinter', count: 18, interval: 1.2 }]
+        [{ type: 'shambler', count: 72,  interval: 0.08 }],
+        [{ type: 'shambler', count: 90,  interval: 0.06 }, { type: 'sprinter', count: 9,  interval: 2.0, speed: 130 }],
+        [{ type: 'shambler', count: 126, interval: 0.05 }, { type: 'sprinter', count: 18, interval: 1.2, speed: 180 }]
       ]
     }
   };
@@ -15,7 +15,7 @@
   };
   function startWave(wm) {
     wm.spawners = wm.room.waves[wm.wave].map(function (g) {
-      return { type: g.type, left: g.count, interval: g.interval, timer: 0.5 };
+      return { type: g.type, left: g.count, interval: g.interval, speed: g.speed, timer: 0.5 };
     });
     if (DA.onWaveStart) DA.onWaveStart(wm.wave + 1);
   }
@@ -31,7 +31,7 @@
       pending += s.left;
       if (s.left <= 0) return;
       s.timer -= dt;
-      if (s.timer <= 0) { s.timer = s.interval; s.left--; DA.spawnAtDoor(enemies, s.type); }
+      if (s.timer <= 0) { s.timer = s.interval; s.left--; DA.spawnAtDoor(enemies, s.type, s.speed); }
     });
     if (pending === 0 && enemies.length === 0) {   // wave cleared
       wm.wave++;

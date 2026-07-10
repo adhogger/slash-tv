@@ -107,6 +107,13 @@ test('zombies cannot merge with the player', function () {
   assert(d >= p.r + e.r - 0.001, 'zombie must be pushed outside the player wall');
 });
 
+test('wave data can slow a specific enemy group', function () {
+  var slow = DA.makeEnemy('sprinter', 0, 0, 130);
+  assert(slow.speed === 130, 'speed override should apply');
+  var normal = DA.makeEnemy('sprinter', 0, 0);
+  assert(normal.speed === 210, 'no override keeps the type speed');
+});
+
 // combat tests
 test('resolveCombat kills enemies, removes bullets, hurts player once', function () {
   var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1 };
