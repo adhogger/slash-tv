@@ -10,6 +10,11 @@
   window.addEventListener('resize', fit);
   fit();
 
+  DA.state = {
+    player: DA.makePlayer(),
+    bullets: []
+  };
+
   var last = performance.now();
   function frame(now) {
     var dt = Math.min((now - last) / 1000, 0.05); // cap dt: tab-switch safety
@@ -19,17 +24,35 @@
     requestAnimationFrame(frame);
   }
 
-  function update(dt) { /* filled in by later tasks */ }
-
-  function render(ctx) {
-    ctx.fillStyle = '#14141c';
-    ctx.fillRect(0, 0, DA.W, DA.H);
-    ctx.fillStyle = '#e8d44d';
-    ctx.font = '48px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('DEAD AIR', DA.W / 2, DA.H / 2);
+  function update(dt) {
+    var st = DA.state;
+    DA.updatePlayer(st.player, dt);
+    DA.tryPlayerFire(st.player, st.bullets);
+    DA.updateBullets(st.bullets, dt);
   }
 
-  DA.update = update; DA.render = render; // replaced by later tasks
+  function drawArena(ctx) {
+    var A = DA.ARENA;
+    // walls
+    ctx.fillStyle = '#2a2a38';
+    ctx.fillRect(0, 0, DA.W, DA.H);
+    // floor
+    ctx.fillStyle = '#1c1c26';
+    ctx.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0);
+    // game-show floor rings
+    ctx.strokeStyle = 'rgba(232, 212, 77, 0.07)';
+    ctx.lineWidth = 3;
+    for (var r = 80; r <= 320; r += 80) {
+      ctx.beginPath(); ctx.arc(DA.W / 2, DA.H / 2, r, 0, 7); ctx.stroke();
+    }
+  }
+
+  function render(ctx) {
+    var st = DA.state;
+    drawArena(ctx);
+    DA.drawBullets(ctx, st.bullets);
+    DA.drawPlayer(ctx, st.player);
+  }
+
   requestAnimationFrame(frame);
 })();

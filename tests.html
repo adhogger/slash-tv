@@ -4,6 +4,9 @@
 .pass{color:#5f5}.fail{color:#f55}</style></head><body>
 <h1>Dead Air tests</h1><div id="out"></div>
 <script src="js/util.js"></script>
+<script src="js/input.js"></script>
+<script src="js/bullets.js"></script>
+<script src="js/player.js"></script>
 <script>
 var out = document.getElementById('out'), failures = 0;
 function test(name, fn) {
@@ -27,6 +30,38 @@ test('circleHit true when overlapping, false when apart', function () {
 test('norm returns unit vector and zero stays zero', function () {
   var n = DA.norm(3, 4); assert(approx(n.x, 0.6) && approx(n.y, 0.8) && approx(n.len, 5));
   var z = DA.norm(0, 0); assert(z.x === 0 && z.y === 0 && z.len === 0);
+});
+
+// input tests
+test('screenToCanvas maps letterboxed mouse coords to 1280x720 space', function () {
+  // window 2560x1440 → scale 2, no letterbox offset
+  var p = DA.screenToCanvas(640, 360, 2560, 1440);
+  assert(approx(p.x, 320) && approx(p.y, 180));
+  // window 2560x1600 → scale 2, 80px vertical letterbox
+  var q = DA.screenToCanvas(640, 440, 2560, 1600);
+  assert(approx(q.x, 320) && approx(q.y, 180));
+});
+test('applyDeadzone kills drift below threshold, rescales above', function () {
+  assert(DA.applyDeadzone(0.1) === 0);
+  assert(approx(DA.applyDeadzone(1), 1));
+  assert(DA.applyDeadzone(0.6) > 0 && DA.applyDeadzone(0.6) < 0.6);
+});
+
+// player tests
+test('player stays inside arena walls', function () {
+  var p = DA.makePlayer();
+  p.x = 5; p.y = 5000; DA.clampToArena(p);
+  assert(p.x >= 40 + p.r && p.y <= 680 - p.r);
+});
+
+// bullet tests
+test('bullets move and expire off-arena', function () {
+  var bs = [];
+  DA.fireBullet(bs, 100, 100, 1, 0);
+  DA.updateBullets(bs, 0.1);
+  assert(bs[0].x > 100);
+  bs[0].x = 5000; DA.updateBullets(bs, 0.016);
+  assert(bs.length === 0);
 });
 </script>
 <script>
