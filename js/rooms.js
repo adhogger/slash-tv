@@ -94,7 +94,91 @@
       map: { x: 4, y: 0.5 },
       name: 'SOUND STAGE 5', floor: '#241a1a',
       exits: {},
-      boss: true,
+      boss: 'producer',
+      waves: []
+    },
+
+    // ---- EPISODE 2: SWEEPS WEEK (unlocked by beating Episode 1) ----
+    writers: {
+      ep: 2, map: { x: 0, y: 0 },
+      name: 'WRITERS ROOM', floor: '#1e1c24',
+      exits: { E: 'wardrobe', S: 'catering' },
+      waves: [
+        { doors: 2, groups: [{ type: 'shambler', count: 140, interval: 0.07 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 160, interval: 0.06 },
+                             { type: 'stalker',  count: 4,  interval: 2.5 }] }
+      ]
+    },
+    wardrobe: {
+      ep: 2, map: { x: 1, y: 0 },
+      name: 'WARDROBE', floor: '#241e1c',
+      exits: { E: 'backlot', S: 'gallery' },
+      waves: [
+        { doors: 3, groups: [{ type: 'shambler', count: 130, interval: 0.07 },
+                             { type: 'swarmer',  count: 30, interval: 0.32 },
+                             { type: 'stalker',  count: 4,  interval: 2.2 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 160, interval: 0.06 },
+                             { type: 'swarmer',  count: 40, interval: 0.3 },
+                             { type: 'stalker',  count: 4,  interval: 2.0 }] }
+      ]
+    },
+    catering: {
+      ep: 2, map: { x: 0, y: 1 },
+      name: 'CRAFT SERVICES', floor: '#1c2420',
+      exits: { E: 'gallery', N: 'wardrobe' },
+      waves: [
+        { doors: 3, groups: [{ type: 'shambler', count: 150, interval: 0.07 },
+                             { type: 'boomer',   count: 3,  interval: 6 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 170, interval: 0.06 },
+                             { type: 'boomer',   count: 4,  interval: 5 },
+                             { type: 'sprinter', count: 16, interval: 1.4, speed: 170 }] }
+      ]
+    },
+    backlot: {
+      ep: 2, map: { x: 2, y: 0 },
+      name: 'THE BACKLOT', floor: '#22201a',
+      exits: { E: 'serverroom', S: 'gallery' },
+      waves: [
+        { doors: 3, groups: [{ type: 'shambler', count: 160, interval: 0.06 },
+                             { type: 'brute',    count: 5,  interval: 6 },
+                             { type: 'stalker',  count: 4,  interval: 2.2 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 180, interval: 0.06 },
+                             { type: 'brute',    count: 6,  interval: 5 },
+                             { type: 'sprinter', count: 20, interval: 1.2, speed: 175 }] }
+      ]
+    },
+    gallery: {
+      ep: 2, map: { x: 1, y: 1 },
+      name: 'THE GALLERY', floor: '#1c2024',
+      exits: { E: 'serverroom', N: 'backlot' },
+      waves: [
+        { doors: 3, groups: [{ type: 'shambler', count: 160, interval: 0.06 },
+                             { type: 'swarmer',  count: 40, interval: 0.28 },
+                             { type: 'boomer',   count: 3,  interval: 6 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 175, interval: 0.06 },
+                             { type: 'stalker',  count: 4,  interval: 1.8 },
+                             { type: 'boomer',   count: 4,  interval: 5 }] }
+      ]
+    },
+    serverroom: {
+      ep: 2, map: { x: 3, y: 0.5 },
+      name: 'SERVER ROOM', floor: '#181e26',
+      exits: { E: 'suite', S: 'gallery' },
+      waves: [
+        { doors: 3, groups: [{ type: 'shambler', count: 180, interval: 0.055 },
+                             { type: 'sprinter', count: 22, interval: 1.1, speed: 180 },
+                             { type: 'stalker',  count: 4,  interval: 1.8 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 190, interval: 0.055 },
+                             { type: 'brute',    count: 5,  interval: 5 },
+                             { type: 'boomer',   count: 4,  interval: 5 },
+                             { type: 'sprinter', count: 24, interval: 1.0, speed: 180 }] }
+      ]
+    },
+    suite: {
+      ep: 2, map: { x: 4, y: 0.5 },
+      name: 'EXECUTIVE SUITE', floor: '#26202e',
+      exits: {},
+      boss: 'executive',
       waves: []
     },
     endless: {

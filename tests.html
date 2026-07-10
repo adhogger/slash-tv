@@ -262,21 +262,54 @@ test('run stats: shots and hits are counted for accuracy', function () {
   assert(st.stats.hits === 1, 'hit counted');
   assert(st.stats.killsByGun.PISTOL === 1, 'kill credited to the gun');
 });
-test('room graph: every exit is valid and the boss is reachable', function () {
-  var seen = {}, queue = [DA.START_ROOM];
-  while (queue.length) {
-    var id = queue.shift();
-    if (seen[id]) continue;
-    seen[id] = true;
+test('room graphs: every exit is valid and both bosses are reachable', function () {
+  for (var id in DA.ROOMS) {
     var room = DA.ROOMS[id];
-    assert(room, 'room "' + id + '" must exist');
     for (var dir in room.exits) {
       assert(DA.ROOMS[room.exits[dir]], 'exit ' + dir + ' of ' + id + ' points to a real room');
       assert(DA.oppositeDir(dir), 'exit direction must be N/S/E/W');
-      queue.push(room.exits[dir]);
     }
   }
-  assert(seen.stage === true, 'the boss stage must be reachable from the start');
+  function bfs(start) {
+    var seen = {}, queue = [start];
+    while (queue.length) {
+      var rid = queue.shift();
+      if (seen[rid]) continue;
+      seen[rid] = true;
+      for (var d in DA.ROOMS[rid].exits) queue.push(DA.ROOMS[rid].exits[d]);
+    }
+    return seen;
+  }
+  assert(bfs(DA.START_ROOM).stage === true, 'Episode 1 boss reachable');
+  assert(bfs('writers').suite === true, 'Episode 2 boss reachable');
+});
+test('stalkers phase faint and sprint while faint', function () {
+  var visible = DA.makeEnemy('stalker', 200, 360); visible.phaseT = 0.5;
+  var faint = DA.makeEnemy('stalker', 200, 360); faint.phaseT = 1.5;
+  assert(!DA.stalkerFaint(visible) && DA.stalkerFaint(faint), 'phase cycle split at 1.2s');
+  var player = { x: 900, y: 360, r: 12 };
+  var vx = visible.x, fx = faint.x;
+  DA.updateEnemies([visible], player, 0.1);
+  DA.updateEnemies([faint], player, 0.1);
+  assert(faint.x - fx > visible.x - vx, 'faint stalker covers more ground');
+});
+test('The Executive teleports, fires fans, and spirals in phase 2', function () {
+  var b = DA.makeExecutive();
+  assert(b.name === 'THE EXECUTIVE' && b.maxHp > 320, 'tougher than the Producer');
+  var st = { player: DA.makePlayer(), enemies: [b], enemyBullets: [], bullets: [] };
+  var ox = b.x, oy = b.y;
+  b.teleportT = 0.01; b.fanT = 999; b.minionT = 999;
+  DA.updateExecutive(b, st, 0.02);
+  assert(st.enemyBullets.length >= 10, 'arrival ring fired');
+  st.enemyBullets.length = 0;
+  b.fanT = 0.01; b.teleportT = 999;
+  DA.updateExecutive(b, st, 0.02);
+  assert(st.enemyBullets.length === 5, 'aimed 5-shot fan, got ' + st.enemyBullets.length);
+  b.hp = b.maxHp * 0.3;                        // phase 2
+  st.enemyBullets.length = 0;
+  b.spiralT = 0.01; b.fanT = 999;
+  DA.updateExecutive(b, st, 0.02);
+  assert(st.enemyBullets.length >= 1, 'spiral stream in phase 2');
 });
 test('boss fires radial bursts and has phases', function () {
   var b = DA.makeBoss();

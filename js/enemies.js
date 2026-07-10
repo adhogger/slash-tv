@@ -4,8 +4,11 @@
     sprinter: { r: 12, speed: 180, hp: 1,  score: 250, color: '#c95d63' },
     swarmer:  { r: 7,  speed: 110, hp: 1,  score: 50,  color: '#5bc8d6' },
     brute:    { r: 20, speed: 40,  hp: 10, score: 500, color: '#9b6bb3' },
-    boomer:   { r: 14, speed: 80,  hp: 3,  score: 300, color: '#e8843c' }
+    boomer:   { r: 14, speed: 80,  hp: 3,  score: 300, color: '#e8843c' },
+    stalker:  { r: 11, speed: 85,  hp: 2,  score: 350, color: '#6c5b9e' }
   };
+  // Stalkers cycle: 1.2s visible, 0.8s near-invisible — and they sprint while faint.
+  DA.stalkerFaint = function (e) { return (e.phaseT || 0) > 1.2; };
   // 4 spawn doors, one per wall; dir names match room exit directions
   DA.DOORS = [
     { dir: 'N', x: DA.W / 2, y: 20 }, { dir: 'S', x: DA.W / 2, y: DA.H - 20 },
@@ -36,10 +39,15 @@
       var e = arr[i];
       if (e.grace > 0) e.grace -= dt;
       if (e.isBoss) continue; // the boss moves itself (js/boss.js)
+      var sp = e.speed;
+      if (e.type === 'stalker') {
+        e.phaseT = ((e.phaseT == null ? Math.random() * 2 : e.phaseT) + dt) % 2;
+        if (DA.stalkerFaint(e)) sp *= 1.5;
+      }
       var v = DA.norm(player.x - e.x, player.y - e.y);
       e.wobble += dt * 5;
-      e.x += (v.x + Math.cos(e.wobble) * 0.25) * e.speed * dt;
-      e.y += (v.y + Math.sin(e.wobble) * 0.25) * e.speed * dt;
+      e.x += (v.x + Math.cos(e.wobble) * 0.25) * sp * dt;
+      e.y += (v.y + Math.sin(e.wobble) * 0.25) * sp * dt;
       DA.clampToArena(e);
     }
     // separation: overlapping zombies push each other apart so hordes stay readable
@@ -124,6 +132,7 @@
       var e = arr[i];
       if (e.isBoss) { if (DA.drawBoss) DA.drawBoss(ctx, e); continue; }
       if (e.grace > 0) ctx.globalAlpha = 0.45; // emerging from the door, harmless
+      else if (e.type === 'stalker' && DA.stalkerFaint(e)) ctx.globalAlpha = 0.18;
       var lit = e.fuse != null && Math.floor(e.fuse * 12) % 2 === 0;
       ctx.fillStyle = lit ? '#fff3b0' : e.color; // fuse lit: strobe warning
       ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 7); ctx.fill();

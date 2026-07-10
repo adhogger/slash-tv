@@ -38,8 +38,9 @@
     }
     p.vx = 0; p.vy = 0;
     if (st.room.boss) {
-      st.enemies.push(DA.makeBoss());
-      DA.announce('THE PRODUCER!');
+      var boss = st.room.boss === 'executive' ? DA.makeExecutive() : DA.makeBoss();
+      st.enemies.push(boss);
+      DA.announce(boss.name + '!');
       if (DA.audio) DA.audio.roar();
     } else {
       DA.announce(st.room.name);
@@ -59,6 +60,7 @@
       stats: { shots: 0, hits: 0, killsByGun: {}, start: performance.now() }
     };
     enterRoom(st, startRoom || DA.START_ROOM, null);
+    if (st.room.ep === 2) st.player.hearts = DA.MAX_HEARTS; // champions start refreshed
     return st;
   }
 
@@ -73,11 +75,19 @@
     if (e.code === 'KeyG') showDebug = !showDebug;
     if ((e.code === 'Escape' || e.code === 'KeyP') && DA.state.mode === 'playing') paused = !paused;
   });
-  var endlessKeyHeld = false;
-  window.addEventListener('keydown', function (e) { if (e.code === 'KeyE') endlessKeyHeld = true; });
-  window.addEventListener('keyup', function (e) { if (e.code === 'KeyE') endlessKeyHeld = false; });
+  var endlessKeyHeld = false, ep2KeyHeld = false;
+  window.addEventListener('keydown', function (e) {
+    if (e.code === 'KeyE') endlessKeyHeld = true;
+    if (e.code === 'Digit2') ep2KeyHeld = true;
+  });
+  window.addEventListener('keyup', function (e) {
+    if (e.code === 'KeyE') endlessKeyHeld = false;
+    if (e.code === 'Digit2') ep2KeyHeld = false;
+  });
 
   function endlessUnlocked() { return load('deadset_ep1') === '1'; }
+  function ep2Unlocked() { return load('deadset_ep1') === '1'; }
+  var ep2WasHeld = false;
 
   function drawDebug(ctx) {
     var info = DA.input.debugInfo();
@@ -126,7 +136,10 @@
     var best = parseInt(load('deadset_best') || '0', 10);
     st.newBest = st.score > best;
     if (st.newBest) store('deadset_best', String(st.score));
-    if (won) store('deadset_ep1', '1');
+    if (won) {
+      store('deadset_ep1', '1');
+      if (st.room.ep === 2) store('deadset_ep2', '1');
+    }
     if (st.room.endless) {
       var bw = parseInt(load('deadset_best_waves') || '0', 10);
       st.newBestWaves = st.waveManager.wave > bw;
@@ -144,8 +157,11 @@
       if (startHeld && !startWasHeld) DA.state = newGame();
       var endlessHeld = endlessKeyHeld || DA.input.padButton(3);
       if (endlessUnlocked() && endlessHeld && !endlessWasHeld) DA.state = newGame('endless');
+      var ep2Held = ep2KeyHeld || DA.input.padButton(2);
+      if (ep2Unlocked() && ep2Held && !ep2WasHeld) DA.state = newGame('writers');
       startWasHeld = startHeld;
       endlessWasHeld = endlessHeld;
+      ep2WasHeld = ep2Held;
       DA.updateFx(dt);
       return;
     }
@@ -162,7 +178,10 @@
     DA.updateBullets(st.bullets, dt);
     DA.updateWaves(st.waveManager, st.enemies, dt);
     var boss = findBoss(st);
-    if (boss) DA.updateBoss(boss, st, dt);
+    if (boss) {
+      if (boss.type === 'executive') DA.updateExecutive(boss, st, dt);
+      else DA.updateBoss(boss, st, dt);
+    }
     DA.updateEnemies(st.enemies, st.player, dt);
     DA.updateBoomers(st, dt);
     DA.updateEnemyBullets(st.enemyBullets, st.player, dt, st);
@@ -251,9 +270,10 @@
     ctx.strokeStyle = '#3a3a48';
     ctx.lineWidth = 2;
     var id, room;
+    var ep = st.room.ep || 1;                          // only this episode's floor plan
     for (id in DA.ROOMS) {                             // corridors
       room = DA.ROOMS[id];
-      if (!room.map) continue;
+      if (!room.map || (room.ep || 1) !== ep) continue;
       for (var dir in room.exits) {
         var to = DA.ROOMS[room.exits[dir]];
         if (!to || !to.map) continue;
@@ -265,7 +285,7 @@
     }
     for (id in DA.ROOMS) {                             // rooms
       room = DA.ROOMS[id];
-      if (!room.map) continue;
+      if (!room.map || (room.ep || 1) !== ep) continue;
       var x = ox + room.map.x * sx, y = oy + room.map.y * sy;
       var here = id === st.roomId;
       ctx.beginPath(); ctx.arc(x, y, here ? 9 : 7, 0, 7);
@@ -369,18 +389,21 @@
         '🎮 gamepad detected — left stick moves, push right stick to fire that way' :
         'WASD moves — mouse aims — click fires (or plug in a gamepad)';
       var lines = [
-        { text: 'DEAD SET', font: 'bold 96px monospace', color: '#e8d44d', y: 260 },
-        { text: 'EPISODE 1: PILOT SEASON', font: 'bold 28px monospace', color: '#c95d63', y: 310 },
-        { text: "New America's #1 post-apocalyptic game show!", font: '24px monospace', color: '#f2f2e9', y: 352 },
-        { text: 'PRESS FIRE TO PLAY', font: 'bold 30px monospace', color: '#7ee081', y: 430 }
+        { text: 'DEAD SET', font: 'bold 96px monospace', color: '#e8d44d', y: 250 },
+        { text: "New America's #1 post-apocalyptic game show!", font: '24px monospace', color: '#f2f2e9', y: 300 },
+        { text: 'PRESS FIRE — EPISODE 1: PILOT SEASON', font: 'bold 28px monospace', color: '#7ee081', y: 386 }
       ];
+      if (ep2Unlocked()) {
+        lines.push({ text: '2 (or 🎮 X) — EPISODE 2: SWEEPS WEEK' + (load('deadset_ep2') === '1' ? ' ✓' : ''),
+                     font: 'bold 24px monospace', color: '#c95d63', y: 426 });
+      }
       if (endlessUnlocked()) {
-        lines.push({ text: 'E (or 🎮 Y) FOR ENDLESS ARENA — best: wave ' + (load('deadset_best_waves') || '0'),
-                     font: 'bold 22px monospace', color: '#5bc8d6', y: 468 });
+        lines.push({ text: 'E (or 🎮 Y) — ENDLESS ARENA — best: wave ' + (load('deadset_best_waves') || '0'),
+                     font: 'bold 22px monospace', color: '#5bc8d6', y: 462 });
       }
       var best = load('deadset_best');
       if (best) lines.push({ text: 'BEST: $' + parseInt(best, 10).toLocaleString('en-US'),
-                             font: 'bold 20px monospace', color: '#e8d44d', y: 506 });
+                             font: 'bold 20px monospace', color: '#e8d44d', y: 502 });
       lines.push({ text: hint, font: '18px monospace', color: '#8888a0', y: 545 });
       lines.push({ text: 'Esc pauses · M mutes', font: '15px monospace', color: '#8888a0', y: 572 });
       drawCenteredScreen(ctx, lines);
@@ -415,14 +438,20 @@
       if (endlessUnlocked()) go.push({ text: 'E (or 🎮 Y) for Endless Arena', font: '19px monospace', color: '#5bc8d6', y: 516 });
       drawCenteredScreen(ctx, go);
     } else if (st.mode === 'winner') {
+      var isFinale = st.room.ep === 2;
       var w = [
-        { text: "THAT'S A WRAP!", font: 'bold 84px monospace', color: '#e8d44d', y: 240 },
-        { text: 'Episode 1 survived — The Producer is done for.', font: '24px monospace', color: '#f2f2e9', y: 292 },
+        { text: isFinale ? 'SEASON FINALE!' : "THAT'S A WRAP!",
+          font: 'bold 84px monospace', color: '#e8d44d', y: 240 },
+        { text: isFinale ? 'The Executive is cancelled. The network is yours.' :
+                           'Episode 1 survived — The Producer is done for.',
+          font: '24px monospace', color: '#f2f2e9', y: 292 },
         { text: 'You take home $' + st.score.toLocaleString('en-US') +
                 (st.newBest ? '  —  NEW BEST!' : ''),
           font: 'bold 28px monospace', color: '#7ee081', y: 336 }
       ].concat(statsLines(st, 392));
-      w.push({ text: 'ENDLESS ARENA UNLOCKED — press E (or 🎮 Y)', font: 'bold 22px monospace', color: '#5bc8d6', y: 470 });
+      w.push({ text: isFinale ? 'Thanks for watching DEAD SET — stay tuned for Season 2' :
+                                'EPISODE 2 + ENDLESS ARENA UNLOCKED — press 2 or E',
+               font: 'bold 22px monospace', color: '#5bc8d6', y: 470 });
       w.push({ text: 'PRESS FIRE TO PLAY AGAIN', font: 'bold 26px monospace', color: '#7ee081', y: 510 });
       drawCenteredScreen(ctx, w);
     }
