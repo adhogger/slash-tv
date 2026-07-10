@@ -12,7 +12,11 @@
 
   DA.state = {
     player: DA.makePlayer(),
-    bullets: []
+    bullets: [],
+    enemies: [],
+    waveManager: DA.makeWaveManager(DA.ROOMS.testRoom),
+    score: 0,
+    combo: 1
   };
 
   var last = performance.now();
@@ -29,6 +33,9 @@
     DA.updatePlayer(st.player, dt);
     DA.tryPlayerFire(st.player, st.bullets);
     DA.updateBullets(st.bullets, dt);
+    DA.updateWaves(st.waveManager, st.enemies, dt);
+    DA.updateEnemies(st.enemies, st.player, dt);
+    DA.resolveCombat(st);
   }
 
   function drawArena(ctx) {
@@ -45,13 +52,31 @@
     for (var r = 80; r <= 320; r += 80) {
       ctx.beginPath(); ctx.arc(DA.W / 2, DA.H / 2, r, 0, 7); ctx.stroke();
     }
+    // spawn doors: darker gaps in the walls
+    ctx.fillStyle = '#101018';
+    for (var i = 0; i < DA.DOORS.length; i++) {
+      var d = DA.DOORS[i];
+      if (d.y <= A.y0 || d.y >= A.y1) ctx.fillRect(d.x - 50, d.y - 20, 100, 40);
+      else ctx.fillRect(d.x - 20, d.y - 50, 40, 100);
+    }
+  }
+
+  function drawHud(ctx, st) {
+    ctx.textAlign = 'center';
+    ctx.font = '22px monospace';
+    ctx.fillStyle = '#e8d44d';
+    var wm = st.waveManager;
+    var waveNo = Math.min(wm.wave + 1, wm.room.waves.length);
+    ctx.fillText(wm.room.name + ' — WAVE ' + waveNo + '/' + wm.room.waves.length, DA.W / 2, 28);
   }
 
   function render(ctx) {
     var st = DA.state;
     drawArena(ctx);
     DA.drawBullets(ctx, st.bullets);
+    DA.drawEnemies(ctx, st.enemies);
     DA.drawPlayer(ctx, st.player);
+    drawHud(ctx, st);
   }
 
   requestAnimationFrame(frame);

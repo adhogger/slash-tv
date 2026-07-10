@@ -6,7 +6,10 @@
 <script src="js/util.js"></script>
 <script src="js/input.js"></script>
 <script src="js/bullets.js"></script>
+<script src="js/enemies.js"></script>
 <script src="js/player.js"></script>
+<script src="js/rooms.js"></script>
+<script src="js/combat.js"></script>
 <script>
 var out = document.getElementById('out'), failures = 0;
 function test(name, fn) {
@@ -52,6 +55,51 @@ test('player stays inside arena walls', function () {
   var p = DA.makePlayer();
   p.x = 5; p.y = 5000; DA.clampToArena(p);
   assert(p.x >= 40 + p.r && p.y <= 680 - p.r);
+});
+
+// enemy tests
+test('enemy types have expected stats', function () {
+  var s = DA.makeEnemy('shambler', 0, 0);
+  var f = DA.makeEnemy('sprinter', 0, 0);
+  assert(f.speed > s.speed && s.hp >= f.hp);
+});
+test('enemies chase the player', function () {
+  var e = DA.makeEnemy('shambler', 200, 200);
+  DA.updateEnemies([e], { x: 600, y: 200 }, 0.1);
+  assert(e.x > 200);
+});
+
+// combat tests
+test('resolveCombat kills enemies, removes bullets, hurts player once', function () {
+  var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1 };
+  st.enemies.push(DA.makeEnemy('sprinter', st.player.x + 100, st.player.y));
+  DA.fireBullet(st.bullets, st.player.x + 90, st.player.y, 1, 0);
+  st.bullets[0].x = st.enemies[0].x; // force overlap
+  DA.resolveCombat(st);
+  assert(st.enemies.length === 0 && st.bullets.length === 0 && st.score > 0);
+
+  st.enemies.push(DA.makeEnemy('shambler', st.player.x, st.player.y)); // on top of player
+  var hearts = st.player.hearts;
+  DA.resolveCombat(st); DA.resolveCombat(st); // second hit inside i-frames
+  assert(st.player.hearts === hearts - 1, 'i-frames must prevent double hit');
+});
+
+// wave tests
+test('wave manager spawns over time and advances between waves', function () {
+  var wm = DA.makeWaveManager(DA.ROOMS.testRoom);
+  var enemies = [];
+  for (var i = 0; i < 12; i++) DA.updateWaves(wm, enemies, 0.25); // past the 2s get-ready pause
+  assert(enemies.length > 0, 'should spawn');
+  for (var i = 0; i < 400; i++) DA.updateWaves(wm, enemies, 0.25); // drain all spawns
+  enemies.length = 0;                         // player "kills" everything
+  DA.updateWaves(wm, enemies, 0.25);
+  assert(wm.wave >= 1, 'should advance after clear');
+});
+test('wave manager reports victory when all waves cleared', function () {
+  var wm = DA.makeWaveManager(DA.ROOMS.testRoom);
+  var enemies = [];
+  for (var i = 0; i < 4000; i++) { DA.updateWaves(wm, enemies, 0.25); enemies.length = 0; }
+  assert(wm.done === true);
 });
 
 // bullet tests
