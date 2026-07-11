@@ -78,7 +78,8 @@
       return;
     }
     ctx.rotate(Math.atan2(p.aimY, p.aimX));
-    ctx.fillStyle = p.bot ? '#a8c8d8' : '#f2f2e9';   // body (CAM-BOT runs brushed steel)
+    ctx.fillStyle = p.remote ? '#f2e2b0' :           // guest seats wear gold-tinted white
+                    (p.bot ? '#a8c8d8' : '#f2f2e9'); // body (CAM-BOT runs brushed steel)
     ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 7); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.4)';             // outline
     ctx.lineWidth = 2;

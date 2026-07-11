@@ -57,6 +57,7 @@
     } else {
       DA.announce(st.room.name);
     }
+    if (DA.net) DA.net.onEnterRoom(roomId, entryDir);
   }
 
   function newGame(startRoom) {
@@ -81,6 +82,7 @@
     }
     enterRoom(st, startRoom || DA.START_ROOM, null);
     if (st.room.ep === 2) st.players.forEach(function (cp) { cp.hearts = DA.MAX_HEARTS; }); // champions start refreshed
+    if (DA.net) DA.net.onHostNewGame(st, startRoom);   // a paired guest takes seat 2
     return st;
   }
 
@@ -241,6 +243,7 @@
     }
     if (e.code === 'KeyB' && DA.state.mode === 'title') toggleBot();
     if (e.code === 'KeyI' && DA.state.mode === 'title') DA.state = { mode: 'intro', page: 0 };
+    if (e.code === 'KeyH' && DA.state.mode === 'title' && DA.net) DA.net.host();
   });
 
   // attract mode: a parade of silhouettes shambling across the title screen
@@ -483,7 +486,13 @@
     var fighting = st.enemies.length > 0;
     for (var pi = 0; pi < st.players.length; pi++) {
       var pl = st.players[pi];
-      var inp = pl.bot ? DA.botInput(st, pl, dt) : DA.input.state(pl.x, pl.y);
+      var inp;
+      if (pl.remote) {           // seat 2 is a live guest: play their last packet
+        inp = (DA.net && DA.net.freshGuestInput()) ||
+              { moveX: 0, moveY: 0, aimX: pl.aimX, aimY: pl.aimY, firing: false };
+      } else {
+        inp = pl.bot ? DA.botInput(st, pl, dt) : DA.input.state(pl.x, pl.y);
+      }
       DA.updatePlayer(pl, inp, dt, fighting);
       if (!pl.downed) {
         var fired = DA.tryPlayerFire(pl, st.bullets);
@@ -548,6 +557,7 @@
       }
       checkExits(st);
     }
+    if (DA.net) DA.net.hostTick(st);
   }
 
   // --- cached scenery (built once, redrawn cheaply every frame) ---
@@ -979,6 +989,13 @@
         { text: tagline, font: '21px monospace', color: '#f2f2e9', y: 328 },
         { text: 'PRESS FIRE — EPISODE 1: PILOT SEASON', font: 'bold 28px monospace', color: '#7ee081', y: 396 }
       ];
+      if (DA.net && DA.net.status === 'hosting') {
+        lines.push({ text: 'ROOM ' + (DA.net.code || '····') +
+                           (DA.net.remoteJoined ? ' — CONTESTANT 2 READY' : ' — waiting for contestant 2'),
+                     font: 'bold 22px monospace', color: '#9ad7ff', y: 364 });
+      } else if (DA.net && DA.net.status === 'error') {
+        lines.push({ text: 'RELAY ERROR — see server/README.md', font: 'bold 18px monospace', color: '#d43a4b', y: 364 });
+      }
       if (ep2Unlocked()) {
         lines.push({ text: '2 (or 🎮 X) — EPISODE 2: SWEEPS WEEK' + (load('deadset_ep2') === '1' ? ' ✓' : ''),
                      font: 'bold 24px monospace', color: '#c95d63', y: 426 });
@@ -993,7 +1010,7 @@
       if (best) lines.push({ text: 'BEST: $' + parseInt(best, 10).toLocaleString('en-US'),
                              font: 'bold 20px monospace', color: '#e8d44d', y: 524 });
       lines.push({ text: hint, font: '18px monospace', color: '#8888a0', y: 548 });
-      lines.push({ text: 'Esc pauses · M mutes · N music · K shake · V fx · I story', font: '15px monospace', color: '#8888a0', y: 572 });
+      lines.push({ text: 'Esc pauses · M mutes · N music · K shake · V fx · I story · H host co-op', font: '15px monospace', color: '#8888a0', y: 572 });
     lines.push({ text: (DA.input.touchActive() ? 'TAP HERE' : 'B (or 🎮 LB)') + ' — CAM-BOT CO-OP: ' + (botOn ? 'ON ✓' : 'OFF'),
                  font: 'bold 20px monospace', color: botOn ? '#a8c8d8' : '#666677', y: 618 });
       if (DA.input.touchActive() && window.innerHeight > window.innerWidth) {

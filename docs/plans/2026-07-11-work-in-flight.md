@@ -19,8 +19,21 @@ heartbeat music, broadcast FX layer, top-5 board, forward-grid map rewire -
 Phase 2a: relay (server/relay.js Node, tested pattern) + server/worker.js
 Durable Object deploy target + server/README.md.
 
-## Mid-flight: Phase 2b netcode (js/net.js exists, is inert until wired)
-`js/net.js` is committed but not loaded. Remaining wiring, in order:
+## DONE (11 Jul, Claude Code local session): Phase 2b wired and packet-tested
+All 8 steps below are complete. Verified against `node server/relay.js` with
+the browser as host and a scripted 30Hz Node guest (`ws` client) standing in
+for a focused second browser (hidden Chrome tabs throttle the guest's input
+timer to ~1/min, which made two-background-tabs testing impossible — a real
+guest with a focused tab has no such problem). Evidence: host code CFMS
+issued; guest paired, received 200 snapshots + 23 events; guest input drove
+seat 2 across the arena (x 710 -> 1228), aim matched the commanded (1,0),
+fired (7 concurrent bullets) and scored 20 kills; guest disconnect handed the
+seat back to CAM-BOT; ping 2ms. Browser suite 49/49 and headless smoke green.
+
+Still open for a human: the 150ms-throttle interpolation feel test (needs two
+focused windows), then Phase 3 (binary snapshots, reconnect grace, ping HUD).
+
+Original checklist, all landed:
 
 1. index.html: add `<script src="js/net.js"></script>` AFTER main.js.
 2. main.js update(), player loop: route input for remote seats:
