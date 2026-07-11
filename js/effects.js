@@ -2,7 +2,15 @@
   var QUIPS = ['BIG BRAINS!', 'TOTAL CARNAGE!', 'THE CROWD GOES WILD!',
                'SPONSORED BY GRUEL™', "DON'T TOUCH THE ZOMBIES!"];
 
-  DA.fx = { particles: [], splats: [], popups: [], queue: [], shake: 0 };
+  DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], shake: 0 };
+  try { DA.fx.shakeOn = localStorage.getItem('deadset_shake') !== '0'; }
+  catch (e) { DA.fx.shakeOn = true; }
+
+  // a felled zombie deflates into the floor instead of blinking out
+  DA.corpse = function (x, y, r, color) {
+    DA.fx.corpses.push({ x: x, y: y, r: r, color: color, t: 0.45, max: 0.45 });
+    if (DA.fx.corpses.length > 80) DA.fx.corpses.shift();
+  };
 
   DA.burst = function (x, y, color, n) {
     for (var i = 0; i < n; i++) {
@@ -30,6 +38,7 @@
   };
 
   DA.addShake = function (amount) {
+    if (DA.fx.shakeOn === false) return;
     DA.fx.shake = Math.max(DA.fx.shake, amount);
   };
 
@@ -49,10 +58,14 @@
       fx.popups.push({ text: fx.queue.shift(), y: 130, life: 1.2, maxLife: 1.2 });
       if (DA.audio) DA.audio.sting();
     }
+    for (var c = fx.corpses.length - 1; c >= 0; c--) {
+      fx.corpses[c].t -= dt;
+      if (fx.corpses[c].t <= 0) fx.corpses.splice(c, 1);
+    }
     if (fx.shake > 0) fx.shake = Math.max(0, fx.shake - 30 * dt);
   };
 
-  DA.drawFxUnder = function (ctx) {   // floor stains, under actors
+  DA.drawFxUnder = function (ctx) {   // floor stains + deflating corpses, under actors
     ctx.fillStyle = 'rgba(110, 20, 30, 0.55)';
     var splats = DA.fx.splats;
     for (var i = 0; i < splats.length; i++) {
@@ -62,6 +75,17 @@
         ctx.beginPath(); ctx.arc(s.x + blob.dx, s.y + blob.dy, blob.r, 0, 7); ctx.fill();
       }
     }
+    var corpses = DA.fx.corpses;
+    for (var c = 0; c < corpses.length; c++) {
+      var k = corpses[c].t / corpses[c].max;         // 1 -> 0 as it deflates
+      ctx.globalAlpha = 0.35 + k * 0.5;
+      ctx.fillStyle = corpses[c].color;
+      ctx.beginPath();
+      ctx.ellipse(corpses[c].x, corpses[c].y + corpses[c].r * (1 - k) * 0.6,
+                  corpses[c].r * (1 + (1 - k) * 0.35), Math.max(1, corpses[c].r * k), 0, 0, 7);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
   };
 
   DA.drawFxOver = function (ctx) {    // particles + announcer, over actors
@@ -89,6 +113,7 @@
     st.kills = (st.kills || 0) + 1;
     DA.burst(e.x, e.y, e.color, e.isBoss ? 60 : 12);
     DA.splat(e.x, e.y);
+    DA.corpse(e.x, e.y, e.r, e.color);
     DA.addShake(e.isBoss ? 14 : 3);
     if (DA.audio) DA.audio.splat();
     if (st.kills % 20 === 0) DA.announce(QUIPS[Math.floor(Math.random() * QUIPS.length)]);

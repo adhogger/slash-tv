@@ -28,6 +28,7 @@
     st.bossDead = false;
     st.lastWave = 0;
     DA.fx.splats.length = 0;   // fresh floor for a fresh studio
+    DA.fx.corpses.length = 0;
     var p = st.player;
     if (entryDir) {            // walk in through the door we came from
       var d = DA.doorByDir(entryDir);
@@ -52,6 +53,7 @@
     DA.fx.splats.length = 0;
     DA.fx.popups.length = 0;
     DA.fx.queue.length = 0;
+    DA.fx.corpses.length = 0;
     var st = {
       mode: 'playing',
       player: DA.makePlayer(),
@@ -99,7 +101,39 @@
   window.addEventListener('keydown', function (e) {
     if (e.code === 'KeyG') showDebug = !showDebug;
     if ((e.code === 'Escape' || e.code === 'KeyP') && DA.state.mode === 'playing') paused = !paused;
+    if (e.code === 'KeyK') {   // screen shake toggle, remembered
+      DA.fx.shakeOn = DA.fx.shakeOn === false;
+      try { localStorage.setItem('deadset_shake', DA.fx.shakeOn ? '1' : '0'); } catch (err) {}
+      DA.announce(DA.fx.shakeOn ? 'SHAKE ON' : 'SHAKE OFF');
+    }
   });
+
+  // attract mode: a parade of silhouettes shambling across the title screen
+  var attract = [];
+  function updateAttract(dt) {
+    if (attract.length === 0) {
+      for (var i = 0; i < 12; i++) {
+        attract.push({ x: Math.random() * DA.W, y: 615 + Math.random() * 70,
+                       r: 12 + Math.random() * 16,
+                       v: (Math.random() < 0.5 ? -1 : 1) * (16 + Math.random() * 26),
+                       w: Math.random() * 6.28 });
+      }
+    }
+    for (var j = 0; j < attract.length; j++) {
+      var z = attract[j];
+      z.x += z.v * dt; z.w += dt * 4;
+      if (z.x < -40) z.x = DA.W + 40;
+      if (z.x > DA.W + 40) z.x = -40;
+    }
+  }
+  function drawAttract(ctx) {
+    ctx.fillStyle = 'rgba(28, 42, 28, 0.9)';
+    for (var i = 0; i < attract.length; i++) {
+      var z = attract[i];
+      var bob = 1 + Math.sin(z.w) * 0.08;
+      ctx.beginPath(); ctx.arc(z.x, z.y, z.r * bob, 0, 7); ctx.fill();
+    }
+  }
   var endlessKeyHeld = false, ep2KeyHeld = false;
   window.addEventListener('keydown', function (e) {
     if (e.code === 'KeyE') endlessKeyHeld = true;
@@ -187,6 +221,7 @@
       startWasHeld = startHeld;
       endlessWasHeld = endlessHeld;
       ep2WasHeld = ep2Held;
+      updateAttract(dt);
       DA.updateFx(dt);
       return;
     }
@@ -485,11 +520,12 @@
       if (best) lines.push({ text: 'BEST: $' + parseInt(best, 10).toLocaleString('en-US'),
                              font: 'bold 20px monospace', color: '#e8d44d', y: 502 });
       lines.push({ text: hint, font: '18px monospace', color: '#8888a0', y: 545 });
-      lines.push({ text: 'Esc pauses · M mutes', font: '15px monospace', color: '#8888a0', y: 572 });
+      lines.push({ text: 'Esc pauses · M mutes · N music · K shake', font: '15px monospace', color: '#8888a0', y: 572 });
       if (DA.input.touchActive() && window.innerHeight > window.innerWidth) {
         lines.push({ text: '📺 rotate your phone for the full show', font: 'bold 20px monospace', color: '#e8d44d', y: 605 });
       }
       drawCenteredScreen(ctx, lines);
+      drawAttract(ctx);
       DA.drawFxOver(ctx);
       drawTouchUI(ctx);
       drawScreenFx(ctx);

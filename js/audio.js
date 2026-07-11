@@ -2,7 +2,9 @@
   // All sound is synthesized with WebAudio — no audio files. The context can
   // only start after a user gesture (browser autoplay rules), so we lazily
   // create/resume it on first input. M toggles mute.
-  var ctx = null, master = null, muted = false;
+  var ctx = null, master = null, musicGain = null, muted = false;
+  var musicOn = true;
+  try { musicOn = localStorage.getItem('deadset_music') !== '0'; } catch (e) {}
 
   function ensure() {
     var AC = window.AudioContext || window.webkitAudioContext;
@@ -12,6 +14,9 @@
       master = ctx.createGain();
       master.gain.value = 0.4;
       master.connect(ctx.destination);
+      musicGain = ctx.createGain();          // music has its own tap (N toggles it)
+      musicGain.gain.value = musicOn ? 1 : 0;
+      musicGain.connect(master);
     }
     if (ctx.state === 'suspended') ctx.resume();
     return true;
@@ -23,6 +28,12 @@
       muted = !muted;
       if (master) master.gain.value = muted ? 0 : 0.4;
       if (DA.announce) DA.announce(muted ? 'SOUND OFF' : 'SOUND ON');
+    }
+    if (e.code === 'KeyN') {
+      musicOn = !musicOn;
+      try { localStorage.setItem('deadset_music', musicOn ? '1' : '0'); } catch (err) {}
+      if (musicGain) musicGain.gain.value = musicOn ? 1 : 0;
+      if (DA.announce) DA.announce(musicOn ? 'MUSIC ON' : 'MUSIC OFF');
     }
     ensure();
   });
@@ -101,7 +112,7 @@
     if (endFreq) osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), t + dur);
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    osc.connect(g); g.connect(master);
+    osc.connect(g); g.connect(musicGain);
     osc.start(t); osc.stop(t + dur);
   }
   function noiseAt(t, dur, vol, filterFreq) {
@@ -114,7 +125,7 @@
     var g = ctx.createGain();
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    src.connect(f); f.connect(g); g.connect(master);
+    src.connect(f); f.connect(g); g.connect(musicGain);
     src.start(t);
   }
   function hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }

@@ -14,16 +14,21 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_POST(self):
-        # dev helper: POST a canvas dataURL to /shot and it lands on disk
-        if self.path != '/shot':
+        # dev helper: POST a canvas dataURL to /shot (or /shot?name=x.png) and it lands on disk
+        import base64
+        import re
+        if not self.path.startswith('/shot'):
             self.send_response(404)
             self.end_headers()
             return
-        import base64
+        name = 'debug-shot.jpg'
+        m = re.search(r'name=([a-z0-9._-]+\.(?:png|jpg))$', self.path)
+        if m:
+            name = os.path.basename(m.group(1))
         length = int(self.headers.get('Content-Length', 0))
         data = self.rfile.read(length).decode()
         payload = data.split(',', 1)[1] if ',' in data else data
-        with open(os.path.join(self.directory, 'debug-shot.jpg'), 'wb') as f:
+        with open(os.path.join(self.directory, name), 'wb') as f:
             f.write(base64.b64decode(payload))
         self.send_response(200)
         self.end_headers()

@@ -390,6 +390,16 @@ test('gun expires back to pistol after its combat time', function () {
   DA.updatePlayer(p, 31, true);
   assert(p.gun === 'pistol' && p.gunT <= 0, 'crate should expire to pistol');
 });
+test('kills leave a deflating corpse that expires', function () {
+  DA.fx.corpses.length = 0;
+  DA.corpse(100, 100, 12, '#6fae5c');
+  assert(DA.fx.corpses.length === 1, 'corpse added');
+  DA.updateFx(1);
+  assert(DA.fx.corpses.length === 0, 'corpse deflated away');
+  for (var i = 0; i < 100; i++) DA.corpse(i, i, 12, '#6fae5c');
+  assert(DA.fx.corpses.length <= 80, 'corpse pile is capped');
+  DA.fx.corpses.length = 0;
+});
 test('announcements show one at a time from a queue', function () {
   DA.fx.popups.length = 0; DA.fx.queue.length = 0;
   DA.announce('FIRST'); DA.announce('SECOND'); DA.announce('THIRD'); DA.announce('FOURTH');
