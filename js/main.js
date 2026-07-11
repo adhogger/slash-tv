@@ -567,7 +567,7 @@
     var t = document.createElement('canvas'); t.width = 80; t.height = 80;
     var g = t.getContext('2d');
     g.fillStyle = color; g.fillRect(0, 0, 80, 80);
-    g.fillStyle = 'rgba(255,255,255,0.02)';           // checker sheen
+    g.fillStyle = 'rgba(255,255,255,0.035)';           // checker sheen
     g.fillRect(0, 0, 40, 40); g.fillRect(40, 40, 40, 40);
     g.strokeStyle = 'rgba(0,0,0,0.16)'; g.lineWidth = 1;  // tile grout
     g.strokeRect(0.5, 0.5, 40, 40); g.strokeRect(40.5, 40.5, 40, 40);
@@ -580,7 +580,7 @@
     var g = c.getContext('2d');
     var grad = g.createRadialGradient(DA.W / 2, DA.H / 2, DA.H * 0.42, DA.W / 2, DA.H / 2, DA.H * 0.95);
     grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.4)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.16)');
     g.fillStyle = grad; g.fillRect(0, 0, DA.W, DA.H);
     return c;
   })();
@@ -596,7 +596,7 @@
   var scanlines = (function () {
     var c = document.createElement('canvas'); c.width = 8; c.height = 4;
     var g = c.getContext('2d');
-    g.fillStyle = 'rgba(0,0,0,0.13)'; g.fillRect(0, 2, 8, 2);
+    g.fillStyle = 'rgba(0,0,0,0.08)'; g.fillRect(0, 2, 8, 2);
     return c;
   })();
   var scanPattern = null;

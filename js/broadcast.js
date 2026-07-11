@@ -30,15 +30,15 @@
   }
 
   // how dark each set runs — the boss stage is the moodiest
-  var MOOD = { bossfloor: 0.62, servers: 0.56, monitors: 0.52,
-               mirrors: 0.42, stage: 0.46, lounge: 0.48 };
+  var MOOD = { bossfloor: 0.22, servers: 0.18, monitors: 0.16,
+               mirrors: 0.12, stage: 0.12, lounge: 0.14 };
 
   // world-space pass: darkness + lights, drawn inside the shake transform
   B.drawWorldFx = function (ctx, st) {
     if (!B.on || !st.player) return;
     var p = st.player, i, e, d, dir;
     var dark = MOOD[st.room && st.room.decor];
-    if (dark == null) dark = 0.5;
+    if (dark == null) dark = 0.12;
     lctx.globalCompositeOperation = 'source-over';
     lctx.globalAlpha = 1;
     lctx.clearRect(0, 0, DA.W, DA.H);
@@ -141,22 +141,6 @@
       ctx.beginPath(); ctx.arc(f.x, f.y, 2.5, 0, 7); ctx.fill();
       ctx.fillStyle = 'rgba(220, 235, 255, ' + (0.28 * k).toFixed(3) + ')';
       ctx.beginPath(); ctx.arc(f.x, f.y, 13 * (2 - k), 0, 7); ctx.fill();
-    }
-    var ax = 736;                                      // APPLAUSE sign
-    ctx.fillStyle = cheer ? 'rgba(212, 58, 75, 0.92)' : 'rgba(18, 18, 28, 0.9)';
-    ctx.fillRect(ax, 688, 112, 26);
-    ctx.strokeStyle = cheer ? '#ffd7a0' : '#3a3a48';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(ax, 688, 112, 26);
-    ctx.font = 'bold 14px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = cheer ? '#fff3d6' : '#4a4a5a';
-    ctx.fillText('APPLAUSE', ax + 56, 706);
-    if (cheer) {
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = 'rgba(255, 120, 90, 0.12)';
-      ctx.beginPath(); ctx.arc(ax + 56, 701, 70, 0, 7); ctx.fill();
-      ctx.globalCompositeOperation = 'source-over';
     }
     if (Math.sin(B.t * 4) > -0.2) {                    // the on-air bug
       ctx.fillStyle = '#d43a4b';
