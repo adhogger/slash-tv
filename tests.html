@@ -484,7 +484,7 @@ test('announcements show one at a time from a queue', function () {
   DA.updateFx(0.016);
   assert(DA.fx.popups.length === 1 && DA.fx.popups[0].text === 'FIRST', 'one visible message');
   assert(DA.fx.queue.length === 1 && DA.fx.queue[0] === 'SECOND', 'overflow dropped, got ' + DA.fx.queue.length);
-  for (var i = 0; i < 100; i++) DA.updateFx(0.016);   // let FIRST expire
+  for (var i = 0; i < 160; i++) DA.updateFx(0.016);   // let FIRST expire (2.0s lifetime)
   assert(DA.fx.popups.length === 1 && DA.fx.popups[0].text === 'SECOND', 'next message promoted');
   DA.fx.popups.length = 0; DA.fx.queue.length = 0;
 });
