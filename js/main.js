@@ -1,6 +1,7 @@
 (function () {
   var canvas = document.getElementById('game');
   var ctx = canvas.getContext('2d');
+  if (DA.bakeSprites) DA.bakeSprites();   // pre-render the zombie sprite sheets once
 
   function fit() {
     var scale = Math.min(window.innerWidth / DA.W, window.innerHeight / DA.H);
