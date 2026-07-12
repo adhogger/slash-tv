@@ -245,6 +245,9 @@
     if (e.code === 'KeyB' && DA.state.mode === 'title') toggleBot();
     if (e.code === 'KeyI' && DA.state.mode === 'title') DA.state = { mode: 'intro', page: 0 };
     if (e.code === 'KeyH' && DA.state.mode === 'title' && DA.net) DA.net.host();
+    if (e.code === 'KeyD' && DA.state.mode === 'title' && window.SLASHTV_DONATE_URL) {
+      window.open(window.SLASHTV_DONATE_URL, '_blank', 'noopener');
+    }
   });
 
   // attract mode: a parade of silhouettes shambling across the title screen
@@ -1115,6 +1118,11 @@
       lines.push({ text: (DA.input.touchActive() ? 'TAP HERE' : 'B (or 🎮 LB)') + ' — CAM-BOT CO-OP: ' + (botOn ? 'ON ✓' : 'OFF'),
                    font: 'bold 20px monospace', color: botOn ? '#a8c8d8' : '#666677', y: cy });
       cy += 34;
+      if (window.SLASHTV_DONATE_URL) {              // inert until Ben configures a link
+        lines.push({ text: 'D — 💛 SUPPORT THE SHOW (optional — no ads, ever)',
+                     font: '16px monospace', color: '#e8d44d', y: cy });
+        cy += 24;
+      }
       if (DA.input.touchActive() && window.innerHeight > window.innerWidth) {
         lines.push({ text: '📺 rotate your phone for the full show', font: 'bold 20px monospace', color: '#e8d44d', y: cy });
       }

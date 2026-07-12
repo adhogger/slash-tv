@@ -45,6 +45,11 @@ chain reactions. The **multiplier** is earned now: every 8 chained kills raise i
 Open `tests.html` — every pure-logic function (collision, input mapping, waves, combo)
 is asserted there. Green ✅ means healthy; the tab title shows the verdict.
 
+## Publishing to itch.io
+
+`./build-itch-zip.sh` packages a clean HTML5 build for upload. Full walkthrough,
+listing copy, and monetisation notes: [docs/itch-io-listing.md](docs/itch-io-listing.md).
+
 ## Project layout
 
 - `js/util.js` — the `DA` namespace + math helpers
