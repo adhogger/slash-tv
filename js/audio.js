@@ -104,6 +104,9 @@
       noise(0.3, 0.4, 500);
       blip(180, 0.9, 'sawtooth', 0.35, 30);
       setTimeout(function () { blip(980, 1.6, 'sine', 0.05, 940); }, 350);
+    },
+    tick: function () {                  // gun crate about to expire
+      blip(880, 0.08, 'square', 0.1, 1200);
     }
   };
 

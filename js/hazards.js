@@ -40,7 +40,7 @@
   }
   DA.hazardState = hazardState; // exposed for tests
 
-  function hitPlayers(st, test) {
+  function hitPlayers(st, test, sx, sy) {
     var ps = st.players || [st.player];
     for (var i = 0; i < ps.length; i++) {
       var p = ps[i];
@@ -48,7 +48,7 @@
       if (test(p)) {
         p.hearts--; p.invuln = 1.2;
         if (DA.resetCombo) DA.resetCombo(st);
-        if (DA.onPlayerHurt) DA.onPlayerHurt(st);
+        if (DA.onPlayerHurt) DA.onPlayerHurt(st, sx, sy);
         if (DA.addShake) DA.addShake(8);
       }
     }
@@ -76,7 +76,7 @@
           while (diff > Math.PI) diff -= 6.28318;
           while (diff < -Math.PI) diff += 6.28318;
           return Math.abs(diff) < CRANE_HALF_WIDTH;
-        });
+        }, c.x, c.y);
         if (c.phaseT <= 0) { c.phase = 'idle'; c.phaseT = c.flareT; }
       }
     }
@@ -90,7 +90,7 @@
       } else if (p.phase === 'burn') {
         hitPlayers(st, (function (pp) {
           return function (pl) { return DA.dist2(pl.x, pl.y, pp.x, pp.y) < pp.r * pp.r; };
-        })(p));
+        })(p), p.x, p.y);
         if (p.phaseT <= 0) { p.phase = 'idle'; p.phaseT = p.cycle; }
       }
     }

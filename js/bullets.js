@@ -99,7 +99,7 @@
           pl.hearts--;
           pl.invuln = 1.5;
           if (st && !pl.bot && DA.comboHit) DA.comboHit(st);
-          if (DA.onPlayerHurt) DA.onPlayerHurt({ player: pl });
+          if (DA.onPlayerHurt) DA.onPlayerHurt({ player: pl }, b.x, b.y);
           break;
         }
       }

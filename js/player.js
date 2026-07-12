@@ -34,11 +34,22 @@
     p.firing = p.downed ? false : !!s.firing;
     if (p.invuln > 0) p.invuln -= dt;
     if (p.fireCooldown > 0) p.fireCooldown -= dt;
+    if (p.hurtFlashT > 0) p.hurtFlashT -= dt;
+    var moving = Math.abs(p.vx) > 20 || Math.abs(p.vy) > 20;
+    p.stepT = (p.stepT || 0) - dt;
+    if (moving && !p.downed && p.stepT <= 0) {
+      p.stepT = 0.11;
+      if (DA.dust) DA.dust(p.x - p.vx * 0.02, p.y + p.r * 0.7 - p.vy * 0.02);
+    }
     if (boostsTicking !== false) {
       if (p.bootsT > 0) p.bootsT -= dt;
       if (p.shieldT > 0) p.shieldT -= dt;
       if (p.gunT > 0) {
         p.gunT -= dt;
+        if (p.gunT <= 1 && !p.gunWarnPlayed) {      // one-shot "running out" tell
+          p.gunWarnPlayed = true;
+          if (DA.audio && DA.audio.tick) DA.audio.tick();
+        }
         if (p.gunT <= 0) p.gun = 'pistol'; // crate expired: back to the trusty pistol
       }
     }

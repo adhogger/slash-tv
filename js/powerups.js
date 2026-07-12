@@ -49,6 +49,7 @@
     if (type.indexOf('gun_') === 0) {
       player.gun = type.slice(4);
       player.gunT = DURATION;
+      player.gunWarnPlayed = false;
     } else if (type === 'boots') {
       player.bootsT = DURATION;
     } else if (type === 'shield') {

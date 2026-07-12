@@ -891,7 +891,8 @@
     var gun = DA.GUNS[st.player.gun] || DA.GUNS.pistol;
     ctx.textAlign = 'left';
     ctx.font = 'bold 18px monospace';
-    ctx.fillStyle = gun.color;
+    var expiring = st.player.gunT > 0 && st.player.gunT <= 1 && Math.floor(st.player.gunT * 8) % 2 === 0;
+    ctx.fillStyle = expiring ? '#d43a4b' : gun.color;
     ctx.fillText(gun.label + (st.player.gunT > 0 ? ' ' + Math.ceil(st.player.gunT) + 's' : ''), 16, 60);
     var buddy = st.players[1];
     if (buddy) {
@@ -914,8 +915,9 @@
     ctx.fillText('$' + st.score.toLocaleString('en-US'), DA.W - 20, 32);
     if (st.combo > 1) {
       var pulse = st.combo >= 5 ? 1 + Math.sin(performance.now() / 90) * 0.15 : 1;
-      ctx.font = 'bold ' + Math.round(24 * pulse) + 'px monospace';
-      ctx.fillStyle = '#e8d44d';
+      var pop = st.comboPopT > 0 ? 1 + (st.comboPopT / 0.3) * 0.6 : 1;   // one-shot step-up punch
+      ctx.font = 'bold ' + Math.round(24 * pulse * pop) + 'px monospace';
+      ctx.fillStyle = st.comboPopT > 0 ? '#fff3b0' : '#e8d44d';
       ctx.fillText('x' + st.combo, DA.W - 20, 62);
     }
     var chain = st.comboKills || 0;                 // chain progress toward the next step
@@ -1145,6 +1147,17 @@
       ctx.globalAlpha = pulse;
       ctx.drawImage(bloodVignette, 0, 0);
       ctx.globalAlpha = 1;
+    }
+    if (st.mode === 'playing' && st.player.hurtFlashT > 0) {  // directional "you got hit from here" flash
+      var hp = st.player, k = hp.hurtFlashT / 0.35;
+      var cx = DA.W / 2, cy = DA.H / 2;
+      var ex = hp.hurtDir != null ? cx + Math.cos(hp.hurtDir) * DA.W * 0.7 : cx;
+      var ey = hp.hurtDir != null ? cy + Math.sin(hp.hurtDir) * DA.W * 0.7 : cy;
+      var flashGrad = ctx.createRadialGradient(ex, ey, 0, ex, ey, DA.W * 0.65);
+      flashGrad.addColorStop(0, 'rgba(220, 30, 40, ' + (0.5 * k).toFixed(3) + ')');
+      flashGrad.addColorStop(1, 'rgba(220, 30, 40, 0)');
+      ctx.fillStyle = flashGrad;
+      ctx.fillRect(0, 0, DA.W, DA.H);
     }
     if (DA.broadcast) DA.broadcast.drawGlitch(ctx);
     if (st.mode === 'dying') {

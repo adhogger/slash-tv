@@ -154,7 +154,7 @@
         p.hearts--;
         p.invuln = 1.5;
         if (!p.bot && DA.comboHit) DA.comboHit(st);   // the bot tanking doesn't cost the streak
-        if (DA.onPlayerHurt) DA.onPlayerHurt({ player: p });
+        if (DA.onPlayerHurt) DA.onPlayerHurt({ player: p }, x, y);
       }
     }
     for (var i = st.enemies.length - 1; i >= 0; i--) {   // chain damage

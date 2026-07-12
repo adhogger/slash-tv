@@ -117,7 +117,7 @@
           if (Math.abs(diff) < ALGO_LASER_HALF_WIDTH) {
             pl.hearts--; pl.invuln = 1.2;
             if (DA.resetCombo) DA.resetCombo(st);
-            if (DA.onPlayerHurt) DA.onPlayerHurt(st);
+            if (DA.onPlayerHurt) DA.onPlayerHurt(st, b.x, b.y);
           }
         }
       }

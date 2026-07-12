@@ -53,7 +53,7 @@
     'STAY TUNED. YOU HAVE NO CHOICE.'
   ];
 
-  DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], shake: 0 };
+  DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], dust: [], shake: 0 };
   try { DA.fx.shakeOn = localStorage.getItem('deadset_shake') !== '0'; }
   catch (e) { DA.fx.shakeOn = true; }
 
@@ -81,6 +81,11 @@
                              vy: Math.sin(a) * s + (dy || 0) * 170,
                              life: 0.5, maxLife: 0.5, color: color, r: DA.rand(2, 5) });
     }
+  };
+
+  DA.dust = function (x, y) {              // tiny footstep puff, drawn under the player
+    DA.fx.dust.push({ x: x, y: y, r: DA.rand(2, 4), vy: -8, life: 0.32, maxLife: 0.32 });
+    if (DA.fx.dust.length > 60) DA.fx.dust.shift();
   };
 
   DA.splat = function (x, y) {
@@ -130,9 +135,22 @@
       sh.rot += sh.rotV * dt;
     }
     if (fx.shake > 0) fx.shake = Math.max(0, fx.shake - 30 * dt);
+    for (var d = fx.dust.length - 1; d >= 0; d--) {
+      var du = fx.dust[d];
+      du.y += du.vy * dt; du.life -= dt;
+      if (du.life <= 0) fx.dust.splice(d, 1);
+    }
   };
 
   DA.drawFxUnder = function (ctx) {   // floor stains + deflating corpses, under actors
+    var dust = DA.fx.dust;
+    ctx.fillStyle = 'rgba(210, 200, 180, 0.5)';
+    for (var du = 0; du < dust.length; du++) {
+      var d = dust[du];
+      ctx.globalAlpha = (d.life / d.maxLife) * 0.5;
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
     ctx.fillStyle = 'rgba(110, 20, 30, 0.55)';
     var splats = DA.fx.splats;
     for (var i = 0; i < splats.length; i++) {
@@ -191,9 +209,12 @@
     if (DA.audio) DA.audio.splat();
     if (st.kills % 25 === 0) DA.announce(QUIPS[Math.floor(Math.random() * QUIPS.length)]);
   };
-  DA.onPlayerHurt = function (st) {
+  DA.onPlayerHurt = function (st, sx, sy) {
+    var p = st.player;
     DA.addShake(10);
-    DA.burst(st.player.x, st.player.y, '#c0392b', 16);
+    DA.burst(p.x, p.y, '#c0392b', 16);
+    p.hurtDir = (sx != null) ? Math.atan2(sy - p.y, sx - p.x) : null;
+    p.hurtFlashT = 0.35;
     if (DA.audio) DA.audio.hurt();
   };
   DA.onWaveStart = function (n) {

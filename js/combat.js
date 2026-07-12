@@ -11,7 +11,7 @@
     st.comboTimer = COMBO_WINDOW;
     if (st.comboKills >= KILLS_PER_STEP) {
       st.comboKills = 0;
-      st.combo = Math.min(st.combo + 1, COMBO_CAP);
+      if (st.combo < COMBO_CAP) { st.combo++; st.comboPopT = 0.3; }
     }
   };
   DA.updateCombo = function (st, dt) {
@@ -19,6 +19,7 @@
       st.comboTimer -= dt;
       if (st.comboTimer <= 0) { st.combo = 1; st.comboKills = 0; }
     }
+    if (st.comboPopT > 0) st.comboPopT -= dt;
   };
   DA.resetCombo = function (st) {
     st.combo = 1; st.comboKills = 0; st.comboTimer = 0;
@@ -92,7 +93,7 @@
           var v = DA.norm(e.x - pl.x, e.y - pl.y); // knock enemy back
           e.x += v.x * 60; e.y += v.y * 60;
           DA.clampToArena(e);
-          if (DA.onPlayerHurt) DA.onPlayerHurt({ player: pl });
+          if (DA.onPlayerHurt) DA.onPlayerHurt({ player: pl }, e.x, e.y);
         }
       }
     }
