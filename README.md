@@ -2,7 +2,7 @@
 
 *The most-watched — and most-banned — show on Earth.*
 
-(The project folder is `dead-air` and the repo is `dead-set` — the show has been renamed twice mid-season. Such is television.)
+(The project folder is `dead-air`; the repo is `slash-tv` — the show has been renamed three times mid-season. Such is television.)
 
 A browser twin-stick shooter in the spirit of Smash TV. You're a contestant fighting
 through the studios of a zombie-infested TV network — 8 connected rooms with exit-door
@@ -10,7 +10,7 @@ choices, audience power-up drops, and **The Producer** waiting on Sound Stage 5.
 
 ## Play
 
-**Online: https://adhogger.github.io/dead-set/**
+**Online: https://adhogger.github.io/slash-tv/**
 
 Or open `index.html` in any browser. No install, no build step, no server needed.
 
