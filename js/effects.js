@@ -30,7 +30,19 @@
     'OUR ADVERTISERS LEFT YEARS AGO. FORTUNATELY, HUMAN CURIOSITY IS FREE.',
     'NOTHING BOOSTS VIEWING FIGURES QUITE LIKE IRREVERSIBLE MISTAKES.',
     "WE ASKED THE AI TO MAXIMISE RATINGS. IT MISUNDERSTOOD THE WORD 'LIMIT'.",
-    'YOUR PANIC IS BEING TRANSLATED LIVE INTO SEVENTEEN LANGUAGES.'
+    'YOUR PANIC IS BEING TRANSLATED LIVE INTO SEVENTEEN LANGUAGES.',
+    'TONIGHT IS PROUDLY UNSPONSORED. EVERYONE ELSE PULLED OUT.',
+    'THE COMPLAINTS LINE NOW REDIRECTS TO A GIFT SHOP.',
+    'OUR VIEWERS AT HOME ARE SAFE. THAT IS THEIR ENTIRE CONTRIBUTION.',
+    "DON'T THINK OF IT AS DYING. THINK OF IT AS PEAKING.",
+    'EVERY CAMERA HERE HAS BETTER HEALTHCARE THAN THE CREW.',
+    'OUR DEMOGRAPHIC IS EVERYONE WITH A PULSE. FOR NOW.',
+    "TONIGHT'S EPISODE IS RATED: INEVITABLE.",
+    'THE PRIZE MONEY EXISTS. THE WINNER RARELY DOES.',
+    'HISTORY WILL JUDGE US. RATINGS ALREADY HAVE.',
+    'APPLAUSE SIGNS ARE MANDATORY. FEELINGS ARE OPTIONAL.',
+    'THE NETWORK CALLS THIS CONTENT. YOUR MOTHER WOULD CALL THE POLICE.',
+    'WE COUNT VIEWERS, NOT SURVIVORS. THE MATHS IS SIMPLER.'
   ];
   var ACT2 = [
     "WELL... THAT WASN'T SCHEDULED.",
@@ -44,7 +56,19 @@
     "THAT WASN'T A SCRIPTED EXPLOSION... BUT WE'LL ABSOLUTELY PRETEND IT WAS.",
     'EVERY MONSTER REPRESENTS YEARS OF INNOVATION AND ONE CATASTROPHIC OVERSIGHT.',
     'THIS EPISODE HAS EXCEEDED OUR PROJECTED CASUALTY TARGETS. CONGRATULATIONS, EVERYONE.',
-    'SOMEWHERE IN THIS BUILDING IS AN EMERGENCY EXIT. IT TESTED POORLY WITH AUDIENCES.'
+    'SOMEWHERE IN THIS BUILDING IS AN EMERGENCY EXIT. IT TESTED POORLY WITH AUDIENCES.',
+    'COULD SOMEONE CHECK ON THE BASEMENT LEVELS? ...ANYONE FROM THE BASEMENT LEVELS?',
+    'THE TELEPROMPTER JUST WENT BLANK. I KNOW THIS SHOW BY HEART ANYWAY.',
+    'THAT ALARM IS PART OF THE SOUNDTRACK. PROBABLY.',
+    'MAKEUP? MAKEUP TO THE FLOOR, PLEASE. ...MAKEUP?',
+    'WE SEEM TO HAVE LOST THE FEED FROM STUDIO SIX. AND STUDIO SIX.',
+    'THE SHOW MUST GO ON. CONTRACTUALLY, IT HAS NO CHOICE.',
+    'I AM TOLD EVERYTHING IS FINE. I AM TOLD THAT BY A RECORDING.',
+    'MINOR SCHEDULING NOTE: THE 9PM SLOT NO LONGER EXISTS.',
+    'SECURITY IS HANDLING IT. SECURITY? ...SECURITY IS HANDLING IT.',
+    'WHOEVER IS RUNNING THE AUTOCUE: VERY FUNNY. STOP.',
+    'THE SPRINKLERS ARE NOT PART OF THE SHOW. NEITHER IS THE SMOKE.',
+    'FUN FACT: THIS BUILDING HAS NEVER PASSED A SINGLE INSPECTION.'
   ];
   var ACT3 = [
     'CONTROL... WHO AUTHORISED OPENING SECTOR NINE?',
@@ -54,7 +78,13 @@
     'CAMERA FIVE... STOP FILMING THAT.',
     'DIRECTOR? ...DIRECTOR?',
     '...WHAT AN EXCITING TWIST FOR OUR VIEWERS.',
-    "THE RATINGS NOW TRACK THE BODY COUNT EXACTLY. MARKETING CALLS THAT 'BRAND CONSISTENCY'."
+    "THE RATINGS NOW TRACK THE BODY COUNT EXACTLY. MARKETING CALLS THAT 'BRAND CONSISTENCY'.",
+    'WHO IS CUTTING THE CAMERAS? I DID NOT CALL A CUT.',
+    'THE DOORS TO THE EXECUTIVE FLOOR ARE... WELDED?',
+    'PUT THE FLOOR MANAGER ON. PUT ANYONE ON.',
+    'THE AUTOCUE IS WRITING ITSELF NOW. IT SAYS: KEEP SMILING.',
+    'I CAN HEAR SOMETHING IN THE VENTS. CUT TO THE WIDE SHOT.',
+    'THAT IS NOT ONE OF OURS. CONTROL — THAT IS NOT ONE OF OURS.'
   ];
   var ACT4 = [
     "CONTROL ISN'T ANSWERING.",
@@ -63,7 +93,10 @@
     'SOMEONE IS SUPPOSED TO STOP THIS.',
     '...ANYONE?',
     "THE NETWORK IS DYING TONIGHT. YOU'RE JUST DOING IT MORE PUBLICLY.",
-    "IF CIVILISATION SURVIVES THIS BROADCAST, WE'D APPRECIATE A FAVOURABLE REVIEW."
+    "IF CIVILISATION SURVIVES THIS BROADCAST, WE'D APPRECIATE A FAVOURABLE REVIEW.",
+    'THE EXITS ON THE FLOOR PLAN DO NOT EXIST.',
+    "I FOUND THE CREW. I WISH I HADN'T.",
+    'KEEP THE LIGHTS ON. PLEASE. KEEP THE LIGHTS ON.'
   ];
   // Act 5 is a SCRIPT, not a pool: dripped in order during the finale fight.
   var ACT5 = [
@@ -357,8 +390,11 @@
     ctx.globalAlpha = 1;
   };
 
-  // Act 1-4 draw at random from the act's pool; Act 5 delivers its confession
-  // in order, one line per call, then falls silent.
+  // Act 1-4 draw from the act's pool with DISCIPLINE: no line ever repeats in
+  // a run (st.saidLines), and he appears at most 4 times per room
+  // (st.hostRoomCount, reset on room entry). Act 5 delivers its confession in
+  // order, uncapped, then falls silent. When a pool runs dry he shuts up —
+  // which, for this man, is the most alarming thing he can do.
   DA.presenterQuip = function (st) {
     var act = DA.presenterAct(st);
     if (act === 5) {
@@ -367,8 +403,17 @@
       if (st.act5Idx >= ACT5.length) return null;   // he has nothing left to say
       return ACT5[st.act5Idx++];
     }
+    if (!st) return ACTS[act][0];
+    if ((st.hostRoomCount || 0) >= 4) return null;  // he's said enough for this room
+    st.saidLines = st.saidLines || {};
+    var fresh = [];
     var pool = ACTS[act];
-    return pool[Math.floor(Math.random() * pool.length)];
+    for (var i = 0; i < pool.length; i++) if (!st.saidLines[pool[i]]) fresh.push(pool[i]);
+    if (!fresh.length) return null;
+    var line = fresh[Math.floor(Math.random() * fresh.length)];
+    st.saidLines[line] = true;
+    st.hostRoomCount = (st.hostRoomCount || 0) + 1;
+    return line;
   };
 
   // one-line threat callouts, announced the first time each type appears in a run

@@ -56,6 +56,7 @@
     st.room = DA.ROOMS[roomId];
     st.entryDir = entryDir;
     st.victoryExit = null;
+    st.hostRoomCount = 0;
     st.visited[roomId] = true;
     st.enemies = [];
     st.bullets = [];
@@ -98,7 +99,10 @@
       boss.grace = 2.4;
       st.enemies.push(boss);
       DA.announce(boss.name + '!');
-      if (BOSS_TAUNTS[st.room.boss]) (DA.hostSay || DA.announce)(BOSS_TAUNTS[st.room.boss]);
+      if (BOSS_TAUNTS[st.room.boss]) {
+        (DA.hostSay || DA.announce)(BOSS_TAUNTS[st.room.boss]);
+        st.hostRoomCount = (st.hostRoomCount || 0) + 1;
+      }
       if (DA.audio) (DA.audio.bossSting || DA.audio.roar)();
     } else {
       st.introCardT = 1.7;   // lower-third title card instead of an announcer line
@@ -127,6 +131,7 @@
       st.score = carry.score;
       st.kills = carry.kills;
       st.stats = carry.stats;                 // shots/hits/gun tallies keep accumulating
+      st.saidLines = carry.saidLines;         // the host never repeats himself all run
     }
     st.players = [st.player];                 // st.player stays the human, always
     if (botOn) {
@@ -1351,24 +1356,57 @@
     ctx.fillRect(bx, by, bs, bs);
     ctx.save();
     ctx.beginPath(); ctx.rect(bx, by, bs, bs); ctx.clip();
-    ctx.fillStyle = '#d4a017';                          // gold suit shoulders
-    ctx.beginPath(); ctx.ellipse(bx + bs / 2, by + bs + 8, bs * 0.56, bs * 0.44, 0, 3.14, 6.29); ctx.fill();
-    ctx.fillStyle = '#f2f2e9';                          // shirt + power tie
-    ctx.fillRect(bx + bs / 2 - 8, by + bs - 20, 16, 20);
-    ctx.fillStyle = '#8c1c2c';
-    ctx.fillRect(bx + bs / 2 - 3, by + bs - 20, 6, 20);
+    var now = performance.now();
+    // the 80s package: sequined gold suit, industrial fake tan, teeth you could ski off
+    var sg = ctx.createLinearGradient(bx, by + bs - 26, bx + bs, by + bs);
+    sg.addColorStop(0, '#f5cf4e'); sg.addColorStop(0.5, '#d4a017'); sg.addColorStop(1, '#f0c649');
+    ctx.fillStyle = sg;                                 // flashy suit shoulders
+    ctx.beginPath(); ctx.ellipse(bx + bs / 2, by + bs + 8, bs * 0.58, bs * 0.46, 0, 3.14, 6.29); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';            // sequin glints roll across the suit
+    for (var sq = 0; sq < 3; sq++) {
+      if ((Math.sin(now / 160 + sq * 2.4) + 1) / 2 > 0.75) {
+        ctx.beginPath();
+        ctx.arc(bx + 14 + sq * 26, by + bs - 8 - (sq % 2) * 7, 1.4, 0, 7);
+        ctx.fill();
+      }
+    }
+    ctx.fillStyle = '#f8e8f0';                          // wide 80s collar
+    ctx.beginPath();
+    ctx.moveTo(bx + bs / 2 - 12, by + bs - 18); ctx.lineTo(bx + bs / 2, by + bs - 4);
+    ctx.lineTo(bx + bs / 2 + 12, by + bs - 18); ctx.lineTo(bx + bs / 2 + 8, by + bs);
+    ctx.lineTo(bx + bs / 2 - 8, by + bs); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#c2185b';                          // power tie, louder decade
+    ctx.fillRect(bx + bs / 2 - 3.5, by + bs - 16, 7, 16);
     var hx = bx + bs / 2, hy = by + bs * 0.42, hr = bs * 0.29;
-    ctx.fillStyle = '#e0b08c';                          // head
+    ctx.fillStyle = '#e08a4e';                          // industrial fake tan
     ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 7); ctx.fill();
-    ctx.fillStyle = '#b8b0a0';                          // slick grey hair
-    ctx.beginPath(); ctx.arc(hx, hy - hr * 0.3, hr * 1.04, 3.3, 6.12); ctx.fill();
-    ctx.fillStyle = '#111';                             // twin shades
+    ctx.fillStyle = 'rgba(255, 205, 150, 0.45)';        // sunbed sheen on the brow
+    ctx.beginPath(); ctx.arc(hx - hr * 0.3, hy - hr * 0.35, hr * 0.35, 0, 7); ctx.fill();
+    ctx.fillStyle = '#14100c';                          // jet-black lacquered helmet hair
+    ctx.beginPath(); ctx.arc(hx, hy - hr * 0.28, hr * 1.06, 3.25, 6.17); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';         // the hair shine streak
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(hx, hy - hr * 0.28, hr * 0.88, 3.7, 4.5); ctx.stroke();
+    ctx.fillStyle = '#111';                             // shades stay on indoors, obviously
     ctx.fillRect(hx - hr * 0.85, hy - hr * 0.32, hr * 0.7, hr * 0.4);
     ctx.fillRect(hx + hr * 0.15, hy - hr * 0.32, hr * 0.7, hr * 0.4);
     ctx.fillRect(hx - hr * 0.2, hy - hr * 0.22, hr * 0.4, 3);
-    var open = Math.abs(Math.sin(performance.now() / 90)) * (hst.t > 0.6 ? 1 : 0.15);
-    ctx.fillStyle = '#5c2a2a';                          // the mouth flaps while he talks
-    ctx.beginPath(); ctx.ellipse(hx, hy + hr * 0.52, hr * 0.34, hr * (0.07 + 0.22 * open), 0, 0, 7); ctx.fill();
+    var open = Math.abs(Math.sin(now / 90)) * (hst.t > 0.6 ? 1 : 0.15);
+    ctx.fillStyle = '#7a3020';                          // the mouth flaps while he talks
+    ctx.beginPath(); ctx.ellipse(hx, hy + hr * 0.52, hr * 0.36, hr * (0.09 + 0.24 * open), 0, 0, 7); ctx.fill();
+    if (open > 0.25) {                                  // TEETH: dazzling, dentally impossible
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(hx - hr * 0.28, hy + hr * 0.52 - hr * (0.06 + 0.1 * open), hr * 0.56, hr * 0.12);
+      if ((Math.sin(now / 300) + 1) / 2 > 0.85) {       // the incisor PINGS periodically
+        ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+        ctx.lineWidth = 1.4;
+        var gx = hx + hr * 0.22, gy = hy + hr * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(gx - 4, gy); ctx.lineTo(gx + 4, gy);
+        ctx.moveTo(gx, gy - 4); ctx.lineTo(gx, gy + 4);
+        ctx.stroke();
+      }
+    }
     ctx.restore();
     ctx.strokeStyle = '#3a3a48'; ctx.lineWidth = 1.5;
     ctx.strokeRect(bx, by, bs, bs);
