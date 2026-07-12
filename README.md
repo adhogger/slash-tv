@@ -10,7 +10,8 @@ choices, audience power-up drops, and **The Producer** waiting on Sound Stage 5.
 
 ## Play
 
-**Online: https://adhogger.github.io/slash-tv/**
+**On itch.io: https://slashtv.itch.io/slashtv**
+**Or direct: https://adhogger.github.io/slash-tv/**
 
 Or open `index.html` in any browser. No install, no build step, no server needed.
 
@@ -47,8 +48,10 @@ is asserted there. Green ✅ means healthy; the tab title shows the verdict.
 
 ## Publishing to itch.io
 
-`./build-itch-zip.sh` packages a clean HTML5 build for upload. Full walkthrough,
-listing copy, and monetisation notes: [docs/itch-io-listing.md](docs/itch-io-listing.md).
+Live at **https://slashtv.itch.io/slashtv**. To push an update there:
+`./build-itch-zip.sh` packages a clean HTML5 build — upload the zip over the
+old one on the itch dashboard. Full walkthrough, listing copy, and
+monetisation notes: [docs/itch-io-listing.md](docs/itch-io-listing.md).
 
 ## Project layout
 
