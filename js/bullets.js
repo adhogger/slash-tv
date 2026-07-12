@@ -1,27 +1,38 @@
 (function () {
   // The arsenal. rate = seconds between shots; pellets fired per shot spread
   // across `fan` radians; jitter = random aim wobble; pierce = bullet passes
-  // through zombies (hits each once); dmg = hp removed per hit.
+  // through zombies (hits each once); dmg = hp removed per hit; range = the
+  // bullet despawns after travelling this far, even mid-arena (short-range
+  // weapons only); splash/splashR = on impact, damage every OTHER non-boss
+  // enemy within splashR (the direct hit already took normal dmg).
   DA.GUNS = {
     pistol:  { label: 'PISTOL',  color: '#e8d44d', rate: 0.11,  pellets: 1, fan: 0,    jitter: 0,    speed: 700,  dmg: 1 },
     triple:  { label: 'TRIPLE',  color: '#ff9f1c', rate: 0.14,  pellets: 3, fan: 0.44, jitter: 0,    speed: 700,  dmg: 1 },
     smg:     { label: 'SMG',     color: '#7ee081', rate: 0.06,  pellets: 1, fan: 0,    jitter: 0.09, speed: 780,  dmg: 1 },
     shotgun: { label: 'SHOTGUN', color: '#c95d63', rate: 0.55,  pellets: 7, fan: 0.55, jitter: 0.05, speed: 620,  dmg: 1 },
     minigun: { label: 'MINIGUN', color: '#5bc8d6', rate: 0.045, pellets: 1, fan: 0,    jitter: 0.18, speed: 720,  dmg: 1 },
-    railgun: { label: 'RAILGUN', color: '#b78bff', rate: 0.45,  pellets: 1, fan: 0,    jitter: 0,    speed: 1200, dmg: 3, pierce: true }
+    railgun: { label: 'RAILGUN', color: '#b78bff', rate: 0.45,  pellets: 1, fan: 0,    jitter: 0,    speed: 1200, dmg: 3, pierce: true },
+    flamer:  { label: 'FLAMETHROWER', color: '#ff5b1f', rate: 0.035, pellets: 1, fan: 0, jitter: 0.14,
+               speed: 480, dmg: 1, range: 190 },
+    rocket:  { label: 'ROCKET LAUNCHER', color: '#ff3b3b', rate: 0.85, pellets: 1, fan: 0, jitter: 0,
+               speed: 540, dmg: 6, splash: 3, splashR: 100 }
   };
 
   DA.fireBullet = function (arr, x, y, dx, dy, gun) {
     var g = gun || DA.GUNS.pistol;
-    arr.push({ x: x, y: y, dx: dx, dy: dy, r: g.dmg > 1 ? 5 : 4, speed: g.speed,
+    arr.push({ x: x, y: y, ox: x, oy: y, dx: dx, dy: dy, r: g.dmg > 1 ? 5 : 4, speed: g.speed,
                dmg: g.dmg, pierce: !!g.pierce, hit: g.pierce ? [] : null,
+               range: g.range || 0, splash: g.splash || 0, splashR: g.splashR || 0,
                color: g.color, gunLabel: g.label, bot: !!(gun && gun.botOwned) });
   };
   DA.updateBullets = function (arr, dt) {
     for (var i = arr.length - 1; i >= 0; i--) {
       var b = arr[i];
       b.x += b.dx * b.speed * dt; b.y += b.dy * b.speed * dt;
-      if (b.x < DA.ARENA.x0 || b.x > DA.ARENA.x1 || b.y < DA.ARENA.y0 || b.y > DA.ARENA.y1) arr.splice(i, 1);
+      if (b.x < DA.ARENA.x0 || b.x > DA.ARENA.x1 || b.y < DA.ARENA.y0 || b.y > DA.ARENA.y1) {
+        arr.splice(i, 1); continue;
+      }
+      if (b.range && DA.dist2(b.x, b.y, b.ox, b.oy) > b.range * b.range) arr.splice(i, 1);
     }
   };
   // returns how many bullets left the barrel (for the accuracy stat)

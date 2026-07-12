@@ -1,7 +1,7 @@
 (function () {
   // Audience drops: the crowd throws sponsor gifts into the arena mid-combat.
   // Gun crates ('gun_smg' etc.) swap the player's weapon for 30 combat-seconds.
-  var GUN_TYPES = ['triple', 'smg', 'shotgun', 'minigun', 'railgun'];
+  var GUN_TYPES = ['triple', 'smg', 'shotgun', 'minigun', 'railgun', 'flamer', 'rocket'];
   var COLORS = { boots: '#4cc9f0', heart: '#d43a4b', shield: '#9ad7ff', bomb: '#ffb020' };
   var DURATION = 30;       // seconds of gun/boots effect (only ticks during combat)
   var SHIELD_TIME = 8;     // shorter: total protection is strong

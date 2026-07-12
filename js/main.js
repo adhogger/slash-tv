@@ -44,7 +44,7 @@
       p.downed = false; p.reviveP = 0;
     }
     if (st.room.gift) {                     // the sponsors left something out for you
-      var GUNS = ['triple', 'smg', 'shotgun', 'minigun', 'railgun'];
+      var GUNS = ['triple', 'smg', 'shotgun', 'minigun', 'railgun', 'flamer', 'rocket'];
       st.powerups.push({ id: DA.newId(), type: 'heart', t: 60, x: DA.W / 2 - 60, y: DA.H / 2 });
       st.powerups.push({ id: DA.newId(), type: 'gun_' + GUNS[Math.floor(Math.random() * GUNS.length)],
                          t: 60, x: DA.W / 2 + 60, y: DA.H / 2 });

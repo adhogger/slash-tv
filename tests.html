@@ -542,6 +542,32 @@ test('railgun bullets pierce and deal triple damage', function () {
   DA.resolveCombat(st);
   assert(st.enemies[0].hp === 7, 'must not re-hit the same zombie');
 });
+test('flamethrower bullets are short-range: they despawn mid-arena', function () {
+  var arr = [];
+  DA.fireBullet(arr, 400, 360, 1, 0, DA.GUNS.flamer);
+  assert(arr.length === 1, 'flame bullet fired');
+  DA.updateBullets(arr, 0.1);                      // well inside the 190px range
+  assert(arr.length === 1, 'still alive at short distance');
+  for (var i = 0; i < 20; i++) DA.updateBullets(arr, 0.05); // 1s of travel, way past 190px
+  assert(arr.length === 0, 'flame bullet despawned before reaching the arena edge');
+});
+test('rocket splash damages nearby enemies but spares bosses and the direct target twice', function () {
+  var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1, comboKills: 0 };
+  // direct is the only thing within the bullet's own tiny hit-circle; neighbor
+  // and boss sit outside that but inside the wider splash radius, so this
+  // exercises "hit once directly, splash to the rest, spare the boss" cleanly
+  var direct = DA.makeEnemy('brute', 400, 360);          // 10 hp — takes the direct hit
+  var neighbor = DA.makeEnemy('shambler', 460, 360);     // dist 60: splash-only, not direct
+  var boss = DA.makeBoss(); boss.x = 470; boss.y = 360;   // dist 70: splash-only, but spared
+  st.enemies.push(direct, neighbor, boss);
+  DA.fireBullet(st.bullets, 400, 360, 1, 0, DA.GUNS.rocket);
+  var bossHpBefore = boss.hp;
+  DA.resolveCombat(st);
+  assert(direct.hp === 4, 'direct hit takes the full 6 rocket damage, hp=' + direct.hp);
+  assert(st.enemies.indexOf(neighbor) === -1, 'splash killed the nearby shambler');
+  assert(boss.hp === bossHpBefore, 'splash must not touch the boss');
+  assert(st.bullets.length === 0, 'the rocket is consumed on impact, not piercing');
+});
 test('gun expires back to pistol after its combat time', function () {
   var p = DA.makePlayer();
   DA.applyPowerup(p, 'gun_minigun');

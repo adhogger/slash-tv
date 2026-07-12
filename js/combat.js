@@ -28,6 +28,23 @@
     st.comboKills = 0;
     st.comboTimer = st.combo > 1 ? COMBO_WINDOW : 0;
   };
+  // rocket splash: damages every OTHER non-boss enemy within radius of the
+  // impact point. No combo credit for the freebies, same rule as boomerBlast.
+  DA.explodeSplash = function (st, x, y, dmg, radius, exclude) {
+    if (DA.burst) DA.burst(x, y, '#ff8a3d', 16);
+    if (DA.addShake) DA.addShake(6);
+    for (var i = st.enemies.length - 1; i >= 0; i--) {
+      var e = st.enemies[i];
+      if (e === exclude || e.isBoss) continue;
+      if (DA.dist2(x, y, e.x, e.y) >= radius * radius) continue;
+      e.hp -= dmg;
+      if (e.hp > 0) continue;
+      st.enemies.splice(i, 1);
+      st.score += e.score;                    // splash kills: no combo bump
+      if (DA.onKill) DA.onKill(st, e);
+      if (e.type === 'boomer') DA.boomerBlast(st, e.x, e.y);
+    }
+  };
   DA.resolveCombat = function (st) {
     var p = st.player;
     for (var i = st.enemies.length - 1; i >= 0; i--) {
@@ -42,6 +59,7 @@
           else st.bullets.splice(j, 1);
           e.hp -= (b.dmg || 1);
           if (st.stats && !b.bot) st.stats.hits++;   // accuracy tracks the human
+          if (b.splash) DA.explodeSplash(st, b.x, b.y, b.splash, b.splashR, e);
           if (e.hp <= 0) {
             if (st.stats && b.gunLabel && !b.bot) {
               st.stats.killsByGun[b.gunLabel] = (st.stats.killsByGun[b.gunLabel] || 0) + 1;
