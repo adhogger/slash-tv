@@ -10,6 +10,37 @@
   window.addEventListener('resize', fit);
   fit();
 
+  // Fullscreen button: mobile Safari's address/keyboard bars eat real screen
+  // space that `vh` units can't reclaim, so on touch devices with real
+  // Fullscreen API support (Android Chrome; iOS Safari has none outside a
+  // <video>, so the button just never appears there) we offer a YouTube-style
+  // tap-to-expand icon instead of fighting the viewport.
+  (function () {
+    var docEl = document.documentElement;
+    if (!docEl) return;   // headless test harness has no real DOM tree
+    var btn = document.getElementById('fsBtn');
+    var supported = !!btn && !!(docEl.requestFullscreen || docEl.webkitRequestFullscreen);
+    function isTouch() { return DA.input && DA.input.touchActive && DA.input.touchActive(); }
+    function refreshBtn() {
+      var inFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      btn.textContent = inFs ? '⤢' : '⛶';
+      btn.classList.toggle('show', supported && !inFs && isTouch());
+    }
+    if (supported) {
+      btn.addEventListener('click', function () {
+        var req = canvas.requestFullscreen || canvas.webkitRequestFullscreen;
+        if (req) req.call(canvas);
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(function () {});
+        }
+      });
+      document.addEventListener('fullscreenchange', function () { refreshBtn(); fit(); });
+      document.addEventListener('webkitfullscreenchange', function () { refreshBtn(); fit(); });
+      document.addEventListener('touchstart', refreshBtn, { once: true, passive: true });
+      setInterval(refreshBtn, 1000);   // catches the touch/mouse device switch without extra listeners
+    }
+  })();
+
   // localStorage can be blocked (private mode) — never let that crash the game
   function store(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
   function load(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
@@ -72,8 +103,8 @@
       mode: 'playing',
       player: DA.makePlayer(),
       score: 0, combo: 1, comboTimer: 0, kills: 0,
-      roomsCleared: 0, groanT: 3, visited: {}, cleared: {},
-      stats: { shots: 0, hits: 0, killsByGun: {}, start: performance.now() }
+      roomsCleared: 0, groanT: 3, visited: {}, cleared: {}, seenTypes: {},
+      stats: { shots: 0, hits: 0, killsByGun: {}, maxCombo: 1, start: performance.now() }
     };
     st.players = [st.player];                 // st.player stays the human, always
     if (botOn) {
@@ -247,6 +278,10 @@
     if (e.code === 'KeyH' && DA.state.mode === 'title' && DA.net) DA.net.host();
     if (e.code === 'KeyD' && DA.state.mode === 'title' && window.SLASHTV_DONATE_URL) {
       window.open(window.SLASHTV_DONATE_URL, '_blank', 'noopener');
+    }
+    if (e.code === 'KeyF' && (DA.state.mode === 'gameover' || DA.state.mode === 'winner') &&
+        window.SLASHTV_FEEDBACK_URL) {
+      window.open(window.SLASHTV_FEEDBACK_URL, '_blank', 'noopener');
     }
   });
 
@@ -531,6 +566,14 @@
     }
     DA.updateBullets(st.bullets, dt);
     DA.updateWaves(st.waveManager, st.enemies, dt);
+    for (var ne = 0; ne < st.enemies.length; ne++) {   // first-encounter callouts
+      var newType = st.enemies[ne].type;
+      if (!st.seenTypes[newType]) {
+        st.seenTypes[newType] = true;
+        var line = DA.threatLine && DA.threatLine(newType);
+        if (line && DA.announce) DA.announce(line);
+      }
+    }
     var boss = findBoss(st);
     if (boss) {
       if (boss.type === 'executive') DA.updateExecutive(boss, st, dt);
@@ -543,6 +586,7 @@
     DA.updateEnemyBullets(st.enemyBullets, st.players, dt, st);
     DA.resolveCombat(st);
     DA.updateCombo(st, dt);
+    if (st.combo > st.stats.maxCombo) st.stats.maxCombo = st.combo;
     DA.updatePowerups(st, dt);
     DA.updateFx(dt);
 
@@ -1035,6 +1079,18 @@
     ];
   }
 
+  // the single most impressive stat of the run, called out instead of buried in the list
+  function highlightStat(st) {
+    var acc = st.stats.shots ? Math.round(st.stats.hits / st.stats.shots * 100) : 0;
+    var candidates = [];
+    if (acc >= 55) candidates.push({ label: '🎯 SHARPSHOOTER', text: acc + '% ACCURACY', w: acc });
+    if (st.stats.maxCombo >= 6) candidates.push({ label: '🔥 ON A STREAK', text: 'x' + st.stats.maxCombo + ' MULTIPLIER HIT', w: st.stats.maxCombo * 12 });
+    if (st.kills >= 120) candidates.push({ label: '💀 BODY COUNT', text: st.kills + ' KILLS', w: st.kills / 3 });
+    if (!candidates.length) return null;
+    candidates.sort(function (a, b) { return b.w - a.w; });
+    return candidates[0];
+  }
+
   function topFiveLines(st, y) {
     var runs = [];
     try { runs = JSON.parse(load('deadset_runs') || '[]'); } catch (e) { runs = []; }
@@ -1186,6 +1242,19 @@
       ctx.fillStyle = flashGrad;
       ctx.fillRect(0, 0, DA.W, DA.H);
     }
+    var lb = findBoss(st);
+    if (st.mode === 'playing' && lb && lb.laserPhase === 'warn') {  // boss laser telegraph: screen-edge glow
+      var lk = 1 - lb.laserT / (DA.bossPhase(lb) === 2 ? 0.6 : 0.9);   // ramps up as the beam nears firing
+      var pl0 = st.player;
+      var lang = Math.atan2(lb.y - pl0.y, lb.x - pl0.x);
+      var lex = DA.W / 2 + Math.cos(lang) * DA.W * 0.7, ley = DA.H / 2 + Math.sin(lang) * DA.W * 0.7;
+      var laserGrad = ctx.createRadialGradient(lex, ley, 0, lex, ley, DA.W * 0.55);
+      var la = (0.15 + 0.35 * lk).toFixed(3);
+      laserGrad.addColorStop(0, 'rgba(255, 180, 40, ' + la + ')');
+      laserGrad.addColorStop(1, 'rgba(255, 180, 40, 0)');
+      ctx.fillStyle = laserGrad;
+      ctx.fillRect(0, 0, DA.W, DA.H);
+    }
     if (DA.broadcast) DA.broadcast.drawGlitch(ctx);
     if (st.mode === 'dying') {
       ctx.globalAlpha = Math.min(1, (DA.DEATH_T - st.deathT) / 0.9);
@@ -1210,12 +1279,15 @@
     }
 
     if (st.mode === 'gameover') {
+      var goHi = highlightStat(st);
       var go = [
         { text: 'CUT TO COMMERCIAL', font: 'bold 64px monospace', color: '#d43a4b', y: 218 },
         { text: 'You leave with $' + st.score.toLocaleString('en-US') +
                 (st.newBest ? '  —  NEW BEST!' : ''),
           font: '26px monospace', color: st.newBest ? '#e8d44d' : '#f2f2e9', y: 268 }
-      ].concat(statsLines(st, 316)).concat(topFiveLines(st, 396));
+      ];
+      if (goHi) go.push({ text: goHi.label + ': ' + goHi.text, font: 'bold 20px monospace', color: '#e8d44d', y: 300 });
+      go = go.concat(statsLines(st, goHi ? 332 : 316)).concat(topFiveLines(st, goHi ? 412 : 396));
       if (st.room.ep === 'syn') {
         go.push({ text: "TONIGHT'S SEED: #" + st.room.seed + '  ·  challenge a friend: ?seed=' + st.room.seed,
                   font: '16px monospace', color: '#b78bff', y: 538 });
@@ -1226,6 +1298,9 @@
       }
       go.push({ text: 'PRESS FIRE TO RESTART', font: 'bold 28px monospace', color: '#7ee081', y: 566 });
       if (endlessUnlocked()) go.push({ text: 'E (or 🎮 Y) for Endless Arena', font: '19px monospace', color: '#5bc8d6', y: 598 });
+      if (window.SLASHTV_FEEDBACK_URL) {
+        go.push({ text: 'F — 📝 TELL US WHAT YOU THOUGHT', font: '16px monospace', color: '#8888a0', y: 624 });
+      }
       drawCenteredScreen(ctx, go);
       if (st.goFade > 0) {                                  // fade in from the death scene
         ctx.fillStyle = 'rgba(0, 0, 0, ' + Math.min(1, st.goFade / 0.7).toFixed(3) + ')';
@@ -1238,13 +1313,16 @@
       var sub = isSeasonFinale ? 'The Algorithm goes dark. Nobody is watching anymore.' :
                 (isEp2 ? 'The Executive is cancelled. The network is yours.' :
                          'Episode 1 survived — The Producer is done for.');
+      var winHi = highlightStat(st);
       var w = [
         { text: headline, font: 'bold ' + (isSeasonFinale ? 60 : 84) + 'px monospace', color: '#e8d44d', y: 196 },
         { text: sub, font: '24px monospace', color: '#f2f2e9', y: 246 },
         { text: 'You take home $' + st.score.toLocaleString('en-US') +
                 (st.newBest ? '  —  NEW BEST!' : ''),
           font: 'bold 28px monospace', color: '#7ee081', y: 288 }
-      ].concat(statsLines(st, 334)).concat(topFiveLines(st, 404));
+      ];
+      if (winHi) w.push({ text: winHi.label + ': ' + winHi.text, font: 'bold 20px monospace', color: '#e8d44d', y: 316 });
+      w = w.concat(statsLines(st, winHi ? 348 : 334)).concat(topFiveLines(st, winHi ? 418 : 404));
       if (st.room.ep === 'syn' && st.globalRank && st.globalRank !== 'sending') {
         w.push({ text: '🌍 GLOBAL RANK #' + st.globalRank + " on tonight's episode (#" + st.room.seed + ')',
                  font: 'bold 22px monospace', color: '#b78bff', y: 534 });
@@ -1254,6 +1332,9 @@
                               'EPISODE 2 + ENDLESS ARENA UNLOCKED — press 2 or E'),
                font: 'bold 22px monospace', color: '#5bc8d6', y: 566 });
       w.push({ text: 'PRESS FIRE TO PLAY AGAIN', font: 'bold 26px monospace', color: '#7ee081', y: 598 });
+      if (window.SLASHTV_FEEDBACK_URL) {
+        w.push({ text: 'F — 📝 TELL US WHAT YOU THOUGHT', font: '16px monospace', color: '#8888a0', y: 624 });
+      }
       drawCenteredScreen(ctx, w);
     }
   }

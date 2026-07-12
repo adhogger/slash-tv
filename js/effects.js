@@ -219,6 +219,17 @@
     return QUIPS[Math.floor(Math.random() * QUIPS.length)];
   };
 
+  // one-line threat callouts, announced the first time each type appears in a run
+  var THREATS = {
+    shambler: 'SHAMBLER — SLOW. WEAK. THERE ARE SO MANY.',
+    swarmer:  'SWARMER — WEAK ALONE. NEVER ALONE.',
+    sprinter: 'SPRINTER — FAST. DO NOT STAND STILL.',
+    boomer:   "BOOMER — DON'T LET IT GET CLOSE. SHOOT FROM RANGE.",
+    stalker:  'STALKER — FADES OUT. FASTER WHEN YOU CAN BARELY SEE IT.',
+    brute:    'BRUTE — SLOW, BUT IT HITS LIKE A CANCELLED CONTRACT.'
+  };
+  DA.threatLine = function (type) { return THREATS[type]; };
+
   // Game-event hooks fired by combat.js / rooms.js
   DA.onKill = function (st, e, b) {          // b: the killing bullet, if any
     st.kills = (st.kills || 0) + 1;

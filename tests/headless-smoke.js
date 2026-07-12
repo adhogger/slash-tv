@@ -29,8 +29,8 @@ var fs = require('fs');
 // build a two-player state directly (mirrors newGame with botOn)
 function freshState() {
   var st = { mode: 'playing', player: DA.makePlayer(), score: 0, combo: 1, comboTimer: 0,
-    kills: 0, roomsCleared: 0, groanT: 3, visited: {}, roomId: DA.START_ROOM,
-    stats: { shots: 0, hits: 0, killsByGun: {}, start: performance.now() } };
+    kills: 0, roomsCleared: 0, groanT: 3, visited: {}, cleared: {}, seenTypes: {}, roomId: DA.START_ROOM,
+    stats: { shots: 0, hits: 0, killsByGun: {}, maxCombo: 1, start: performance.now() } };
   st.players = [st.player];
   var buddy = DA.makePlayer(); buddy.bot = true; buddy.x += 40;
   st.players.push(buddy);

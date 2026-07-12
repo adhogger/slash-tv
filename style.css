@@ -3,3 +3,9 @@ html, body { height: 100%; background: #0a0a0f; overflow: hidden; overscroll-beh
 body { display: flex; align-items: center; justify-content: center; }
 canvas { background: #14141c; image-rendering: auto; touch-action: none;
          -webkit-user-select: none; user-select: none; }
+#fsBtn { display: none; position: fixed; top: max(10px, env(safe-area-inset-top));
+         right: max(10px, env(safe-area-inset-right)); z-index: 10;
+         width: 42px; height: 42px; border-radius: 8px; border: none;
+         background: rgba(10, 10, 15, 0.55); color: #f2f2e9; font-size: 20px;
+         line-height: 42px; text-align: center; padding: 0; }
+#fsBtn.show { display: block; }
