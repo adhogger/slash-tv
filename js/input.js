@@ -80,7 +80,7 @@
   };
 
   var sticks = { move: null, aim: null };   // { id, ox, oy, cx, cy }
-  var pauseTapped = false, botTapped = false, synTapped = false, anyTapped = false;
+  var pauseTapped = false, botTapped = false, synTapped = false, castTapped = false, anyTapped = false;
   function canvasPt(t) { return DA.screenToCanvas(t.clientX, t.clientY, window.innerWidth, window.innerHeight); }
 
   window.addEventListener('touchstart', function (e) {
@@ -93,6 +93,7 @@
       if (zone) {
         if (zone === 'bot') botTapped = true;
         else if (zone === 'syn') synTapped = true;
+        else if (zone === 'cast') castTapped = true;
         else pauseTapped = true;
         continue;
       }
@@ -181,6 +182,7 @@
     consumePauseTap: function () { var v = pauseTapped; pauseTapped = false; return v; },
     consumeAnyTap: function () { var v = anyTapped; anyTapped = false; return v; },
     consumeBotTap: function () { var v = botTapped; botTapped = false; return v; },
+    consumeCastTap: function () { var v = castTapped; castTapped = false; return v; },
     consumeSynTap: function () { var v = synTapped; synTapped = false; return v; },
     // true while any "start the game" input is held: fire, click, tap, Enter or Space
     startHeld: function () {

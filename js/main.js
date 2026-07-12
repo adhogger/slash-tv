@@ -230,14 +230,20 @@
   var endlessWasHeld = false;
   var paused = false;
   var showBestiary = false;   // pause-screen "who's who" overlay
+  // where the tappable title lines were LAST DRAWN — the stack is dynamic
+  // (unlocks add lines), so hardcoded tap zones drift off their text
+  var titleZones = { bot: -99, syn: -99, cast: -99 };
   var pauseWasHeld = false;
   var botWasHeld = false;
 
   // touch UI: taps starting in the top-right corner pause instead of aiming
   DA.touchUIBlock = function (x, y) {
     if (DA.state.mode === 'playing' && x > DA.W - 84 && y < 76) return true;
-    if (DA.state.mode === 'title' && y > 598 && y < 638) return 'bot';
-    if (DA.state.mode === 'title' && y > 474 && y < 510) return 'syn';
+    if (DA.state.mode === 'title') {          // zones track the lines' drawn positions
+      if (Math.abs(y - titleZones.bot + 7) < 18) return 'bot';
+      if (Math.abs(y - titleZones.syn + 7) < 18) return 'syn';
+      if (Math.abs(y - titleZones.cast + 6) < 16) return 'cast';
+    }
     return false;
   };
 
@@ -607,6 +613,7 @@
       if (st.mode === 'title' && botHeld && !botWasHeld) toggleBot();
       botWasHeld = botHeld;
       if (st.mode === 'title' && DA.input.consumeBotTap && DA.input.consumeBotTap()) toggleBot();
+      if (st.mode === 'title' && DA.input.consumeCastTap && DA.input.consumeCastTap()) showBestiary = !showBestiary;
       startWasHeld = startHeld;
       endlessWasHeld = endlessHeld;
       ep2WasHeld = ep2Held;
@@ -1325,6 +1332,7 @@
                      font: 'bold 22px monospace', color: '#5bc8d6', y: cy });
         cy += 30;
       }
+      titleZones.syn = cy;                    // tap target follows the drawn line
       lines.push({ text: '3 (or 🎮 RB) — SYNDICATION — tonight: #' + synSeed(),
                     font: 'bold 22px monospace', color: '#b78bff', y: cy });
       cy += 30;
@@ -1346,6 +1354,7 @@
       cy += 26;
       lines.push({ text: 'Esc pauses · M mutes · N music · K shake · V fx · I story', font: '15px monospace', color: '#8888a0', y: cy });
       cy += 30;
+      titleZones.bot = cy;
       lines.push({ text: (DA.input.touchActive() ? 'TAP HERE' : 'B (or 🎮 LB)') + ' — 2-PLAYER with CAM-BOT (AI partner): ' + (botOn ? 'ON ✓' : 'OFF'),
                    font: 'bold 20px monospace', color: botOn ? '#a8c8d8' : '#666677', y: cy });
       cy += 28;
@@ -1353,7 +1362,9 @@
         lines.push({ text: 'H — 2-PLAYER ONLINE: host a game, send a friend the link', font: '17px monospace', color: '#666677', y: cy });
         cy += 26;
       }
-      lines.push({ text: "C — TONIGHT'S CAST: meet the monsters", font: '17px monospace', color: '#8888a0', y: cy });
+      titleZones.cast = cy;
+      lines.push({ text: (DA.input.touchActive() ? 'TAP HERE' : 'C') + " — TONIGHT'S CAST: meet the monsters",
+                   font: '17px monospace', color: '#8888a0', y: cy });
       cy += 26;
       if (window.SLASHTV_DONATE_URL) {              // inert until Ben configures a link
         lines.push({ text: 'D — 💛 SUPPORT THE SHOW (optional — no ads, ever)',
