@@ -1888,8 +1888,8 @@
     var buddy = st.players[1];
     if (buddy) {
       ctx.font = 'bold 12px monospace';
-      ctx.fillStyle = '#a8c8d8';
-      ctx.fillText('CAM-BOT', 16, 84);
+      ctx.fillStyle = buddy.bot ? '#a8c8d8' : '#b78bff';
+      ctx.fillText(buddy.bot ? 'CAM-BOT' : (buddy.remote ? 'CONTESTANT 2' : 'PLAYER 2'), 16, 84);
       if (buddy.downed) {
         if (Math.floor(performance.now() / 300) % 2 === 0) {
           ctx.fillStyle = '#d43a4b';

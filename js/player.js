@@ -79,12 +79,13 @@
         ctx.beginPath(); ctx.arc(0, 0, p.r + 7, 0, 7); ctx.stroke();
       }
     }
+    var seat2 = p.remote || p.localP2;    // seat 2 (human): local co-op partner OR online guest
     if (p.downed) {                                  // still and dead — frozen where he fell
       var deadA = p.downAim != null ? p.downAim : Math.atan2(p.aimY, p.aimX);
       ctx.rotate(deadA);
       ctx.globalAlpha = 0.85;
       ctx.scale(1, 0.6);
-      ctx.fillStyle = p.bot ? '#7fa3b5' : '#c9c9c0';
+      ctx.fillStyle = p.bot ? '#7fa3b5' : (seat2 ? '#a89ac2' : '#c9c9c0');
       ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 7); ctx.fill();
       ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2; ctx.stroke();
       ctx.restore();                                   // back to world space (p.x/p.y absolute)
@@ -125,8 +126,8 @@
       }
     }
     ctx.rotate(Math.atan2(p.aimY, p.aimX));
-    ctx.fillStyle = p.remote ? '#f2e2b0' :           // guest seats wear gold-tinted white
-                    (p.bot ? '#a8c8d8' : '#f2f2e9'); // body (CAM-BOT runs brushed steel)
+    ctx.fillStyle = p.bot ? '#a8c8d8' :              // CAM-BOT runs brushed steel
+                    (seat2 ? '#b78bff' : '#f2f2e9');  // seat 2 wears purple, seat 1 wears white
     ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 7); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.4)';             // outline
     ctx.lineWidth = 2;
@@ -161,7 +162,7 @@
       var hr = p.r * 0.52;
       ctx.fillStyle = '#e0b08c';
       ctx.beginPath(); ctx.arc(0, 0, hr, 0, 7); ctx.fill();
-      ctx.fillStyle = p.remote ? '#7a4f2a' : '#3a2c20';
+      ctx.fillStyle = seat2 ? '#7a4f2a' : '#3a2c20';
       ctx.beginPath(); ctx.arc(0, 0, hr + 0.5, 1.9, 4.4); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
       ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(0, 0, hr, 0, 7); ctx.stroke();
