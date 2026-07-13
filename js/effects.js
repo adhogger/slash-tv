@@ -128,7 +128,8 @@
     return 1;                       // Syndication/Endless: the show at its confident best
   };
 
-  DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], dust: [], rings: [], casings: [], host: null, shake: 0 };
+  DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], dust: [], rings: [], casings: [], host: null,
+            shakeX: 0, shakeY: 0, shakeVX: 0, shakeVY: 0 };
 
   // The presenter appears ON CAMERA: a HOST CAM window in the corner with his
   // talking head and the line as a caption — his quips live there now, so the
@@ -220,9 +221,22 @@
     DA.fx.queue.push(text);
   };
 
-  DA.addShake = function (amount) {
+  // Directional screen shake: an impulse kicks the camera AWAY from the
+  // source of force (recoil opposite a gunshot's aim, knockback away from
+  // an explosion), then a spring-damper snaps it back to center instead of
+  // buzzing as omnidirectional noise. dirX/dirY point TOWARD the action —
+  // pass the aim vector for gun recoil, or the hit-to-player vector for an
+  // impact. Omit them for effects with no natural direction (a random kick
+  // still reads as a purposeful hit, just not a semantically "correct" one).
+  DA.addShake = function (amount, dirX, dirY) {
     if (DA.fx.shakeOn === false) return;
-    DA.fx.shake = Math.max(DA.fx.shake, amount);
+    var ang = (dirX || dirY) ? Math.atan2(dirY, dirX) : Math.random() * 6.283;
+    var IMPULSE = 32;
+    DA.fx.shakeVX -= Math.cos(ang) * amount * IMPULSE;
+    DA.fx.shakeVY -= Math.sin(ang) * amount * IMPULSE;
+    var mag = Math.sqrt(DA.fx.shakeVX * DA.fx.shakeVX + DA.fx.shakeVY * DA.fx.shakeVY);
+    var MAXV = 900;                              // clamp so rapid-fire can't runaway
+    if (mag > MAXV) { DA.fx.shakeVX *= MAXV / mag; DA.fx.shakeVY *= MAXV / mag; }
   };
 
   // Haptics: gamepad rumble (Chrome dual-rumble) + phone vibration (Android;
@@ -283,7 +297,13 @@
       sh.x += sh.vx * dt; sh.y += sh.vy * dt;
       sh.rot += sh.rotV * dt;
     }
-    if (fx.shake > 0) fx.shake = Math.max(0, fx.shake - 30 * dt);
+    var SPRING = 150, DAMP = 16;                  // pulls back to center, slightly underdamped
+    fx.shakeVX += -fx.shakeX * SPRING * dt;
+    fx.shakeVY += -fx.shakeY * SPRING * dt;
+    var shakeDamp = Math.max(0, 1 - DAMP * dt);
+    fx.shakeVX *= shakeDamp; fx.shakeVY *= shakeDamp;
+    fx.shakeX += fx.shakeVX * dt;
+    fx.shakeY += fx.shakeVY * dt;
     for (var d = fx.dust.length - 1; d >= 0; d--) {
       var du = fx.dust[d];
       du.y += du.vy * dt; du.life -= dt;
@@ -463,7 +483,7 @@
   };
   DA.onPlayerHurt = function (st, sx, sy) {
     var p = st.player;
-    DA.addShake(10);
+    DA.addShake(10, sx != null ? sx - p.x : 0, sx != null ? sy - p.y : 0);  // recoils away from the hit
     if (DA.haptic) DA.haptic(0.9, 130);
     DA.burst(p.x, p.y, '#c0392b', 16);
     p.hurtDir = (sx != null) ? Math.atan2(sy - p.y, sx - p.x) : null;

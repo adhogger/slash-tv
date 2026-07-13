@@ -1958,8 +1958,8 @@
       ctx.scale(zk, zk);
       ctx.translate(-st.player.x, -st.player.y);
     }
-    if (DA.fx.shake > 0 && !paused) {
-      ctx.translate(DA.rand(-DA.fx.shake, DA.fx.shake), DA.rand(-DA.fx.shake, DA.fx.shake));
+    if ((DA.fx.shakeX || DA.fx.shakeY) && !paused) {
+      ctx.translate(DA.fx.shakeX, DA.fx.shakeY);
     }
     drawArena(ctx, st);
     DA.drawFxUnder(ctx);

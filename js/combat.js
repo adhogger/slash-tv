@@ -37,7 +37,10 @@
     if (DA.burst) { DA.burst(x, y, '#ff8a3d', 30); DA.burst(x, y, '#ffe17a', 16); }
     if (DA.splat) DA.splat(x, y);
     if (DA.shockwave) DA.shockwave(x, y, radius);
-    if (DA.addShake) DA.addShake(16);
+    if (DA.addShake) {
+      var shakeFrom = DA.nearestPlayer ? DA.nearestPlayer(st.players || [st.player], x, y) : null;
+      DA.addShake(16, shakeFrom ? x - shakeFrom.x : 0, shakeFrom ? y - shakeFrom.y : 0);  // recoils away from the blast
+    }
     if (DA.haptic) DA.haptic(0.6, 90);
     if (DA.fx) DA.fx.hitStop = Math.max(DA.fx.hitStop || 0, 0.04);
     if (DA.audio) DA.audio.roar();

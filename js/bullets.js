@@ -70,7 +70,7 @@
     if (DA.eject && !g.pierce && !g.splash && !g.range) {   // brass for the ballistic guns
       DA.eject(p.x + Math.cos(base) * 14, p.y + Math.sin(base) * 14, base);
     }
-    if (g.shake && DA.addShake) DA.addShake(g.shake);
+    if (g.shake && DA.addShake) DA.addShake(g.shake, Math.cos(base), Math.sin(base));  // recoils opposite the shot
     if (DA.audio) DA.audio.shot();
     return g.pellets;
   };
