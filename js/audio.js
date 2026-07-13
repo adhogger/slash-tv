@@ -185,8 +185,12 @@
       var T123 = 60 / 123;
       var T = k >= 0.5 ? T123 / 1.25 : T123;
       lub(beatNext, 0.55 + k * 0.35);
-      if (k > 0.35 && beatNo % 4 === 0) {         // a single hat, slower still
-        noiseAt(beatNext + T / 2, 0.025, 0.03 + k * 0.045, 7000);
+      if (k > 0.35) {                             // a double hat, every other beat...
+        var hatEvery = k >= 1 ? 1 : 2;             // ...or every beat once things get dire (boss up)
+        if (beatNo % hatEvery === 0) {
+          noiseAt(beatNext + T / 2, 0.025, 0.03 + k * 0.045, 7000);
+          noiseAt(beatNext + T * 0.75, 0.02, 0.025 + k * 0.04, 7500);
+        }
       }
       if (k >= 1 && beatNo % 4 === 2) noteAt(beatNext, hz(45), 0.14, 'square', 0.07); // boss stab
       beatNo++;
