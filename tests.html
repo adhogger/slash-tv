@@ -233,18 +233,19 @@ test('wave manager reports victory when all waves cleared', function () {
   assert(wm.done === true);
 });
 test('burst groups spawn in packs with quiet gaps, all from one door', function () {
+  // burst:4 becomes a real pack size of round(4*1.2)=5 — startWave's BURST_MULT
   var room = { waves: [{ doors: 4, groups: [{ type: 'shambler', count: 12, interval: 9, burst: 4 }] }] };
   var wm = DA.makeWaveManager(room);
   var enemies = [];
   for (var i = 0; i < 60; i++) DA.updateWaves(wm, enemies, 0.05); // 3s: pause + first pack
-  assert(enemies.length === 4, 'exactly one pack of 4 so far, got ' + enemies.length);
+  assert(enemies.length === 5, 'exactly one pack of 5 so far, got ' + enemies.length);
   var doorX = enemies[0].x, doorY = enemies[0].y;
-  for (i = 1; i < 4; i++) {
+  for (i = 1; i < 5; i++) {
     assert(Math.abs(enemies[i].x - doorX) < 120 && Math.abs(enemies[i].y - doorY) < 120,
            'the whole pack pours from the same door');
   }
   for (i = 0; i < 40; i++) DA.updateWaves(wm, enemies, 0.05);     // 2s more: inside the gap
-  assert(enemies.length === 4, 'gap between packs stays quiet');
+  assert(enemies.length === 5, 'gap between packs stays quiet');
 });
 test('currentSpawnDoors only lists doors mid-pack, not the whole wave pool', function () {
   var room = { waves: [{ doors: 4, groups: [{ type: 'shambler', count: 4, interval: 9, burst: 4 }] }] };

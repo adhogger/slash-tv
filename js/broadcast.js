@@ -127,6 +127,12 @@
     B.flashes.push({ x: m.x + DA.rand(-6, 6), y: m.y - m.r - DA.rand(2, 8),
                      t: 0.22, max: 0.22 });
   }
+  // exposed so other systems (the crowd cheer sound) can trigger a burst
+  // of camera flashes to match, not just the kill pipeline below
+  B.flashBurst = function (n) {
+    if (!B.on) return;
+    for (var i = 0; i < (n || 1); i++) popFlash();
+  };
 
   // screen-space pass: audience, flashes, on-air bug.
   // Drawn under the vignette + scanlines so it all sits "in the broadcast".

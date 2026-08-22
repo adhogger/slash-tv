@@ -108,6 +108,7 @@
     } else {
       st.introCardT = 1.7;   // lower-third title card instead of an announcer line
       st.countdownT = entryDir ? 3.0 : 0;   // 3-2-1 (fresh episodes walk in first)
+      if (entryDir && DA.audio && DA.audio.cheer) DA.audio.cheer();   // the crowd revs up for the countdown
       if (DA.primeWave) DA.primeWave(st.waveManager);   // sirens burn through the countdown
       if (!entryDir) {                      // fresh episode: walk in through the doors
         st.entranceT = 2.8;   // long enough for the full stroll at 130px/s
@@ -721,6 +722,7 @@
       if (allThere || st.entranceT <= 0) {       // in position: cue the countdown
         st.entranceT = 0;
         st.countdownT = 3.0;
+        if (DA.audio && DA.audio.cheer) DA.audio.cheer();   // the crowd revs up for the countdown
       }
       if (st.introCardT > 0) st.introCardT -= dt;
       DA.updateFx(dt);
@@ -898,6 +900,7 @@
           if (rp.downed) { rp.downed = false; rp.reviveP = 0; rp.hearts = 2; rp.invuln = 1; }
         });
         DA.announce('ROOM CLEAR — TAKE AN EXIT');
+        if (DA.audio && DA.audio.cheer) DA.audio.cheer();
       }
       checkExits(st);
     }
@@ -1329,10 +1332,17 @@
     ctx.fillStyle = '#333';                                 // the dropped gun
     ctx.fillRect(p.x + 14, p.y + 6, 11, 5);
   }
-  function drawHeart(ctx, x, y, size, filled) {
+  // an actual heart shape (two round lobes + a point), sized to pulse in
+  // time with the real scheduled thump via DA.audio.heartPulse()
+  function drawHeart(ctx, x, y, size, filled, pulse) {
+    var s = size * (1 + (pulse || 0) * 0.22);
+    var cx = x + size / 2, cy = y + size / 2 - s * 0.05;
+    var r = s * 0.26;
     ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(x, y, size, size, 6);
-    else ctx.rect(x, y, size, size);
+    ctx.arc(cx - r, cy - r * 0.15, r, Math.PI, 0, false);
+    ctx.arc(cx + r, cy - r * 0.15, r, Math.PI, 0, false);
+    ctx.lineTo(cx, cy + s * 0.62);
+    ctx.closePath();
     if (filled) { ctx.fillStyle = '#d43a4b'; ctx.fill(); }
     else { ctx.strokeStyle = '#4a3a40'; ctx.lineWidth = 2; ctx.stroke(); }
   }
@@ -1917,7 +1927,8 @@
       label += ' — WAVE ' + waveNo + '/' + wm.room.waves.length;
     }
     ctx.fillText(label, DA.W / 2, 28);
-    for (var i = 0; i < DA.MAX_HEARTS; i++) drawHeart(ctx, 16 + i * 30, 12, 22, i < st.player.hearts);
+    var heartPulse = DA.audio && DA.audio.heartPulse ? DA.audio.heartPulse() : 0;
+    for (var i = 0; i < DA.MAX_HEARTS; i++) drawHeart(ctx, 16 + i * 30, 12, 22, i < st.player.hearts, heartPulse);
     var gun = DA.GUNS[st.player.gun] || DA.GUNS.pistol;
     ctx.textAlign = 'left';
     ctx.font = 'bold 18px monospace';
@@ -1936,7 +1947,7 @@
           ctx.fillText('DOWN! GO HELP', 92, 84);
         }
       } else {
-        for (var bh = 0; bh < DA.MAX_HEARTS; bh++) drawHeart(ctx, 92 + bh * 21, 72, 14, bh < buddy.hearts);
+        for (var bh = 0; bh < DA.MAX_HEARTS; bh++) drawHeart(ctx, 92 + bh * 21, 72, 14, bh < buddy.hearts, heartPulse);
       }
     }
     ctx.textAlign = 'right';

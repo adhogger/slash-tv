@@ -34,7 +34,7 @@
   DA.detonateBomb = function (st) {
     if (DA.addShake) DA.addShake(22);
     if (DA.announce) DA.announce('BOOM! COURTESY OF GRUEL™');
-    if (DA.audio) DA.audio.roar();
+    if (DA.audio) { DA.audio.roar(); if (DA.audio.cheer) DA.audio.cheer(); }
     for (var i = st.enemies.length - 1; i >= 0; i--) {
       var e = st.enemies[i];
       if (e.isBoss) { e.hp -= 15; continue; }

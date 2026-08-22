@@ -345,11 +345,12 @@
     // co-op: two guns double the clear rate, so the show sends a bigger cast
     // AND feeds them through the doors faster
     var coop = DA.state && DA.state.players && DA.state.players.length > 1;
-    var countMult = coop ? 1.8 : 1, paceMult = coop ? 0.8 : 1;
+    var countMult = coop ? 3.6 : 1, paceMult = coop ? 0.8 : 1;
+    var BURST_MULT = 1.2;   // bigger packs, in every mode — a wave should hit like a wave
     wm.spawners = wave.groups.map(function (g) {
       return { type: g.type, left: Math.round(g.count * countMult),
                interval: g.interval * paceMult, speed: g.speed,
-               burst: g.burst || 1, burstLeft: 0, burstDoor: null,
+               burst: Math.round((g.burst || 1) * BURST_MULT), burstLeft: 0, burstDoor: null,
                timer: wm.primed ? 0.1 : 0.5 };
     });
     wm.primed = false;
@@ -404,7 +405,10 @@
         }
         s.burstLeft--; s.left--;
         DA.spawnAtDoor(enemies, s.type, s.speed, [s.burstDoor]);
-        s.timer = s.burstLeft > 0 ? 0.12 : s.interval * DA.rand(0.7, 1.3);
+        // packs pour out fast (was 0.12s/zombie) and the quiet gap between
+        // packs is much shorter (was 0.7-1.3x interval) — bigger, faster,
+        // more relentless waves instead of a slow trickle
+        s.timer = s.burstLeft > 0 ? 0.08 : s.interval * DA.rand(0.55, 0.85);
       }
     });
     // doors currently mid-pack — used to flash ONLY the doors zombies are
@@ -420,6 +424,10 @@
       wm.activeDoors = null;
       wm.betweenTimer = 3.4;                       // room for the 3s warn before the next wave
       if (!wm.room.endless && wm.wave >= wm.room.waves.length) wm.done = true;
+      // the crowd pops for every wave, not just the last one — the
+      // room-clear cheer (main.js) already covers wm.done, so skip here
+      // to avoid firing twice back to back on the room's final wave
+      if (!wm.done && DA.audio && DA.audio.cheer) DA.audio.cheer();
     }
   };
 })();

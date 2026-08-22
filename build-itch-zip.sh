@@ -17,7 +17,12 @@ trap 'rm -rf "$STAGE"' EXIT
 
 mkdir -p "$STAGE/js"
 cp index.html style.css icon.png icon-192.png icon-512.png manifest.json sw.js "$STAGE/"
-cp js/*.js "$STAGE/js/"
+for f in js/*.js; do
+  base="$(basename "$f")"
+  [ "$base" = "cheer-tuner.js" ] && continue   # debug-only live tuning panel, not for players
+  cp "$f" "$STAGE/js/"
+done
+sed -i '' '/cheer-tuner\.js/d' "$STAGE/index.html"   # strip the matching <script> tag too
 
 rm -f "$OUT"
 ( cd "$STAGE" && zip -rq "$OLDPWD/$OUT" . )
