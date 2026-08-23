@@ -42,6 +42,33 @@
     }
   })();
 
+  // one-time "Add to Home Screen" tip for iOS Safari specifically — it has
+  // no Fullscreen API for arbitrary elements (see above), so installing to
+  // the home screen (manifest.json already requests fullscreen + landscape)
+  // is the only way iOS players get a chrome-free screen. Title screen only,
+  // touch only, dismissible for good — never nags a player mid-game.
+  (function () {
+    var el = document.getElementById('iosHint');
+    if (!el) return;
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    var standalone = navigator.standalone === true ||
+                      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    if (!isIOS || standalone) return;
+    var DISMISS_KEY = 'deadset_ios_hint_dismissed';
+    function isTouch() { return DA.input && DA.input.touchActive && DA.input.touchActive(); }
+    function dismissed() { try { return localStorage.getItem(DISMISS_KEY) === '1'; } catch (e) { return false; } }
+    function refresh() {
+      el.classList.toggle('show', !dismissed() && isTouch() && DA.state && DA.state.mode === 'title');
+    }
+    var closeBtn = document.getElementById('iosHintClose');
+    if (closeBtn) closeBtn.addEventListener('click', function () {
+      try { localStorage.setItem(DISMISS_KEY, '1'); } catch (e) {}
+      el.classList.remove('show');
+    });
+    document.addEventListener('touchstart', refresh, { once: true, passive: true });
+    setInterval(refresh, 1000);
+  })();
+
   // localStorage can be blocked (private mode) — never let that crash the game
   function store(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
   function load(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
@@ -287,7 +314,8 @@
       if (pi >= 0) return 'btn:' + pi;
       return false;                          // taps elsewhere resume (anyTap path)
     }
-    if (DA.state.mode === 'playing' && x > DA.W - 84 && y < 76) return true;
+    // enlarged tap zone (was 84x76) to match the bigger touch-mode pause chip
+    if (DA.state.mode === 'playing' && x > DA.W - 104 && y < 96) return true;
     if (DA.state.mode === 'title') {          // taps route to the menu buttons
       var bi = DA.titleHit ? DA.titleHit(x, y) : -1;
       if (bi >= 0) return 'btn:' + bi;
@@ -309,14 +337,19 @@
       ctx.beginPath(); ctx.arc(s.ox + v.x * 55, s.oy + v.y * 55, 26, 0, 7); ctx.fill();
     }
     if (DA.state.mode === 'playing') {          // pause button: an unmissable chip, top-right
+      // bigger on touch (was a flat 26px radius) — matches the enlarged tap
+      // zone in touchUIBlock and gives the score counter real breathing room
+      var touchPause = DA.input.touchActive();
+      var pcx = DA.W - 42, pcy = 38, pr = touchPause ? 34 : 26;
+      var pbw = touchPause ? 8 : 6, pbh = touchPause ? 29 : 22, pbo = touchPause ? 8 : 6;
       ctx.fillStyle = 'rgba(10, 10, 15, 0.72)';
-      ctx.beginPath(); ctx.arc(DA.W - 42, 38, 26, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(pcx, pcy, pr, 0, 7); ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = touchPause ? 2.5 : 2;
       ctx.stroke();
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.fillRect(DA.W - 51, 27, 6, 22);
-      ctx.fillRect(DA.W - 39, 27, 6, 22);
+      ctx.fillRect(pcx - pbo - pbw / 2, pcy - pbh / 2, pbw, pbh);
+      ctx.fillRect(pcx + pbo - pbw / 2, pcy - pbh / 2, pbw, pbh);
     }
   }
 
@@ -1356,7 +1389,10 @@
   }
   function buildTitleMenu() {
     var endu = endlessUnlocked();
-    var BW = 560, X = (DA.W - BW) / 2, Y0 = 308, G = 52, BH = 48;
+    var touch = DA.input.touchActive();
+    // taller rows + more gap on touch, sized to still fit the 7-row worst
+    // case (with the donate button) inside the fixed 720px canvas height
+    var BW = 560, X = (DA.W - BW) / 2, Y0 = 308, G = touch ? 56 : 52, BH = touch ? 54 : 48;
     var m = [], row = 0;
     function push(opts) {
       opts.x = X; opts.y = Y0 + G * row++; opts.w = BW; opts.h = BH;
@@ -1388,7 +1424,9 @@
   // where: local co-op needs a second controller (keyboard's already seat 1's),
   // online hands seat 2 to a guest on their own device, cam-bot fills it with AI
   function buildCoopMenu() {
-    var BW = 620, X = (DA.W - BW) / 2, Y0 = 330, G = 96, BH = 82;
+    var touch = DA.input.touchActive();
+    var BW = 620, X = (DA.W - BW) / 2, Y0 = 330, G = touch ? 102 : 96, BH = touch ? 88 : 82;
+    var backH = touch ? 50 : 44;
     var hosting = DA.net && DA.net.status === 'hosting';
     return [
       { x: X, y: Y0, w: BW, h: BH, color: '#7ee081', icon: 'local',
@@ -1414,12 +1452,13 @@
           startShow();
           showCoopChoice = false;
         } },
-      { x: X, y: Y0 + G * 3 + 14, w: BW, h: 44, color: '#f2f2e9',
+      { x: X, y: Y0 + G * 3 + 14, w: BW, h: backH, color: '#f2f2e9',
         label: '←  BACK', state: '', act: function () { showCoopChoice = false; } }
     ];
   }
   function buildPauseMenu() {
-    var BW = 480, X = (DA.W - BW) / 2, Y0 = 340, G = 58, BH = 48;
+    var touch = DA.input.touchActive();
+    var BW = 480, X = (DA.W - BW) / 2, Y0 = 340, G = touch ? 68 : 58, BH = touch ? 58 : 48;
     return [
       { x: X, y: Y0, w: BW, h: BH, color: '#7ee081', primary: true,
         label: '▶  RESUME', state: DA.input.touchActive() ? 'or tap outside' : 'Esc / P',
@@ -1436,7 +1475,10 @@
     ];
   }
   function buildSettingsMenu() {
-    var BW = 560, X = (DA.W - BW) / 2, Y0 = 312, G = 55, BH = 46;
+    var touch = DA.input.touchActive();
+    // modest bump only — 7 rows leaves little vertical slack in the fixed
+    // 720px canvas height, unlike the shorter pause/coop menus
+    var BW = 560, X = (DA.W - BW) / 2, Y0 = 312, G = touch ? 57 : 55, BH = touch ? 49 : 46;
     function row(i, label, state, hint, act) {
       return { x: X, y: Y0 + G * i, w: BW, h: BH, color: '#f2f2e9',
                label: label, state: state, hint: hint, act: act };
@@ -1507,6 +1549,10 @@
   }
   function drawMenu(ctx, menu, sel) {
     var mp = DA.input.mousePos ? DA.input.mousePos() : null;
+    // bigger text + heavier borders on touch — "hard to read" was the direct
+    // complaint, so this is the main lever (button box sizes are set per-menu
+    // in the build* functions above, already scaled with headroom in mind)
+    var touch = DA.input.touchActive();
     for (var i = 0; i < menu.length; i++) {
       var b = menu[i];
       var hover = mp && hitMenu([b], mp.x, mp.y) === 0 && !b.locked;
@@ -1518,45 +1564,45 @@
       if (ctx.roundRect) ctx.roundRect(b.x, b.y, b.w, b.h, 9); else ctx.rect(b.x, b.y, b.w, b.h);
       ctx.fill();
       ctx.strokeStyle = b.locked ? '#2c2c38' : (on ? '#7ee081' : (b.primary ? b.color : '#4a4a5c'));
-      ctx.lineWidth = on || b.primary ? 2.5 : 1.5;
+      ctx.lineWidth = (on || b.primary ? 2.5 : 1.5) + (touch ? 1 : 0);
       ctx.stroke();
       ctx.textAlign = 'left';
       if (b.icon) {                                    // a little picture of how the mode plays
         drawModeIcon(ctx, b.icon, b.x + 44, b.y + b.h / 2);
-        ctx.font = 'bold 19px monospace';
+        ctx.font = 'bold ' + (touch ? 22 : 19) + 'px monospace';
         ctx.fillStyle = b.locked ? '#4a4a58' : b.color;
         ctx.fillText(b.label, b.x + 92, b.y + b.h / 2 - 4);
         if (b.state) {
-          ctx.font = '13px monospace';
+          ctx.font = (touch ? 15 : 13) + 'px monospace';
           ctx.fillStyle = b.locked ? '#4a4a58' : '#8888a0';
           ctx.fillText(b.state, b.x + 92, b.y + b.h / 2 + 18);
         }
         if (on) {
           ctx.textAlign = 'left';
-          ctx.font = 'bold 19px monospace';
+          ctx.font = 'bold ' + (touch ? 22 : 19) + 'px monospace';
           ctx.fillStyle = '#7ee081';
           ctx.fillText('›', b.x + 5, b.y + b.h / 2 + 7);
         }
         continue;
       }
-      ctx.font = 'bold ' + (b.primary ? 22 : 19) + 'px monospace';
+      ctx.font = 'bold ' + (b.primary ? (touch ? 26 : 22) : (touch ? 22 : 19)) + 'px monospace';
       ctx.fillStyle = b.locked ? '#4a4a58' : b.color;
       ctx.fillText(b.label, b.x + 18, b.y + b.h / 2 + 7);
       if (b.state) {
         ctx.textAlign = 'right';
-        ctx.font = (b.locked ? '' : 'bold ') + '14px monospace';
+        ctx.font = (b.locked ? '' : 'bold ') + (touch ? 17 : 14) + 'px monospace';
         ctx.fillStyle = b.locked ? '#4a4a58' : '#8888a0';
         ctx.fillText(b.state, b.x + b.w - 14, b.y + b.h / 2 + 5);
       }
       if (b.hint) {
         ctx.textAlign = 'right';
-        ctx.font = '12px monospace';
+        ctx.font = (touch ? 14 : 12) + 'px monospace';
         ctx.fillStyle = '#55556a';
         ctx.fillText(b.hint, b.x + b.w - 14, b.y + b.h - 8);
       }
       if (on) {                                     // selection chevron
         ctx.textAlign = 'left';
-        ctx.font = 'bold 19px monospace';
+        ctx.font = 'bold ' + (touch ? 22 : 19) + 'px monospace';
         ctx.fillStyle = '#7ee081';
         ctx.fillText('›', b.x + 5, b.y + b.h / 2 + 7);
       }
@@ -1951,8 +1997,9 @@
       }
     }
     ctx.textAlign = 'right';
-    // on touch, the whole right-aligned block shifts left to clear the pause button
-    var rx = DA.input.touchActive() ? DA.W - 96 : DA.W - 20;
+    // on touch, the whole right-aligned block shifts left to clear the
+    // bigger touch-mode pause button (was DA.W - 96, too tight against it)
+    var rx = DA.input.touchActive() ? DA.W - 122 : DA.W - 20;
     ctx.font = 'bold 26px monospace';
     ctx.fillStyle = '#7ee081';
     ctx.fillText('$' + st.score.toLocaleString('en-US'), rx, 32);
