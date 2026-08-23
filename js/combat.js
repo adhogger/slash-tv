@@ -62,6 +62,7 @@
       var e = st.enemies[i];
       if (!e) continue; // a boomer chain-blast may have shrunk the list mid-loop
       if (e.dying) continue; // a boss mid-death-scene is beyond harm (and harmless)
+      if (e.isBoss && e.grace > 0) continue; // still making his entrance — no cheap shots before ACTION!
       var killed = false;
       for (var j = st.bullets.length - 1; j >= 0; j--) {
         var b = st.bullets[j];

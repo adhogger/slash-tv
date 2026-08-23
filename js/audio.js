@@ -386,7 +386,7 @@
       var T = k >= 0.5 ? T123 / 1.25 : T123;
       lub(beatNext, 0.55 + k * 0.35, T);
       if (k > 0.35) {                             // a double hat, every other beat...
-        var hatEvery = k >= 1 ? 1 : 2;             // ...or every beat once things get dire (boss up)
+        var hatEvery = k >= 0.9 ? 1 : 2;           // ...or every beat once combat's live (boss OR a room fight)
         if (beatNo % hatEvery === 0) {
           noiseAt(beatNext + T / 2, 0.025, 0.03 + k * 0.045, 7000);
           noiseAt(beatNext + T * 0.75, 0.02, 0.025 + k * 0.04, 7500);

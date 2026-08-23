@@ -411,6 +411,9 @@
         window.SLASHTV_FEEDBACK_URL) {
       window.open(window.SLASHTV_FEEDBACK_URL, '_blank', 'noopener');
     }
+    if (e.code === 'Escape' && (DA.state.mode === 'gameover' || DA.state.mode === 'winner')) {
+      DA.state = { mode: 'title' };
+    }
   });
 
   // attract mode: a parade of silhouettes shambling across the title screen
@@ -991,6 +994,23 @@
   })();
   var abCtx = abScratch.getContext('2d');
 
+  // host-cam portrait: rendered at 1/4 size into this buffer, then blown back
+  // up with smoothing off — the chunky-block SNES look, cheap because it's
+  // the same draw calls at fewer pixels plus one drawImage, no extra canvas
+  // allocated per frame
+  var HOSTCAM_BUF = 20;                              // 80 / 20 = an exact 4x block scale
+  var hostCamBuf = (function () {
+    var c = document.createElement('canvas'); c.width = c.height = HOSTCAM_BUF;
+    return c;
+  })();
+  var hostCamBufCtx = hostCamBuf.getContext('2d');
+  function flushHostCamBuf(realCtx, bx, by, bs) {
+    realCtx.save();
+    realCtx.imageSmoothingEnabled = false;
+    realCtx.drawImage(hostCamBuf, 0, 0, HOSTCAM_BUF, HOSTCAM_BUF, bx, by, bs, bs);
+    realCtx.restore();
+  }
+
   // per-room set dressing: deterministic decals pre-rendered once per room
   var decorCache = {};
   function decorCanvas(st) {
@@ -1343,8 +1363,8 @@
     ctx.rotate(2.2);
     ctx.scale(1, 0.55);                                     // face-down
     ctx.fillStyle = '#c9c9c0';
-    ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath(); DA.polyPath(ctx, 0, 0, p.r, p.r, 8, 0.39); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2; ctx.lineJoin = 'miter'; ctx.stroke();
     ctx.restore();
     DA.drawCorpseLimbs(ctx, p.x, p.y, p.r, 2.2);
     ctx.fillStyle = '#333';                                 // the dropped gun
@@ -1681,8 +1701,17 @@
     var by = y + 26;                                    // the talking head
     ctx.fillStyle = '#1c1c28';
     ctx.fillRect(bx, by, bs, bs);
-    ctx.save();
-    ctx.beginPath(); ctx.rect(bx, by, bs, bs); ctx.clip();
+    // every branch below draws the character art into a tiny buffer instead
+    // of the real canvas — same draw calls, just aimed at 'ctx' redirected to
+    // HOSTCAM_BUF pixels, then blown back up with smoothing off for the
+    // chunky SNES-style look. The buffer's own bounds do the clipping.
+    var realCtx = ctx;
+    hostCamBufCtx.setTransform(1, 0, 0, 1, 0, 0);
+    hostCamBufCtx.clearRect(0, 0, HOSTCAM_BUF, HOSTCAM_BUF);
+    hostCamBufCtx.save();
+    hostCamBufCtx.scale(HOSTCAM_BUF / bs, HOSTCAM_BUF / bs);
+    hostCamBufCtx.translate(-bx, -by);
+    ctx = hostCamBufCtx;
     var now = performance.now();
     var open = Math.abs(Math.sin(now / 90)) * (hst.t > 0.6 ? 1 : 0.15);
     if (hst.speaker === 'algorithm') {                  // the drone: a lens, not a face —
@@ -1700,6 +1729,8 @@
       ctx.fillStyle = '#0a0a0f';
       ctx.beginPath(); DA.polyPath(ctx, bx + bs / 2, by + bs / 2, bs * 0.07 + open * 2, bs * 0.07 + open * 2, 6, 0); ctx.fill();
       ctx.restore();
+      ctx = realCtx;
+      flushHostCamBuf(ctx, bx, by, bs);
       ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
       ctx.strokeRect(bx, by, bs, bs);
       drawHostCaption(ctx, hst, x, y, w, bx, bs);
@@ -1728,6 +1759,8 @@
       ctx.fillStyle = '#5c2a2a';
       ctx.beginPath(); ctx.ellipse(ex, ey + er * 0.52, er * 0.32, er * (0.07 + 0.2 * open), 0, 0, 7); ctx.fill();
       ctx.restore();
+      ctx = realCtx;
+      flushHostCamBuf(ctx, bx, by, bs);
       ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
       ctx.strokeRect(bx, by, bs, bs);
       drawHostCaption(ctx, hst, x, y, w, bx, bs);
@@ -1743,6 +1776,51 @@
       ctx.scale(mscale, mscale);
       if (DA.drawEnemies) DA.drawEnemies(ctx, [fake]);
       ctx.restore();
+      ctx = realCtx;
+      flushHostCamBuf(ctx, bx, by, bs);
+      ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
+      ctx.strokeRect(bx, by, bs, bs);
+      drawHostCaption(ctx, hst, x, y, w, bx, bs);
+      if (glitch > 0.02) drawCamStatic(ctx, bx, by, bs, bs, glitch);
+      ctx.globalAlpha = 1;
+      return;
+    }
+    if (hst.speaker === 'producer') {                   // gold suit, silver hair, a permanent glare — the boss, off the clock
+      var pulse = Math.sin(now / 260) * 0.03;            // a tighter, faster pulse than the host's lazy sway
+      ctx.translate(bx + bs / 2, by + bs);
+      ctx.rotate(pulse);
+      ctx.translate(-(bx + bs / 2), -(by + bs));
+      var pg = ctx.createLinearGradient(bx, by + bs - 26, bx + bs, by + bs);
+      pg.addColorStop(0, '#e0ac1e'); pg.addColorStop(0.5, '#a87f12'); pg.addColorStop(1, '#d4a017');
+      ctx.fillStyle = pg;                                // the boss's own gold, not the host's brighter sequined gradient
+      ctx.beginPath(); ctx.ellipse(bx + bs / 2, by + bs + 8, bs * 0.56, bs * 0.44, 0, 3.14, 6.29); ctx.fill();
+      ctx.fillStyle = '#8c1c2c';                         // dark red tie — the boss's, not the exec's gold or host's magenta
+      ctx.fillRect(bx + bs / 2 - 3.5, by + bs - 18, 7, 18);
+      var px = bx + bs / 2, py = by + bs * 0.42, pr = bs * 0.29;
+      ctx.fillStyle = '#e0b08c';
+      ctx.beginPath(); DA.polyPath(ctx, px, py, pr, pr, 7, 0.4); ctx.fill();
+      ctx.fillStyle = '#b8b0a0';                         // silver/gray slicked hair — the boss's, not the host's jet black
+      ctx.beginPath(); DA.polyPath(ctx, px, py - pr * 0.28, pr * 1.06, pr * 1.06, 6, 3.25, 0.05, null, 0.465); ctx.fill();
+      ctx.fillStyle = '#2c2116';                         // jammed-down angry brows — no sunglasses on this one
+      ctx.save(); ctx.translate(px - pr * 0.42, py - pr * 0.18); ctx.rotate(0.3);
+      ctx.fillRect(-pr * 0.26, -pr * 0.06, pr * 0.52, pr * 0.14); ctx.restore();
+      ctx.save(); ctx.translate(px + pr * 0.42, py - pr * 0.18); ctx.rotate(-0.3);
+      ctx.fillRect(-pr * 0.26, -pr * 0.06, pr * 0.52, pr * 0.14); ctx.restore();
+      ctx.fillStyle = '#f2f2e9';                         // bare eyes glaring at the lens — every other speaker hides theirs
+      ctx.beginPath(); ctx.ellipse(px - pr * 0.4, py - pr * 0.02, pr * 0.16, pr * 0.09, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(px + pr * 0.4, py - pr * 0.02, pr * 0.16, pr * 0.09, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#1a1a1e';
+      ctx.beginPath(); ctx.arc(px - pr * 0.4, py - pr * 0.02, pr * 0.06, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(px + pr * 0.4, py - pr * 0.02, pr * 0.06, 0, 7); ctx.fill();
+      var talk = 0.14 + open * 0.4;                      // a barking mouth, not a grin
+      ctx.fillStyle = '#3a1210';
+      ctx.beginPath(); ctx.ellipse(px, py + pr * 0.55, pr * 0.4, pr * talk, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#1a1a1e';                         // the mic — his one prop, straight off the arena boss
+      ctx.fillRect(px + pr * 0.85, py + pr * 0.05, 4, pr * 0.95);
+      ctx.beginPath(); DA.polyPath(ctx, px + pr * 0.87, py - pr * 0.02, 6, 7, 6, 0); ctx.fill();
+      ctx.restore();
+      ctx = realCtx;
+      flushHostCamBuf(ctx, bx, by, bs);
       ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
       ctx.strokeRect(bx, by, bs, bs);
       drawHostCaption(ctx, hst, x, y, w, bx, bs);
@@ -1846,6 +1924,8 @@
       ctx.fillRect(bx, by, bs, bs);
     }
     ctx.restore();
+    ctx = realCtx;
+    flushHostCamBuf(ctx, bx, by, bs);
     ctx.strokeStyle = '#3a3a48'; ctx.lineWidth = 1.5;
     ctx.strokeRect(bx, by, bs, bs);
     drawHostCaption(ctx, hst, x, y, w, bx, bs);
@@ -2384,6 +2464,7 @@
       if (window.SLASHTV_FEEDBACK_URL) {
         go.push({ text: 'F — 📝 TELL US WHAT YOU THOUGHT', font: '16px monospace', color: '#8888a0', y: 624 });
       }
+      go.push({ text: 'ESC — 📺 BACK TO TITLE SCREEN', font: '16px monospace', color: '#8888a0', y: 648 });
       drawCenteredScreen(ctx, go);
       if (st.goFade > 0) {                                  // fade in from the death scene
         ctx.fillStyle = 'rgba(0, 0, 0, ' + Math.min(1, st.goFade / 0.7).toFixed(3) + ')';
@@ -2432,6 +2513,7 @@
       if (window.SLASHTV_FEEDBACK_URL) {
         w.push({ text: 'F — 📝 TELL US WHAT YOU THOUGHT', font: '16px monospace', color: '#8888a0', y: 624 });
       }
+      w.push({ text: 'ESC — 📺 BACK TO TITLE SCREEN', font: '16px monospace', color: '#8888a0', y: 648 });
       drawCenteredScreen(ctx, w);
     }
   }
