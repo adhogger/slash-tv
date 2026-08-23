@@ -116,6 +116,7 @@
       st.powerups.push({ id: DA.newId(), type: 'gun_' + GUNS[Math.floor(Math.random() * GUNS.length)],
                          t: 60, x: DA.W / 2 + 60, y: DA.H / 2 });
     }
+    if (DA.spawnMail) DA.spawnMail(st);      // optional collectible, never required
     if (st.room.boss) {
       var boss = st.room.boss === 'executive' ? DA.makeExecutive() :
                  (st.room.boss === 'algorithm' ? DA.makeAlgorithm() : DA.makeBoss());
@@ -173,6 +174,8 @@
       st.kills = carry.kills;
       st.stats = carry.stats;                 // shots/hits/gun tallies keep accumulating
       st.saidLines = carry.saidLines;         // the host never repeats himself all run
+      st.everDowned = carry.everDowned;       // the flawless-run finale spans the whole campaign
+      st.mailFound = carry.mailFound;         // fan mail tally spans the whole campaign
     }
     st.players = [st.player];                 // st.player stays the human, always
     if (localCoopOn) {
@@ -578,6 +581,9 @@
     }
   }
   function startDying(st) {
+    // logged for the small pacing-only ease in rooms.js's startWave — a
+    // fresh count each page load, not a permanent record
+    if (DA.roomDeaths && st.roomId) DA.roomDeaths[st.roomId] = (DA.roomDeaths[st.roomId] || 0) + 1;
     st.mode = 'dying';
     st.deathT = DA.DEATH_T;
     st.dead = true;
@@ -716,7 +722,7 @@
         else DA.state = newGame();
       }
       var endlessHeld = endlessKeyHeld || DA.input.padButton(3);
-      if (endlessUnlocked() && endlessHeld && !endlessWasHeld) DA.state = newGame('endless');
+      if (endlessHeld && !endlessWasHeld) DA.state = newGame('endless');   // Endless is unlocked from the start
       if (st.mode === 'title' && DA.input.consumeCastTap && DA.input.consumeCastTap()) showBestiary = !showBestiary;
       startWasHeld = startHeld;
       endlessWasHeld = endlessHeld;
@@ -724,6 +730,11 @@
       DA.updateFx(dt);
       return;
     }
+    // captured before startWasHeld is overwritten below, so the entrance
+    // block can still tell "fire was just pressed this frame" — every retry
+    // goes through this walk-on, so it needs the same fire-skips-ahead
+    // pattern the death scene already uses (see startHeld/startWasHeld below)
+    var fireJustPressed = startHeld && !startWasHeld;
     startWasHeld = startHeld;
 
     // gamepad Start button or the touch corner button pauses (edge-triggered)
@@ -732,23 +743,28 @@
     if (!paused) showBestiary = false;
     pauseWasHeld = pauseHeld;
     if (st.entranceT > 0) {                      // walking on set — no control yet
-      st.entranceT -= dt;
+      if (fireJustPressed) st.entranceT = 0;      // fire skips straight to position
+      else st.entranceT -= dt;
       var allThere = true;
       for (var ei = 0; ei < st.players.length; ei++) {
         var ep2 = st.players[ei];
         var tx = DA.W / 2 + (ei === 0 ? -26 : 26), ty = DA.H / 2;
-        var ddx = tx - ep2.x, ddy = ty - ep2.y;
-        var edist = Math.sqrt(ddx * ddx + ddy * ddy);
-        if (edist > 4) {
-          allThere = false;
-          var espd = 130;                        // a deliberate walk, not a sprint
-          ep2.vx = ddx / edist * espd;
-          ep2.vy = ddy / edist * espd;
-          ep2.x += ep2.vx * dt;
-          ep2.y += ep2.vy * dt;
-          ep2.walkT = (ep2.walkT || 0) + espd * dt * 0.06;
+        if (st.entranceT <= 0) {                 // skipped, or the walk just finished: snap in
+          ep2.x = tx; ep2.y = ty; ep2.vx = 0; ep2.vy = 0;
         } else {
-          ep2.vx = 0; ep2.vy = 0;
+          var ddx = tx - ep2.x, ddy = ty - ep2.y;
+          var edist = Math.sqrt(ddx * ddx + ddy * ddy);
+          if (edist > 4) {
+            allThere = false;
+            var espd = 130;                        // a deliberate walk, not a sprint
+            ep2.vx = ddx / edist * espd;
+            ep2.vy = ddy / edist * espd;
+            ep2.x += ep2.vx * dt;
+            ep2.y += ep2.vy * dt;
+            ep2.walkT = (ep2.walkT || 0) + espd * dt * 0.06;
+          } else {
+            ep2.vx = 0; ep2.vy = 0;
+          }
         }
         ep2.aimX = 0; ep2.aimY = -1;             // eyes front, into the studio
       }
@@ -910,6 +926,7 @@
       for (var pj = 0; pj < st.players.length; pj++) {
         if (pj !== pi && !st.players[pj].downed && st.players[pj].hearts > 0) partnerUp = true;
       }
+      st.everDowned = true;                   // tracked for the flawless-run finale + highlight
       if (partnerUp) {                        // downed, not out: a partner can help
         pd.downed = true; pd.reviveP = 0;
         pd.downAim = Math.atan2(pd.aimY, pd.aimX);   // freeze facing where he fell
@@ -955,15 +972,6 @@
     floorPatterns[color] = ctx.createPattern(t, 'repeat');
     return floorPatterns[color];
   }
-  var vignette = (function () {
-    var c = document.createElement('canvas'); c.width = DA.W; c.height = DA.H;
-    var g = c.getContext('2d');
-    var grad = g.createRadialGradient(DA.W / 2, DA.H / 2, DA.H * 0.42, DA.W / 2, DA.H / 2, DA.H * 0.95);
-    grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.16)');
-    g.fillStyle = grad; g.fillRect(0, 0, DA.W, DA.H);
-    return c;
-  })();
   var bloodVignette = (function () {
     var c = document.createElement('canvas'); c.width = DA.W; c.height = DA.H;
     var g = c.getContext('2d');
@@ -973,13 +981,6 @@
     g.fillStyle = grad; g.fillRect(0, 0, DA.W, DA.H);
     return c;
   })();
-  var scanlines = (function () {
-    var c = document.createElement('canvas'); c.width = 8; c.height = 4;
-    var g = c.getContext('2d');
-    g.fillStyle = 'rgba(0,0,0,0.08)'; g.fillRect(0, 2, 8, 2);
-    return c;
-  })();
-  var scanPattern = null;
   var abScratch = (function () {                    // scratch buffer for chromatic aberration
     var c = document.createElement('canvas'); c.width = DA.W; c.height = DA.H;
     return c;
@@ -1104,23 +1105,6 @@
     decorCache[id] = c;
     return c;
   }
-  // CRT edge curvature: a rounded-corner shadow frame, baked once — the last
-  // touch that makes the whole picture read as a broadcast monitor
-  var crtMask = (function () {
-    var c = document.createElement('canvas'); c.width = DA.W; c.height = DA.H;
-    var g = c.getContext('2d');
-    g.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    g.fillRect(0, 0, DA.W, DA.H);
-    g.globalCompositeOperation = 'destination-out';
-    g.beginPath();
-    if (g.roundRect) g.roundRect(1, 1, DA.W - 2, DA.H - 2, 48); else g.rect(0, 0, DA.W, DA.H);
-    g.fill();                                          // hard window...
-    g.filter = 'blur(6px)';                            // ...softened at the rim
-    g.beginPath();
-    if (g.roundRect) g.roundRect(4, 4, DA.W - 8, DA.H - 8, 48); else g.rect(0, 0, DA.W, DA.H);
-    g.fill();
-    return c;
-  })();
   // chromatic aberration: snapshot the fully-drawn frame, tint two copies
   // red/cyan via a multiply pass, and lay them back offset in opposite
   // directions with 'lighter' blending — a real per-channel-ish split
@@ -1147,13 +1131,10 @@
     ctx.drawImage(abScratch, -off, 0);
     ctx.restore();
   }
-  function drawScreenFx(ctx) {
-    ctx.drawImage(vignette, 0, 0);
-    if (!scanPattern) scanPattern = ctx.createPattern(scanlines, 'repeat');
-    ctx.fillStyle = scanPattern;
-    ctx.fillRect(0, 0, DA.W, DA.H);
-    ctx.drawImage(crtMask, 0, 0);
-  }
+  // was the old-TV overlay: darkened corners, scanlines, and a curved-edge
+  // CRT mask composited over every screen. Removed on request — kept as a
+  // no-op since it's still called from several draw sites below.
+  function drawScreenFx(ctx) {}
 
   // ambient colour cast per set, so makeup reads pink and the server room blue
   var ROOM_TINT = {
@@ -1388,7 +1369,6 @@
     DA.state = load('slashtv_intro') !== '1' ? { mode: 'intro', page: 0 } : newGame();
   }
   function buildTitleMenu() {
-    var endu = endlessUnlocked();
     var touch = DA.input.touchActive();
     // taller rows + more gap on touch, sized to still fit the 7-row worst
     // case (with the donate button) inside the fixed 720px canvas height
@@ -1406,8 +1386,11 @@
     push({ color: '#9ad7ff', locked: !DA.net, label: '🌍  ONLINE MULTIPLAYER',
            state: hosting ? 'ROOM ' + (DA.net.code || '····') : 'get a link to share',
            act: function () { botOn = false; localCoopOn = false; if (DA.net) DA.net.host(); } });
-    push({ color: '#5bc8d6', locked: !endu, label: '♾  ENDLESS MODE',
-           state: endu ? 'best: wave ' + (load('deadset_best_waves') || '0') : '🔒 beat Episode 1',
+    // unlocked from the start (was gated behind beating Episode 1) — it's
+    // the one place to warm up or grind combat skill without the campaign's
+    // stakes, so gating it behind the campaign defeated its own purpose
+    push({ color: '#5bc8d6', label: '♾  ENDLESS MODE',
+           state: 'best: wave ' + (load('deadset_best_waves') || '0'),
            act: function () { DA.state = newGame('endless'); } });
     push({ color: '#f2f2e9', label: '⚙  SETTINGS', state: 'sound · music · effects',
            act: function () { showSettings = true; setSel = 0; } });
@@ -1959,6 +1942,40 @@
         ctx.stroke();
       }
     }
+    // next-door crowd size: a ring around each of the CURRENT room's
+    // still-unvisited exits, but only when they genuinely differ — rooms
+    // at the same depth can carry very different enemy counts (e.g. 172
+    // vs. 138 in Episode 1) with nothing distinguishing them otherwise,
+    // so the door choice was pure guesswork. Compares only the doors open
+    // RIGHT NOW, not the whole map, so distant rooms stay a mystery.
+    if (st.room.exits) {
+      var neighborWeights = [];
+      for (var ndir in st.room.exits) {
+        var nroom = DA.ROOMS[st.room.exits[ndir]];
+        if (!nroom || nroom.boss || !nroom.waves) continue;
+        var nw2 = 0;
+        for (var nwi = 0; nwi < nroom.waves.length; nwi++) {
+          var ngroups = nroom.waves[nwi].groups;
+          for (var ngi = 0; ngi < ngroups.length; ngi++) nw2 += ngroups[ngi].count;
+        }
+        neighborWeights.push({ id: st.room.exits[ndir], w: nw2 });
+      }
+      if (neighborWeights.length > 1) {
+        var wVals = neighborWeights.map(function (n) { return n.w; });
+        var wMin = Math.min.apply(null, wVals), wMax = Math.max.apply(null, wVals);
+        if (wMax - wMin > wMin * 0.15) {                // only signal a REAL difference
+          neighborWeights.forEach(function (n) {
+            var nr = DA.ROOMS[n.id];
+            if (!nr.map || (st.visited && st.visited[n.id])) return;   // choice not yet made
+            var nx = ox + nr.map.x * sx, ny = oy + nr.map.y * sy;
+            var heavy = (n.w - wMin) / (wMax - wMin) > 0.5;
+            ctx.strokeStyle = heavy ? 'rgba(228, 90, 90, 0.65)' : 'rgba(126, 224, 129, 0.55)';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(nx, ny, 12, 0, 7); ctx.stroke();
+          });
+        }
+      }
+    }
   }
 
   function drawHud(ctx, st) {
@@ -2105,6 +2122,14 @@
     if (acc >= 55) candidates.push({ label: '🎯 SHARPSHOOTER', text: acc + '% ACCURACY', w: acc });
     if (st.stats.maxCombo >= 6) candidates.push({ label: '🔥 ON A STREAK', text: 'x' + st.stats.maxCombo + ' MULTIPLIER HIT', w: st.stats.maxCombo * 12 });
     if (st.kills >= 120) candidates.push({ label: '💀 BODY COUNT', text: st.kills + ' KILLS', w: st.kills / 3 });
+    // no partner means no revive if you go down even once — a genuinely
+    // harder run than the enemy-count scaling alone reflects, so it earns
+    // its own callout rather than going unnoticed
+    if (st.players.length === 1) candidates.push({ label: '🎭 SOLO ACT', text: 'NO PARTNER, NO NET', w: 85 });
+    // the inverse: went down at least once but still walked out a winner
+    if (st.mode === 'winner' && st.everDowned) {
+      candidates.push({ label: '🎬 SAVED BY THE BELL', text: 'DOWNED, NOT OUT', w: 80 });
+    }
     if (!candidates.length) return null;
     candidates.sort(function (a, b) { return b.w - a.w; });
     return candidates[0];
@@ -2317,6 +2342,10 @@
       ];
       if (goHi) go.push({ text: goHi.label + ': ' + goHi.text, font: 'bold 20px monospace', color: '#e8d44d', y: 300 });
       go = go.concat(statsLines(st, goHi ? 332 : 316)).concat(topFiveLines(st, goHi ? 412 : 396));
+      if (st.mailFound) {
+        go.push({ text: '📬 ' + st.mailFound + ' piece' + (st.mailFound === 1 ? '' : 's') + ' of fan mail collected',
+                  font: '17px monospace', color: '#f0d9a0', y: goHi ? 460 : 446 });
+      }
       if (st.room.ep === 'syn') {
         go.push({ text: "TONIGHT'S SEED: #" + st.room.seed + '  ·  challenge a friend: ?seed=' + st.room.seed,
                   font: '16px monospace', color: '#b78bff', y: 538 });
@@ -2326,7 +2355,9 @@
         }
       }
       go.push({ text: 'PRESS FIRE TO RESTART', font: 'bold 28px monospace', color: '#7ee081', y: 566 });
-      if (endlessUnlocked()) go.push({ text: 'E (or 🎮 Y) for Endless Arena', font: '19px monospace', color: '#5bc8d6', y: 598 });
+      // was gated behind endlessUnlocked() — Endless is available from the
+      // start now, and this is exactly the screen a struggling player sees
+      go.push({ text: 'E (or 🎮 Y) for Endless Arena — good place to practice', font: '19px monospace', color: '#5bc8d6', y: 598 });
       if (window.SLASHTV_FEEDBACK_URL) {
         go.push({ text: 'F — 📝 TELL US WHAT YOU THOUGHT', font: '16px monospace', color: '#8888a0', y: 624 });
       }
@@ -2339,7 +2370,12 @@
       var isSeasonFinale = st.room.ep === 3;
       var isEp2 = st.room.ep === 2;
       var headline = isSeasonFinale ? 'THE FINAL BROADCAST' : (isEp2 ? 'SEASON FINALE!' : "THAT'S A WRAP!");
-      var sub = isSeasonFinale ? '"Ladies and gentlemen... this concludes our final broadcast." — static — nothing.' :
+      // a flawless full campaign (no player ever downed, Ep1 through Ep3)
+      // gets its own finale line instead of the standard one — the only
+      // narrative branch point in the game, so it has to actually land
+      var sub = isSeasonFinale ?
+                (st.everDowned ? '"Ladies and gentlemen... this concludes our final broadcast." — static — nothing.' :
+                 '"Ladies and gentlemen... nobody went down tonight. Standards and Practices has no idea what to file this under." — static — nothing.') :
                 (isEp2 ? 'The Executive is cancelled. The network is yours.' :
                          'Episode 1 survived — The Producer is done for.');
       var winHi = highlightStat(st);
@@ -2352,6 +2388,10 @@
       ];
       if (winHi) w.push({ text: winHi.label + ': ' + winHi.text, font: 'bold 20px monospace', color: '#e8d44d', y: 316 });
       w = w.concat(statsLines(st, winHi ? 348 : 334)).concat(topFiveLines(st, winHi ? 418 : 404));
+      if (st.mailFound) {
+        w.push({ text: '📬 ' + st.mailFound + ' piece' + (st.mailFound === 1 ? '' : 's') + ' of fan mail collected',
+                 font: '17px monospace', color: '#f0d9a0', y: winHi ? 460 : 446 });
+      }
       if (st.room.ep === 'syn' && st.globalRank && st.globalRank !== 'sending') {
         w.push({ text: '🌍 GLOBAL RANK #' + st.globalRank + " on tonight's episode (#" + st.room.seed + ')',
                  font: 'bold 22px monospace', color: '#b78bff', y: 534 });
@@ -2359,7 +2399,7 @@
       var isEp1 = (st.room.ep || 1) === 1 && st.room.ep !== 'syn';
       w.push({ text: isSeasonFinale ? 'Thanks for watching SLASH TV. That was the whole show.' :
                      (isEp2 ? 'The run continues — your score carries over.' :
-                     (isEp1 ? 'ENDLESS ARENA UNLOCKED (press E) — or keep the run going:' :
+                     (isEp1 ? 'Endless Arena is always open (press E) — or keep the run going:' :
                               'Same seed, same studio — can you rank higher?')),
                font: 'bold 22px monospace', color: '#5bc8d6', y: 566 });
       w.push({ text: isEp2 ? 'PRESS FIRE — EPISODE 3: LIVE FINALE' :

@@ -293,6 +293,11 @@
       waves: []
     }
   };
+  for (var _rid in DA.ROOMS) DA.ROOMS[_rid].id = _rid;   // self-reference, used by DA.roomDeaths
+  // deaths-per-room this session (main.js increments on startDying) — the
+  // one bit of difficulty that reacts to how the run is actually going,
+  // deliberately small and bounded (see startWave below)
+  DA.roomDeaths = {};
 
   // Procedural wave for the Endless Arena. n starts at 0 and never stops.
   DA.endlessWave = function (n) {
@@ -347,6 +352,12 @@
     var coop = DA.state && DA.state.players && DA.state.players.length > 1;
     var countMult = coop ? 3.6 : 1, paceMult = coop ? 0.8 : 1;
     var BURST_MULT = 1.2;   // bigger packs, in every mode — a wave should hit like a wave
+    // a small, bounded ease for a room the player keeps failing THIS
+    // session — pacing only, never count or burst size, so the fight
+    // stays the same size and shape, just a little less relentless.
+    // Capped at +30% spacing so it can never compound indefinitely.
+    var deaths = (wm.room.id && DA.roomDeaths[wm.room.id]) || 0;
+    if (deaths >= 2) paceMult *= Math.min(1.3, 1 + (deaths - 1) * 0.1);
     wm.spawners = wave.groups.map(function (g) {
       return { type: g.type, left: Math.round(g.count * countMult),
                interval: g.interval * paceMult, speed: g.speed,

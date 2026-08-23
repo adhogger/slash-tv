@@ -2,7 +2,7 @@
   // Audience drops: the crowd throws sponsor gifts into the arena mid-combat.
   // Gun crates ('gun_smg' etc.) swap the player's weapon for 30 combat-seconds.
   var GUN_TYPES = ['triple', 'smg', 'shotgun', 'minigun', 'railgun', 'flamer', 'rocket'];
-  var COLORS = { boots: '#4cc9f0', heart: '#d43a4b', shield: '#9ad7ff', bomb: '#ffb020' };
+  var COLORS = { boots: '#4cc9f0', heart: '#d43a4b', shield: '#9ad7ff', bomb: '#ffb020', mail: '#f0d9a0' };
   var DURATION = 30;       // seconds of gun/boots effect (only ticks during combat)
   var SHIELD_TIME = 8;     // shorter: total protection is strong
   var LIFETIME = 12;       // seconds before an unclaimed drop despawns
@@ -13,8 +13,35 @@
   }
   function labelOf(type) {
     if (type.indexOf('gun_') === 0) return DA.GUNS[type.slice(4)].label;
+    if (type === 'mail') return 'FAN MAIL';
     return type.toUpperCase();
   }
+
+  // Fan mail: a purely optional collectible, never part of the combat drop
+  // pool — DA.spawnMail (called on room entry, see main.js) is the only
+  // thing that creates one. No gameplay effect beyond score, so skipping it
+  // never costs a run, only a line in the end-of-show tally.
+  var MAIL_FLAVOR = [
+    "FAN MAIL: \"PLEASE DON'T DIE, I HAVE MONEY ON YOU.\"",
+    'FAN MAIL: A CRAYON DRAWING OF YOU, MOSTLY ACCURATE.',
+    "FAN MAIL: \"CAN YOU SIGN THIS? IT'S FOR MY WILL.\"",
+    'FAN MAIL: A COMPLAINT ABOUT THE LIGHTING, SOMEHOW.',
+    "FAN MAIL: \"MY THERAPIST SAYS I SHOULDN'T WATCH THIS.\"",
+    'FAN MAIL: A COUPON FOR A SPONSOR THAT NO LONGER EXISTS.'
+  ];
+  DA.collectMail = function (st) {
+    st.mailFound = (st.mailFound || 0) + 1;
+    st.score += 250;
+    if (DA.announce) DA.announce(MAIL_FLAVOR[Math.floor(Math.random() * MAIL_FLAVOR.length)]);
+  };
+  // ~35% of non-boss rooms, never in Endless (no discrete "rooms" to tuck
+  // one into there) — tucked at a random point, same as combat drops
+  DA.spawnMail = function (st) {
+    if (st.room.boss || st.room.endless || Math.random() >= 0.35) return;
+    st.powerups.push({ id: DA.newId(), type: 'mail', t: 999,
+                       x: DA.rand(DA.ARENA.x0 + 120, DA.ARENA.x1 - 120),
+                       y: DA.rand(DA.ARENA.y0 + 120, DA.ARENA.y1 - 120) });
+  };
 
   // hearts never drop when the meter is full; the same gun never drops twice
   // in a row, and never the one the player is already holding
@@ -93,6 +120,7 @@
         if (pl.downed) continue;
         if (!DA.circleHit(pu.x, pu.y, 22, pl.x, pl.y, pl.r)) continue;
         if (pu.type === 'bomb') DA.detonateBomb(st);
+        else if (pu.type === 'mail') DA.collectMail(st);
         else DA.applyPowerup(pl, pu.type);
         if (DA.burst) DA.burst(pu.x, pu.y, colorOf(pu.type), 14);
         if (DA.audio) DA.audio.pickup();
@@ -131,6 +159,12 @@
         ctx.arc(-5, -3, 6.5, 0, 7); ctx.arc(5, -3, 6.5, 0, 7);
         ctx.moveTo(-11, 0); ctx.lineTo(0, 13); ctx.lineTo(11, 0); ctx.closePath();
         ctx.fill();
+      } else if (pu.type === 'mail') {                // envelope: body + peaked flap
+        ctx.fillRect(-11, -8, 22, 16);
+        ctx.strokeStyle = '#22222c'; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-11, -8); ctx.lineTo(0, 2); ctx.lineTo(11, -8);
+        ctx.stroke();
       } else {                                        // gun crate
         if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(-11, -11, 22, 22, 5); ctx.fill(); }
         else ctx.fillRect(-11, -11, 22, 22);
