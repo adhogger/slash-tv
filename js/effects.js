@@ -136,11 +136,13 @@
   // centre of the screen stays clear for gameplay callouts.
   // speaker: omitted = the host; or a boss type ('producer'/'executive'/
   // 'algorithm') — the window becomes BOSS CAM, and during a boss entrance
-  // the fight holds until it leaves the screen.
-  DA.hostSay = function (text, speaker, dur) {
+  // the fight holds until it leaves the screen. monsterType: an enemy type
+  // string — the window becomes CAST SPOTLIGHT and shows that monster
+  // (drawn live via DA.drawEnemies, same as the bestiary) instead of a face.
+  DA.hostSay = function (text, speaker, dur, monsterType) {
     if (!text) return;
     var t = dur || 4.6;
-    DA.fx.host = { text: text, lines: null, t: t, max: t, speaker: speaker || 'host' };
+    DA.fx.host = { text: text, lines: null, t: t, max: t, speaker: speaker || 'host', monsterType: monsterType };
   };
   try { DA.fx.shakeOn = localStorage.getItem('deadset_shake') !== '0'; }
   catch (e) { DA.fx.shakeOn = true; }

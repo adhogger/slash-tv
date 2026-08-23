@@ -53,16 +53,17 @@
     var skin = white ? '#ffffff' : L.skin;
     var body = white ? '#ffffff' : L.body;
 
-    // FEET: alternating steps poking out under the body, along +x
+    // FEET: alternating steps poking out under the body, along +x — angular
+    // kite-shaped wedges instead of ellipses
     g.fillStyle = white ? '#ffffff' : shade(L.skin, 0.7);
     for (var fs = -1; fs <= 1; fs += 2) {
       g.beginPath();
-      g.ellipse(r * 0.2 + swing * fs * r * 0.28, fs * r * 0.5,
-                r * 0.3, r * 0.2, 0, 0, 7);
+      DA.polyPath(g, r * 0.2 + swing * fs * r * 0.28, fs * r * 0.5, r * 0.32, r * 0.22, 4, 0.78, 0, rng);
       g.fill();
     }
 
-    // ARMS: two segments — upper arm + forearm reaching forward, opposite sway
+    // ARMS: two segments — upper arm + forearm reaching forward, opposite sway.
+    // Square caps (not round) so every joint reads as a hard angle.
     var back = type === 'sprinter';
     for (var s2 = -1; s2 <= 1; s2 += 2) {
       var shX = Math.cos(s2 * 1.5) * r * 0.75, shY = Math.sin(s2 * 1.5) * r * 0.75;
@@ -72,32 +73,35 @@
       var foreA = armA + (back ? -s2 * 0.35 : s2 * 0.2) - swing * 0.15 * s2;
       var haX = elX + Math.cos(foreA) * r * 0.8, haY = elY + Math.sin(foreA) * r * 0.8;
       g.strokeStyle = skin;
-      g.lineCap = 'round';
+      g.lineCap = 'butt';
+      g.lineJoin = 'miter';
       g.lineWidth = Math.max(2.6, r * 0.34);
       g.beginPath(); g.moveTo(shX, shY); g.lineTo(elX, elY); g.stroke();
       g.lineWidth = Math.max(2.2, r * 0.27);
       g.beginPath(); g.moveTo(elX, elY); g.lineTo(haX, haY); g.stroke();
-      g.fillStyle = white ? '#ffffff' : shade(L.skin, 1.18);   // grasping hand
-      g.beginPath(); g.arc(haX, haY, r * 0.2, 0, 7); g.fill();
+      g.fillStyle = white ? '#ffffff' : shade(L.skin, 1.18);   // grasping hand — a small shard
+      g.beginPath(); DA.polyPath(g, haX, haY, r * 0.22, r * 0.22, 5, foreA, 0.12, rng); g.fill();
     }
-    if (type === 'brute') {                     // shoulder slabs
+    if (type === 'brute') {                     // shoulder slabs — angular plates
       g.fillStyle = skin;
       for (var bs = -1; bs <= 1; bs += 2) {
-        g.beginPath();
-        g.arc(Math.cos(bs * 1.35) * r * 0.85, Math.sin(bs * 1.35) * r * 0.85, r * 0.42, 0, 7);
-        g.fill();
+        var bsx = Math.cos(bs * 1.35) * r * 0.85, bsy = Math.sin(bs * 1.35) * r * 0.85;
+        g.beginPath(); DA.polyPath(g, bsx, bsy, r * 0.46, r * 0.42, 5, bs * 0.6, 0.1, rng); g.fill();
       }
     }
 
-    // BODY: two-tone shaded disc (lit from the upper-left key light)
+    // BODY: two-tone shaded faceted hull (lit from the upper-left key light)
+    // — an 8-sided plate instead of a disc, with a light jag per variant so
+    // no two builds of the same type look machine-stamped
     var grad = g.createRadialGradient(-r * 0.35, -r * 0.35, r * 0.15, 0, 0, r * bob * 1.15);
     grad.addColorStop(0, white ? '#ffffff' : shade(L.body, 1.22));
     grad.addColorStop(0.7, body);
     grad.addColorStop(1, white ? '#f0f0f0' : shade(L.body, 0.72));
     g.fillStyle = grad;
-    g.beginPath(); g.arc(0, 0, r * bob, 0, 7); g.fill();
+    g.beginPath(); DA.polyPath(g, 0, 0, r * bob, r * bob, 8, 0.39, 0.08, rng); g.fill();
     g.strokeStyle = 'rgba(0,0,0,0.4)';
     g.lineWidth = 1.6;
+    g.lineJoin = 'miter';
     g.stroke();
 
     if (!white) {
@@ -116,35 +120,38 @@
         }
         g.closePath(); g.fill();
       }
-      // WOUNDS: dried gashes
+      // WOUNDS: dried gashes — jagged 3-sided shards, not soft ellipses
       g.fillStyle = 'rgba(96, 16, 24, 0.85)';
       var gashes = 1 + Math.floor(rng() * 3);
       for (var w2 = 0; w2 < gashes; w2++) {
         var wa = rng() * 6.283, wd = r * (0.3 + rng() * 0.4);
         g.beginPath();
-        g.ellipse(Math.cos(wa) * wd, Math.sin(wa) * wd, r * 0.16, r * 0.07, rng() * 3, 0, 7);
+        DA.polyPath(g, Math.cos(wa) * wd, Math.sin(wa) * wd, r * 0.17, r * 0.09, 3, wa, 0.2, rng);
         g.fill();
       }
     }
 
-    if (type === 'boomer') {                    // bloated belly (strobe overlaid live)
+    if (type === 'boomer') {                    // bloated belly (strobe overlaid live) — a swollen plate
       g.fillStyle = white ? '#ffffff' : '#f0a75e';
-      g.beginPath(); g.arc(-r * 0.12, r * 0.16, r * 0.55, 0, 7); g.fill();
+      g.beginPath(); DA.polyPath(g, -r * 0.12, r * 0.16, r * 0.56, r * 0.56, 6, 0.2, 0.06, rng); g.fill();
       g.strokeStyle = 'rgba(0,0,0,0.18)'; g.lineWidth = 1; g.stroke();
     }
 
-    // HEAD: shaded skull leaning into the walk, dead eyes, per-type jaw
+    // HEAD: shaded skull leaning into the walk, dead eyes, per-type jaw —
+    // a faceted 7-sided plate instead of a round skull
     var hr = type === 'brute' ? r * 0.4 : r * 0.55;
     var hx = r * 0.5, hy = swing * r * 0.06;    // tiny head-sway with the gait
     var hgrad = g.createRadialGradient(hx - hr * 0.4, hy - hr * 0.4, hr * 0.1, hx, hy, hr * 1.1);
     hgrad.addColorStop(0, white ? '#ffffff' : shade(L.skin, 1.25));
     hgrad.addColorStop(1, white ? '#f0f0f0' : shade(L.skin, 0.8));
     g.fillStyle = hgrad;
-    g.beginPath(); g.arc(hx, hy, hr, 0, 7); g.fill();
-    g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 1.2; g.stroke();
-    if (!white) {                               // matted hair tufts on the scalp
+    g.beginPath(); DA.polyPath(g, hx, hy, hr, hr, 7, 0.45, 0.07, rng); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 1.2; g.lineJoin = 'miter'; g.stroke();
+    if (!white) {                               // matted hair tufts — a jagged wedge on the scalp
       g.fillStyle = shade(L.cloth, 0.8);
-      g.beginPath(); g.arc(hx - hr * 0.45, hy, hr * 0.62, 1.9, 4.6); g.lineTo(hx - hr * 0.2, hy); g.closePath(); g.fill();
+      g.beginPath();
+      DA.polyPath(g, hx - hr * 0.45, hy, hr * 0.62, hr * 0.62, 5, 3.3, 0.15, rng);
+      g.fill();
     }
     g.fillStyle = '#12120e';
     var eye = Math.max(1.6, hr * 0.3);
@@ -152,7 +159,7 @@
     g.fillRect(hx + hr * 0.32 - eye / 2, hy + hr * 0.48 - eye / 2, eye, eye);
     if (type === 'spitter' || type === 'gusher') {   // resting jaw (bulge overlaid live)
       g.fillStyle = white ? '#e8e8e8' : '#2a2e18';
-      g.beginPath(); g.arc(hx + hr * 0.6, hy, hr * 0.35, 0, 7); g.fill();
+      g.beginPath(); DA.polyPath(g, hx + hr * 0.6, hy, hr * 0.36, hr * 0.36, 5, 0, 0.08, rng); g.fill();
     }
     return c;
   }

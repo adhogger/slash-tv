@@ -60,7 +60,6 @@
   // climb (the audience knows you didn't earn those). Boss takes a chunk.
   DA.detonateBomb = function (st) {
     if (DA.addShake) DA.addShake(22);
-    if (DA.announce) DA.announce('BOOM! COURTESY OF GRUEL™');
     if (DA.audio) { DA.audio.roar(); if (DA.audio.cheer) DA.audio.cheer(); }
     for (var i = st.enemies.length - 1; i >= 0; i--) {
       var e = st.enemies[i];
@@ -105,7 +104,6 @@
         st.powerups.push({ id: DA.newId(), type: type, t: LIFETIME,
                            x: DA.rand(DA.ARENA.x0 + 120, DA.ARENA.x1 - 120),
                            y: DA.rand(DA.ARENA.y0 + 120, DA.ARENA.y1 - 120) });
-        if (DA.announce) DA.announce('SPONSOR DROP!');
         if (DA.burst) DA.burst(st.powerups[st.powerups.length - 1].x,
                                st.powerups[st.powerups.length - 1].y, colorOf(type), 10);
       }

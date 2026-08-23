@@ -260,8 +260,8 @@
       ctx.beginPath(); ctx.ellipse(ex, ey + e.r * 0.8, e.r * 0.85, e.r * 0.34, 0, 0, 7); ctx.fill();
       if (e.elite) {                                  // gold champion ring, always pulsing
         ctx.strokeStyle = 'rgba(232, 212, 77, ' + (0.55 + Math.sin(performance.now() / 150) * 0.25).toFixed(3) + ')';
-        ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(ex, ey, e.r + 6, 0, 7); ctx.stroke();
+        ctx.lineWidth = 3; ctx.lineJoin = 'miter';
+        ctx.beginPath(); DA.polyPath(ctx, ex, ey, e.r + 6, e.r + 6, 8, 0.39); ctx.stroke();
       }
       if (e.type === 'stalker') {                     // wisps trailing off the back
         ctx.fillStyle = '#584a80';
@@ -269,7 +269,7 @@
         for (var w = 1; w <= 2; w++) {
           ctx.globalAlpha *= 0.55;
           ctx.beginPath();
-          ctx.arc(ex - ch * e.r * 0.7 * w, ey - sh * e.r * 0.7 * w, e.r * (1 - w * 0.3), 0, 7);
+          DA.polyPath(ctx, ex - ch * e.r * 0.7 * w, ey - sh * e.r * 0.7 * w, e.r * (1 - w * 0.3), e.r * (1 - w * 0.3), 5, w, 0.1);
           ctx.fill();
         }
         ctx.globalAlpha = keepA;
@@ -286,24 +286,24 @@
         ctx.restore();
       } else {                                        // headless / unknown type fallback
         ctx.fillStyle = e.hitFlash > 0 ? '#ffffff' : e.color;
-        ctx.beginPath(); ctx.arc(ex, ey, e.r, 0, 7); ctx.fill();
+        ctx.beginPath(); DA.polyPath(ctx, ex, ey, e.r, e.r, 8, 0.39); ctx.fill();
       }
       if (e.elite) {                                  // gold body outline on champions
         ctx.strokeStyle = '#e8d44d';
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(ex, ey, e.r, 0, 7); ctx.stroke();
+        ctx.lineWidth = 2; ctx.lineJoin = 'miter';
+        ctx.beginPath(); DA.polyPath(ctx, ex, ey, e.r, e.r, 8, 0.39); ctx.stroke();
       }
       var lit = e.fuse != null && Math.floor(e.fuse * 12) % 2 === 0;
       if (lit) {                                      // fuse strobe washes over the body
         ctx.fillStyle = 'rgba(255, 243, 176, 0.6)';
-        ctx.beginPath(); ctx.arc(ex, ey, e.r * 1.05, 0, 7); ctx.fill();
+        ctx.beginPath(); DA.polyPath(ctx, ex, ey, e.r * 1.05, e.r * 1.05, 8, 0.39); ctx.fill();
       }
       if (wind > 0) {                                 // live jaw bulge while a glob winds up
         var hr = e.r * 0.55;
         var hx = ex + ch * e.r * 0.5, hy = ey + sh * e.r * 0.5;
         ctx.fillStyle = '#b8d44a';
         ctx.beginPath();
-        ctx.arc(hx + ch * hr * 0.6, hy + sh * hr * 0.6, hr * (0.35 + wind * 0.55), 0, 7);
+        DA.polyPath(ctx, hx + ch * hr * 0.6, hy + sh * hr * 0.6, hr * (0.35 + wind * 0.55), hr * (0.35 + wind * 0.55), 5, 0, 0.08);
         ctx.fill();
       }
       ctx.globalAlpha = 1;

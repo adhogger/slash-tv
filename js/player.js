@@ -89,14 +89,14 @@
     ctx.translate(p.x, p.y);
     if (p.bootsT > 0) {                              // boots trail
       ctx.fillStyle = 'rgba(76, 201, 240, 0.35)';
-      ctx.beginPath(); ctx.arc(-p.vx * 0.03, -p.vy * 0.03, p.r + 3, 0, 7); ctx.fill();
+      ctx.beginPath(); DA.polyPath(ctx, -p.vx * 0.03, -p.vy * 0.03, p.r + 3, p.r + 3, 8, 0.39); ctx.fill();
     }
     if (p.shieldT > 0) {                             // shield bubble
       var fading = p.shieldT < 2 && Math.floor(p.shieldT * 6) % 2 === 0;
       if (!fading) {
         ctx.strokeStyle = 'rgba(154, 215, 255, ' + (0.6 + Math.sin(performance.now() / 120) * 0.25) + ')';
-        ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(0, 0, p.r + 7, 0, 7); ctx.stroke();
+        ctx.lineWidth = 3; ctx.lineJoin = 'miter';
+        ctx.beginPath(); DA.polyPath(ctx, 0, 0, p.r + 7, p.r + 7, 8, 0.39); ctx.stroke();
       }
     }
     var seat2 = p.remote || p.localP2;    // seat 2 (human): local co-op partner OR online guest
@@ -106,8 +106,8 @@
       ctx.globalAlpha = 0.85;
       ctx.scale(1, 0.6);
       ctx.fillStyle = p.bot ? '#7fa3b5' : (seat2 ? '#a89ac2' : '#c9c9c0');
-      ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 7); ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); DA.polyPath(ctx, 0, 0, p.r, p.r, 8, 0.39); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2; ctx.lineJoin = 'miter'; ctx.stroke();
       ctx.restore();                                   // back to world space (p.x/p.y absolute)
       DA.drawCorpseLimbs(ctx, p.x, p.y, p.r, deadA);
       if (p.reviveP > 0) {                           // the helping-hand ring
@@ -133,9 +133,9 @@
     ctx.rotate(Math.atan2(p.aimY, p.aimX));
     ctx.fillStyle = p.bot ? '#a8c8d8' :              // CAM-BOT runs brushed steel
                     (seat2 ? '#b78bff' : '#f2f2e9');  // seat 2 wears purple, seat 1 wears white
-    ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 7); ctx.fill();
+    ctx.beginPath(); DA.polyPath(ctx, 0, 0, p.r, p.r, 8, 0.39); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.4)';             // outline
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2; ctx.lineJoin = 'miter';
     ctx.stroke();
     if (p.bot) {                                     // camera lens + antenna
       ctx.fillStyle = '#1a2630';
@@ -158,19 +158,22 @@
     ctx.fillStyle = (DA.GUNS[p.gun] || DA.GUNS.pistol).color; // sash shows current gun
     ctx.fillRect(-p.r, -3, p.r * 2, 6);
     if (!p.bot) {
-      ctx.fillStyle = '#e0b08c';                     // hands gripping the gun
-      ctx.beginPath(); ctx.arc(p.r * 0.7, -3.5, 3, 0, 7); ctx.fill();
-      ctx.beginPath(); ctx.arc(p.r * 0.7, 3.5, 3, 0, 7); ctx.fill();
+      ctx.fillStyle = '#e0b08c';                     // hands gripping the gun — small angular shards
+      ctx.beginPath(); DA.polyPath(ctx, p.r * 0.7, -3.5, 3, 3, 5, 0); ctx.fill();
+      ctx.beginPath(); DA.polyPath(ctx, p.r * 0.7, 3.5, 3, 3, 5, 0.6); ctx.fill();
     }
     drawHeldGun(ctx, p.gun, p.r);                    // a shotgun LOOKS like a shotgun
-    if (!p.bot) {                                    // head: hair at the back, face forward
+    if (!p.bot) {                                    // head: hair at the back, face forward —
+                                                       // a faceted plate instead of a round skull
       var hr = p.r * 0.52;
       ctx.fillStyle = '#e0b08c';
-      ctx.beginPath(); ctx.arc(0, 0, hr, 0, 7); ctx.fill();
+      ctx.beginPath(); DA.polyPath(ctx, 0, 0, hr, hr, 7, 0.45); ctx.fill();
       ctx.fillStyle = seat2 ? '#7a4f2a' : '#3a2c20';
-      ctx.beginPath(); ctx.arc(0, 0, hr + 0.5, 1.9, 4.4); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(0, 0, hr, 0, 7); ctx.stroke();
+      ctx.beginPath();
+      DA.polyPath(ctx, -hr * 0.15, 0, hr * 0.85, hr * 0.85, 5, 3.3);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.5; ctx.lineJoin = 'miter';
+      ctx.beginPath(); DA.polyPath(ctx, 0, 0, hr, hr, 7, 0.45); ctx.stroke();
     }
     var g = DA.GUNS[p.gun] || DA.GUNS.pistol;        // per-gun muzzle flash shapes
     if (p.firing && p.fireCooldown > g.rate - 0.05) drawMuzzleFlash(ctx, p.gun, p.r);

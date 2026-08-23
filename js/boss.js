@@ -170,13 +170,13 @@
     }
     ctx.save();
     ctx.translate(b.x, b.y + Math.sin(b.wobble) * 6);
-    ctx.fillStyle = '#181c22';                        // drone chassis
-    ctx.beginPath(); ctx.ellipse(0, 0, b.r, b.r * 0.72, 0, 0, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(47, 215, 196, 0.6)'; ctx.lineWidth = 2; ctx.stroke();
-    ctx.fillStyle = b.color;                          // the lens — always watching
-    ctx.beginPath(); ctx.arc(0, 0, b.r * 0.42, 0, 7); ctx.fill();
+    ctx.fillStyle = '#181c22';                        // drone chassis — angular housing
+    ctx.beginPath(); DA.polyPath(ctx, 0, 0, b.r, b.r * 0.72, 6, 0); ctx.fill();
+    ctx.strokeStyle = 'rgba(47, 215, 196, 0.6)'; ctx.lineWidth = 2; ctx.lineJoin = 'miter'; ctx.stroke();
+    ctx.fillStyle = b.color;                          // the lens — always watching, hex-iris
+    ctx.beginPath(); DA.polyPath(ctx, 0, 0, b.r * 0.42, b.r * 0.42, 6, 0); ctx.fill();
     ctx.fillStyle = '#0a0a0f';
-    ctx.beginPath(); ctx.arc(0, 0, b.r * 0.18, 0, 7); ctx.fill();
+    ctx.beginPath(); DA.polyPath(ctx, 0, 0, b.r * 0.18, b.r * 0.18, 6, 0); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.beginPath(); ctx.arc(-b.r * 0.08, -b.r * 0.08, b.r * 0.06, 0, 7); ctx.fill();
     for (var wi = -1; wi <= 1; wi += 2) {              // rotor arms
@@ -258,34 +258,37 @@
       ctx.strokeStyle = '#22222c'; ctx.lineWidth = 3; // mic stem + foam ball
       ctx.beginPath(); ctx.moveTo(r * 1.35, -r * 0.3); ctx.lineTo(r * 1.6, -r * 0.22); ctx.stroke();
       ctx.fillStyle = '#1a1a20';
-      ctx.beginPath(); ctx.arc(r * 1.68, -r * 0.2, r * 0.18, 0, 7); ctx.fill();
+      ctx.beginPath(); DA.polyPath(ctx, r * 1.68, -r * 0.2, r * 0.18, r * 0.18, 6, 0); ctx.fill();
     }
     ctx.fillStyle = suit;                             // shoulder pads either side
-    ctx.beginPath(); ctx.arc(0, -r * 0.82, r * 0.4, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.arc(0, r * 0.82, r * 0.4, 0, 7); ctx.fill();
+    ctx.beginPath(); DA.polyPath(ctx, 0, -r * 0.82, r * 0.4, r * 0.4, 5, 4.7); ctx.fill();
+    ctx.beginPath(); DA.polyPath(ctx, 0, r * 0.82, r * 0.4, r * 0.4, 5, 1.6); ctx.fill();
     var sg = ctx.createRadialGradient(-r * 0.35, -r * 0.35, r * 0.15, 0, 0, r * 1.12);
     sg.addColorStop(0, suitDark === '#5a68c9' ? '#98a6ff' : '#f0c65a');   // fabric sheen
     sg.addColorStop(0.65, suit);
     sg.addColorStop(1, suitDark);
-    ctx.fillStyle = sg;                               // suit body, key-lit
-    ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
+    ctx.fillStyle = sg;                               // suit body, key-lit — an 8-sided plate
+    ctx.beginPath(); DA.polyPath(ctx, 0, 0, r, r, 8, 0.39); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.4)';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 3; ctx.lineJoin = 'miter';
     ctx.stroke();
     ctx.fillStyle = '#f2f2e9';                        // shirt front
-    ctx.beginPath(); ctx.arc(r * 0.35, 0, r * 0.5, 0, 7); ctx.fill();
+    ctx.beginPath(); DA.polyPath(ctx, r * 0.35, 0, r * 0.5, r * 0.5, 6, 0); ctx.fill();
     ctx.fillStyle = suitDark;                         // lapels closing over the shirt
     ctx.beginPath(); ctx.moveTo(r * 0.1, -r * 0.5); ctx.lineTo(r * 0.9, -r * 0.28); ctx.lineTo(r * 0.15, -r * 0.05); ctx.closePath(); ctx.fill();
     ctx.beginPath(); ctx.moveTo(r * 0.1, r * 0.5); ctx.lineTo(r * 0.9, r * 0.28); ctx.lineTo(r * 0.15, r * 0.05); ctx.closePath(); ctx.fill();
     ctx.fillStyle = b.type === 'executive' ? '#d4a017' : '#8c1c2c';   // the tie
     ctx.fillRect(r * 0.12, -3.5, r * 0.7, 7);
-    var hr = r * 0.5;                                 // head, pushed toward the camera line
+    var hr = r * 0.5;                                 // head, pushed toward the camera line —
+                                                        // a faceted plate, not a round skull
     ctx.fillStyle = '#e0b08c';
-    ctx.beginPath(); ctx.arc(r * 0.42, 0, hr, 0, 7); ctx.fill();
+    ctx.beginPath(); DA.polyPath(ctx, r * 0.42, 0, hr, hr, 7, 0.45); ctx.fill();
     ctx.fillStyle = b.type === 'executive' ? '#2c2c34' : '#b8b0a0';   // slicked hair, back of skull
-    ctx.beginPath(); ctx.arc(r * 0.42, 0, hr + 0.5, 1.85, 4.45); ctx.lineTo(r * 0.42, 0); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(r * 0.42, 0, hr, 0, 7); ctx.stroke();
+    ctx.beginPath();
+    DA.polyPath(ctx, r * 0.27, 0, hr * 0.85, hr * 0.85, 5, 3.3);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 2; ctx.lineJoin = 'miter';
+    ctx.beginPath(); DA.polyPath(ctx, r * 0.42, 0, hr, hr, 7, 0.45); ctx.stroke();
     ctx.fillStyle = '#111';                           // shades: visor vs twin lenses
     if (b.type === 'executive') {
       ctx.fillRect(r * 0.42 + hr * 0.15, -hr * 0.75, hr * 0.42, hr * 1.5);

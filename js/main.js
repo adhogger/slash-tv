@@ -90,6 +90,7 @@
     st.enemyBullets = [];
     st.powerups = [];
     st.powerupT = undefined;
+    if (DA.spawnProps) DA.spawnProps(st);     // real, shootable scenery for this room's theme
     st.waveManager = DA.makeWaveManager(st.room);
     st.roomCleared = false;
     st.bossDead = false;
@@ -853,7 +854,9 @@
       if (!st.seenTypes[newType]) {
         st.seenTypes[newType] = true;
         var line = DA.threatLine && DA.threatLine(newType);
-        if (line && DA.announce) DA.announce(line);
+        // CAST SPOTLIGHT: the monster on screen in the presenter's window,
+        // not a yellow popup line — same corner, same caption box
+        if (line && DA.hostSay) DA.hostSay(line, 'monster', 4.0, newType);
       }
     }
     var boss = findBoss(st);
@@ -897,6 +900,7 @@
     if (DA.updateHazards) DA.updateHazards(st, dt);
     DA.updateEnemyBullets(st.enemyBullets, st.players, dt, st);
     DA.resolveCombat(st);
+    if (DA.resolveProps) DA.resolveProps(st);
     DA.updateCombo(st, dt);
     if (st.introCardT > 0) st.introCardT -= dt;
     if (st.combo > st.stats.maxCombo) st.stats.maxCombo = st.combo;
@@ -1667,12 +1671,13 @@
     ctx.restore();
     ctx.globalAlpha = a;
     var bossCam = hst.speaker && hst.speaker !== 'host';
+    var camLabel = hst.monsterType ? 'CAST SPOTLIGHT' : (bossCam ? 'BOSS CAM' : 'HOST CAM');
     ctx.strokeStyle = bossCam ? '#d43a4b' : '#3a3a48'; ctx.lineWidth = 2; ctx.stroke();
     ctx.textAlign = 'left';
     ctx.font = 'bold 11px monospace';
     ctx.fillStyle = '#d43a4b';
     if (Math.floor(hst.t * 3) % 2 === 0) { ctx.beginPath(); ctx.arc(x + 15, y + 13, 3.5, 0, 7); ctx.fill(); }
-    ctx.fillText(bossCam ? 'BOSS CAM' : 'HOST CAM', x + 24, y + 17);
+    ctx.fillText(camLabel, x + 24, y + 17);
     var by = y + 26;                                    // the talking head
     ctx.fillStyle = '#1c1c28';
     ctx.fillRect(bx, by, bs, bs);
@@ -1680,19 +1685,20 @@
     ctx.beginPath(); ctx.rect(bx, by, bs, bs); ctx.clip();
     var now = performance.now();
     var open = Math.abs(Math.sin(now / 90)) * (hst.t > 0.6 ? 1 : 0.15);
-    if (hst.speaker === 'algorithm') {                  // the drone: a lens, not a face
+    if (hst.speaker === 'algorithm') {                  // the drone: a lens, not a face —
+                                                          // an angular housing, hex-iris lens
       ctx.fillStyle = '#181c22';
-      ctx.beginPath(); ctx.ellipse(bx + bs / 2, by + bs / 2, bs * 0.42, bs * 0.3, 0, 0, 7); ctx.fill();
-      ctx.strokeStyle = 'rgba(47, 215, 196, 0.7)'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); DA.polyPath(ctx, bx + bs / 2, by + bs / 2, bs * 0.44, bs * 0.32, 6, 0); ctx.fill();
+      ctx.strokeStyle = 'rgba(47, 215, 196, 0.7)'; ctx.lineWidth = 2; ctx.lineJoin = 'miter'; ctx.stroke();
       ctx.strokeStyle = '#3a4450'; ctx.lineWidth = 3;   // rotor arms
       ctx.beginPath();
       ctx.moveTo(bx + 10, by + 16); ctx.lineTo(bx + bs / 2 - 18, by + bs / 2 - 10);
       ctx.moveTo(bx + bs - 10, by + 16); ctx.lineTo(bx + bs / 2 + 18, by + bs / 2 - 10);
       ctx.stroke();
       ctx.fillStyle = '#2fd7c4';                        // the lens dilates as it "speaks"
-      ctx.beginPath(); ctx.arc(bx + bs / 2, by + bs / 2, bs * 0.16 + open * 3, 0, 7); ctx.fill();
+      ctx.beginPath(); DA.polyPath(ctx, bx + bs / 2, by + bs / 2, bs * 0.16 + open * 3, bs * 0.16 + open * 3, 6, 0); ctx.fill();
       ctx.fillStyle = '#0a0a0f';
-      ctx.beginPath(); ctx.arc(bx + bs / 2, by + bs / 2, bs * 0.07 + open * 2, 0, 7); ctx.fill();
+      ctx.beginPath(); DA.polyPath(ctx, bx + bs / 2, by + bs / 2, bs * 0.07 + open * 2, bs * 0.07 + open * 2, 6, 0); ctx.fill();
       ctx.restore();
       ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
       ctx.strokeRect(bx, by, bs, bs);
@@ -1712,9 +1718,9 @@
       ctx.fillRect(bx + bs / 2 - 3.5, by + bs - 18, 7, 18);
       var ex = bx + bs / 2, ey = by + bs * 0.42, er = bs * 0.29;
       ctx.fillStyle = '#d8a988';
-      ctx.beginPath(); ctx.arc(ex, ey, er, 0, 7); ctx.fill();
+      ctx.beginPath(); DA.polyPath(ctx, ex, ey, er, er, 7, 0.4); ctx.fill();
       ctx.fillStyle = '#2c2c34';                        // corporate hair
-      ctx.beginPath(); ctx.arc(ex, ey - er * 0.28, er * 1.05, 3.3, 6.1); ctx.fill();
+      ctx.beginPath(); DA.polyPath(ctx, ex, ey - er * 0.28, er * 1.05, er * 1.05, 6, 3.7, 0.04); ctx.fill();
       ctx.fillStyle = '#111';                           // full-width visor
       ctx.fillRect(ex - er * 0.9, ey - er * 0.34, er * 1.8, er * 0.42);
       ctx.fillStyle = '#22222c';                        // phone welded to the ear
@@ -1726,6 +1732,21 @@
       ctx.strokeRect(bx, by, bs, bs);
       drawHostCaption(ctx, hst, x, y, w, bx, bs);
       if (glitch > 0.02) drawCamStatic(ctx, bx, by, bs, bs, glitch);   // static on the IMAGE only
+      ctx.globalAlpha = 1;
+      return;
+    }
+    if (hst.monsterType) {                              // CAST SPOTLIGHT: the monster itself,
+      var fake = DA.makeEnemy(hst.monsterType, 0, 0);    // drawn live — same renderer as the bestiary
+      fake.wobble = now / 200;
+      var mscale = Math.min(1.6, 26 / (fake.r || 16));
+      ctx.translate(bx + bs / 2, by + bs / 2);
+      ctx.scale(mscale, mscale);
+      if (DA.drawEnemies) DA.drawEnemies(ctx, [fake]);
+      ctx.restore();
+      ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
+      ctx.strokeRect(bx, by, bs, bs);
+      drawHostCaption(ctx, hst, x, y, w, bx, bs);
+      if (glitch > 0.02) drawCamStatic(ctx, bx, by, bs, bs, glitch);
       ctx.globalAlpha = 1;
       return;
     }
@@ -1756,12 +1777,12 @@
     ctx.fillStyle = '#c2185b';                          // power tie, louder decade
     ctx.fillRect(bx + bs / 2 - 3.5, by + bs - 16, 7, 16);
     var hx = bx + bs / 2, hy = by + bs * 0.42, hr = bs * 0.29;
-    ctx.fillStyle = '#e08a4e';                          // industrial fake tan
-    ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 7); ctx.fill();
+    ctx.fillStyle = '#e08a4e';                          // industrial fake tan — faceted, not round
+    ctx.beginPath(); DA.polyPath(ctx, hx, hy, hr, hr, 7, 0.4); ctx.fill();
     ctx.fillStyle = 'rgba(255, 205, 150, 0.45)';        // sunbed sheen on the brow
-    ctx.beginPath(); ctx.arc(hx - hr * 0.3, hy - hr * 0.35, hr * 0.35, 0, 7); ctx.fill();
+    ctx.beginPath(); DA.polyPath(ctx, hx - hr * 0.3, hy - hr * 0.35, hr * 0.35, hr * 0.35, 5, 0); ctx.fill();
     ctx.fillStyle = '#14100c';                          // jet-black lacquered helmet hair
-    ctx.beginPath(); ctx.arc(hx, hy - hr * 0.28, hr * 1.06, 3.25, 6.17); ctx.fill();
+    ctx.beginPath(); DA.polyPath(ctx, hx, hy - hr * 0.28, hr * 1.06, hr * 1.06, 6, 3.6, 0.05); ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.35)';         // the hair shine streak
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(hx, hy - hr * 0.28, hr * 0.88, 3.7, 4.5); ctx.stroke();
@@ -2070,6 +2091,7 @@
     drawArena(ctx, st);
     DA.drawFxUnder(ctx);
     if (DA.drawHazards) DA.drawHazards(ctx, st);
+    if (DA.drawProps) DA.drawProps(ctx, st.props);
     DA.drawPowerups(ctx, st.powerups);
     DA.drawBullets(ctx, st.bullets);
     DA.drawEnemyBullets(ctx, st.enemyBullets);
