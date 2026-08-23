@@ -225,6 +225,21 @@
       if (e.type === 'boomer') DA.boomerBlast(st, e.x, e.y); // chain reaction!
     }
   };
+  // Brutes go out in pieces: several gore chunks fly outward on death and
+  // can still hurt anyone they hit — a real dodgeable projectile (reusing
+  // the enemy-bullet system, same collision/damage as a spitter's glob),
+  // not an instant blast radius like a boomer.
+  DA.bruteGore = function (st, x, y) {
+    if (DA.burst) { DA.burst(x, y, '#9b6bb3', 20); DA.burst(x, y, '#6e4585', 10); }
+    if (DA.splat) DA.splat(x, y);
+    if (!st.enemyBullets) return;
+    var n = 5 + Math.floor(Math.random() * 2);
+    for (var i = 0; i < n; i++) {
+      var a = (i / n) * 6.283 + DA.rand(-0.3, 0.3);
+      DA.fireEnemyBullet(st.enemyBullets, x, y, Math.cos(a), Math.sin(a),
+                          { speed: DA.rand(220, 320), r: 7, color: '#6e4585' });
+    }
+  };
   // Zombies render from pre-baked sprite sheets (js/sprites.js): one drawImage
   // per body instead of ~15 live canvas ops, which is what pays for the
   // sprite-level detail. Dynamic effects stay live on top of the stamp.

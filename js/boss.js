@@ -283,9 +283,10 @@
                                                         // a faceted plate, not a round skull
     ctx.fillStyle = '#e0b08c';
     ctx.beginPath(); DA.polyPath(ctx, r * 0.42, 0, hr, hr, 7, 0.45); ctx.fill();
-    ctx.fillStyle = b.type === 'executive' ? '#2c2c34' : '#b8b0a0';   // slicked hair, back of skull
+    ctx.fillStyle = b.type === 'executive' ? '#2c2c34' : '#b8b0a0';   // slicked hair, back of skull —
+                                                                       // a wedge, not the whole head
     ctx.beginPath();
-    DA.polyPath(ctx, r * 0.27, 0, hr * 0.85, hr * 0.85, 5, 3.3);
+    DA.polyPath(ctx, r * 0.42, 0, hr + 0.5, hr + 0.5, 6, 1.85, 0, null, 0.414);
     ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 2; ctx.lineJoin = 'miter';
     ctx.beginPath(); DA.polyPath(ctx, r * 0.42, 0, hr, hr, 7, 0.45); ctx.stroke();

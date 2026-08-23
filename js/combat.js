@@ -53,6 +53,7 @@
       st.score += e.score;                    // splash kills: no combo bump
       if (DA.onKill) DA.onKill(st, e);
       if (e.type === 'boomer') DA.boomerBlast(st, e.x, e.y);
+      if (e.type === 'brute' && DA.bruteGore) DA.bruteGore(st, e.x, e.y);
     }
   };
   DA.resolveCombat = function (st) {
@@ -92,6 +93,7 @@
         if (DA.bumpCombo) DA.bumpCombo(st);
         if (DA.onKill) DA.onKill(st, e, b);
         if (e.type === 'boomer') DA.boomerBlast(st, e.x, e.y); // shot boomers still detonate
+        if (e.type === 'brute' && DA.bruteGore) DA.bruteGore(st, e.x, e.y);
         continue;
       }
       var ps = st.players || [p];

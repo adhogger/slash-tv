@@ -147,10 +147,11 @@
     g.fillStyle = hgrad;
     g.beginPath(); DA.polyPath(g, hx, hy, hr, hr, 7, 0.45, 0.07, rng); g.fill();
     g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 1.2; g.lineJoin = 'miter'; g.stroke();
-    if (!white) {                               // matted hair tufts — a jagged wedge on the scalp
+    if (!white) {                               // matted hair tufts — a jagged wedge on the scalp,
+                                                  // not a disc covering the whole head
       g.fillStyle = shade(L.cloth, 0.8);
       g.beginPath();
-      DA.polyPath(g, hx - hr * 0.45, hy, hr * 0.62, hr * 0.62, 5, 3.3, 0.15, rng);
+      DA.polyPath(g, hx - hr * 0.45, hy, hr * 0.62, hr * 0.62, 5, 1.9, 0.15, rng, 0.43);
       g.fill();
     }
     g.fillStyle = '#12120e';

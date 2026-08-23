@@ -40,13 +40,20 @@ var DA = {
   // scenery). jag adds per-vertex radius noise for a jagged, shattered edge
   // instead of a perfect regular shape; pass a seeded rng for a stable bake,
   // omit it for a fresh jitter every call. Caller does beginPath/fill/stroke.
-  polyPath: function (g, cx, cy, rx, ry, sides, rotation, jag, rnd) {
-    for (var i = 0; i <= sides; i++) {
+  // sweepFrac (0-1, default 1/full): draws only that fraction of the shape
+  // starting at `rotation` and closes back to (cx,cy) — a wedge instead of
+  // a closed ring, for shapes like a hair mass that shouldn't wrap all the
+  // way around (a full polygon there paints over the whole face).
+  polyPath: function (g, cx, cy, rx, ry, sides, rotation, jag, rnd, sweepFrac) {
+    var frac = sweepFrac == null ? 1 : sweepFrac;
+    var n = Math.max(1, Math.round(sides * frac));
+    for (var i = 0; i <= n; i++) {
       var a = (rotation || 0) + (i / sides) * Math.PI * 2;
       var jitter = jag ? 1 + ((rnd ? rnd() : Math.random()) * 2 - 1) * jag : 1;
       var px = cx + Math.cos(a) * rx * jitter, py = cy + Math.sin(a) * ry * jitter;
       if (i === 0) g.moveTo(px, py); else g.lineTo(px, py);
     }
+    if (frac < 1) g.lineTo(cx, cy);
     g.closePath();
   }
 };

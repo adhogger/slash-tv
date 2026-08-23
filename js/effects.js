@@ -484,13 +484,20 @@
   DA.onWaveStart = function (n) {
     if (n > 1) DA.announce('WAVE ' + n);   // wave 1 follows the room name: let it breathe
     if (DA.audio) DA.audio.wave();
-    // the presenter speaks ONCE per wave, a couple of seconds in
+    // the presenter speaks ONCE per wave, a few seconds in — and waits for
+    // any monster CAST SPOTLIGHT already using his window to actually
+    // finish first, so he doesn't cut one off early
     var st = DA.state;
     if (st && st.mode === 'playing' && DA.presenterQuip) {
       var line = DA.presenterQuip(st);
-      if (line) setTimeout(function () {
-        if (DA.state === st && st.mode === 'playing') DA.hostSay(line);
-      }, 2200);
+      if (line) {
+        var tryShow = function () {
+          if (DA.state !== st || st.mode !== 'playing') return;
+          if (DA.fx.host) { setTimeout(tryShow, 500); return; }   // still spotlighting — wait
+          DA.hostSay(line);
+        };
+        setTimeout(tryShow, 5000);
+      }
     }
   };
 })();

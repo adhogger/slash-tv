@@ -324,14 +324,18 @@
   // tick, a bouncing bass, and a DRIVING 16th-note arpeggio lead — upbeat,
   // not a dirge. Loops a classic Am-F-C-G. Cuts out the instant the first
   // room starts and the heartbeat takes over.
-  var MENU_BPM = 112, MENU_T = 60 / MENU_BPM, MENU_STEP = MENU_T / 4;
+  // Pushed faster and lower: root dropped 5 semitones, the arp pulled down
+  // a fifth so it sits closer to the bass instead of soaring above it, and
+  // both switched from 'square' (bright/buzzy) to 'triangle' (rounder,
+  // warmer) — reads as lower even where the actual pitch barely moves.
+  var MENU_BPM = 132, MENU_T = 60 / MENU_BPM, MENU_STEP = MENU_T / 4;
   var MENU_CHORDS = [0, -4, 3, -2];               // Am, F, C, G (semitones from A2)
   var MENU_BASS = [0, 0, 12, 7];                  // root-root-octave-fifth, one per beat
   var MENU_ARP = [
-    [12, 19, 15, 19],   // 16th-note cell over Am
-    [8, 15, 12, 15],    // over F
-    [15, 22, 19, 22],   // over C
-    [10, 17, 14, 17]    // over G
+    [5, 12, 8, 12],     // 16th-note cell over Am
+    [1, 8, 5, 8],        // over F
+    [8, 15, 12, 15],     // over C
+    [3, 10, 7, 10]       // over G
   ];
   var T123 = 60 / 123;                              // the show's canonical resting heart rate
   var beatNext = 0, beatNo = 0, menuNext = 0, menuStep = 0, menuHeartNext = 0;
@@ -353,10 +357,10 @@
         var sub = menuStep % 4;
         if (sub === 0) {                          // kick, once per beat — four on the floor
           noteAt(menuNext, 130, 0.09, 'sine', 0.14, 40);
-          noteAt(menuNext, hz(45 + MENU_CHORDS[bar] + MENU_BASS[beatIn]), MENU_STEP * 3.2, 'square', 0.14);
+          noteAt(menuNext, hz(40 + MENU_CHORDS[bar] + MENU_BASS[beatIn]), MENU_STEP * 3.2, 'triangle', 0.15);
         }
         if (sub === 2) noiseAt(menuNext, 0.035, 0.04, 7500);   // light off-beat tick
-        noteAt(menuNext, hz(45 + MENU_ARP[bar][sub]), MENU_STEP * 0.85, 'square', 0.1);
+        noteAt(menuNext, hz(40 + MENU_ARP[bar][sub]), MENU_STEP * 0.85, 'triangle', 0.11);
         menuStep++;
         menuNext += MENU_STEP;
       }
@@ -381,6 +385,13 @@
       // "resting" cadence, just the same lub-dub racing a little faster
       var T = k >= 0.5 ? T123 / 1.25 : T123;
       lub(beatNext, 0.55 + k * 0.35, T);
+      if (k > 0.35) {                             // a double hat, every other beat...
+        var hatEvery = k >= 1 ? 1 : 2;             // ...or every beat once things get dire (boss up)
+        if (beatNo % hatEvery === 0) {
+          noiseAt(beatNext + T / 2, 0.025, 0.03 + k * 0.045, 7000);
+          noiseAt(beatNext + T * 0.75, 0.02, 0.025 + k * 0.04, 7500);
+        }
+      }
       if (k >= 1 && beatNo % 4 === 2) noteAt(beatNext, hz(45), 0.14, 'square', 0.07); // boss stab
       beatNo++;
       beatNext += T;

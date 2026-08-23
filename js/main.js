@@ -90,7 +90,7 @@
     st.enemyBullets = [];
     st.powerups = [];
     st.powerupT = undefined;
-    if (DA.spawnProps) DA.spawnProps(st);     // real, shootable scenery for this room's theme
+    if (DA.spawnMines) DA.spawnMines(st);     // more likely the further into the show you get
     st.waveManager = DA.makeWaveManager(st.room);
     st.roomCleared = false;
     st.bossDead = false;
@@ -900,7 +900,7 @@
     if (DA.updateHazards) DA.updateHazards(st, dt);
     DA.updateEnemyBullets(st.enemyBullets, st.players, dt, st);
     DA.resolveCombat(st);
-    if (DA.resolveProps) DA.resolveProps(st);
+    if (DA.updateMines) DA.updateMines(st, dt);
     DA.updateCombo(st, dt);
     if (st.introCardT > 0) st.introCardT -= dt;
     if (st.combo > st.stats.maxCombo) st.stats.maxCombo = st.combo;
@@ -1719,8 +1719,8 @@
       var ex = bx + bs / 2, ey = by + bs * 0.42, er = bs * 0.29;
       ctx.fillStyle = '#d8a988';
       ctx.beginPath(); DA.polyPath(ctx, ex, ey, er, er, 7, 0.4); ctx.fill();
-      ctx.fillStyle = '#2c2c34';                        // corporate hair
-      ctx.beginPath(); DA.polyPath(ctx, ex, ey - er * 0.28, er * 1.05, er * 1.05, 6, 3.7, 0.04); ctx.fill();
+      ctx.fillStyle = '#2c2c34';                        // corporate hair — back wedge, not the whole head
+      ctx.beginPath(); DA.polyPath(ctx, ex, ey - er * 0.28, er * 1.05, er * 1.05, 6, 3.3, 0.04, null, 0.446); ctx.fill();
       ctx.fillStyle = '#111';                           // full-width visor
       ctx.fillRect(ex - er * 0.9, ey - er * 0.34, er * 1.8, er * 0.42);
       ctx.fillStyle = '#22222c';                        // phone welded to the ear
@@ -1781,8 +1781,9 @@
     ctx.beginPath(); DA.polyPath(ctx, hx, hy, hr, hr, 7, 0.4); ctx.fill();
     ctx.fillStyle = 'rgba(255, 205, 150, 0.45)';        // sunbed sheen on the brow
     ctx.beginPath(); DA.polyPath(ctx, hx - hr * 0.3, hy - hr * 0.35, hr * 0.35, hr * 0.35, 5, 0); ctx.fill();
-    ctx.fillStyle = '#14100c';                          // jet-black lacquered helmet hair
-    ctx.beginPath(); DA.polyPath(ctx, hx, hy - hr * 0.28, hr * 1.06, hr * 1.06, 6, 3.6, 0.05); ctx.fill();
+    ctx.fillStyle = '#14100c';                          // jet-black lacquered helmet hair —
+                                                          // a wedge round the back, not the whole head
+    ctx.beginPath(); DA.polyPath(ctx, hx, hy - hr * 0.28, hr * 1.06, hr * 1.06, 6, 3.25, 0.05, null, 0.465); ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.35)';         // the hair shine streak
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(hx, hy - hr * 0.28, hr * 0.88, 3.7, 4.5); ctx.stroke();
@@ -2091,7 +2092,7 @@
     drawArena(ctx, st);
     DA.drawFxUnder(ctx);
     if (DA.drawHazards) DA.drawHazards(ctx, st);
-    if (DA.drawProps) DA.drawProps(ctx, st.props);
+    if (DA.drawMines) DA.drawMines(ctx, st);
     DA.drawPowerups(ctx, st.powerups);
     DA.drawBullets(ctx, st.bullets);
     DA.drawEnemyBullets(ctx, st.enemyBullets);
