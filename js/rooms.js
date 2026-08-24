@@ -326,6 +326,19 @@
     return a;
   }
 
+  // NOTE: an earlier version of this merged every sub-wave's groups into
+  // one spawner set with the widest door count from the start. That made
+  // rooms meaningfully harder, not just differently paced — more doors
+  // active simultaneously plus both waves' full enemy counts overlapping
+  // from the very start front-loaded far more concurrent pressure than
+  // either wave alone was tuned for (confirmed via headless test: enemy
+  // count snowballed to 260+ where the old sequential version stayed
+  // under 30). Waves stay sequential — same pacing/difficulty per room as
+  // before — this only removes the VISIBLE pause and "next wave" reset so
+  // it reads as one continuous fight instead of two with a gap.
+  function waveFor(wm) {
+    return wm.room.endless ? DA.endlessWave(wm.wave) : wm.room.waves[wm.wave];
+  }
   DA.makeWaveManager = function (room) {
     return { room: room, wave: 0, spawners: null, activeDoors: null, currentSpawnDoors: [],
              sirens: {}, nextDoors: null, betweenTimer: 2,
@@ -335,7 +348,7 @@
   // sirens flash through the 3-2-1, and zombies release the moment it hits 0
   DA.primeWave = function (wm) {
     if (wm.done) return;
-    var wave = wm.room.endless ? DA.endlessWave(wm.wave) : wm.room.waves[wm.wave];
+    var wave = waveFor(wm);
     if (!wave) return;
     wm.nextDoors = shuffled(DA.DOORS).slice(0, DA.clamp(wave.doors || 4, 1, 4));
     wm.sirens = {};
@@ -344,7 +357,7 @@
     wm.primed = true;
   };
   function startWave(wm) {
-    var wave = wm.room.endless ? DA.endlessWave(wm.wave) : wm.room.waves[wm.wave];
+    var wave = waveFor(wm);
     wm.activeDoors = wm.nextDoors || shuffled(DA.DOORS).slice(0, DA.clamp(wave.doors || 4, 1, 4));
     wm.nextDoors = null;
     // co-op: two guns double the clear rate, so the show sends a bigger cast
@@ -381,7 +394,7 @@
       wm.currentSpawnDoors = [];
       wm.betweenTimer -= dt;
       if (wm.betweenTimer <= 3 && !wm.nextDoors) {   // warn: light next wave's doors early
-        var nw = wm.room.endless ? DA.endlessWave(wm.wave) : wm.room.waves[wm.wave];
+        var nw = waveFor(wm);
         if (nw) {
           wm.nextDoors = shuffled(DA.DOORS).slice(0, DA.clamp(nw.doors || 4, 1, 4));
         }
@@ -433,7 +446,11 @@
       wm.wave++;
       wm.spawners = null;
       wm.activeDoors = null;
-      wm.betweenTimer = 3.4;                       // room for the 3s warn before the next wave
+      // was 3.4 (room for a full 3s siren warn) — cut way down so the next
+      // wave picks up almost immediately instead of a visible dead-air gap.
+      // Still nonzero: the siren-warn check below fires as soon as this is
+      // <= 3, so a short beat still telegraphs "more incoming" before it hits.
+      wm.betweenTimer = 0.5;
       if (!wm.room.endless && wm.wave >= wm.room.waves.length) wm.done = true;
       // the crowd pops for every wave, not just the last one — the
       // room-clear cheer (main.js) already covers wm.done, so skip here

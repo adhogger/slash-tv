@@ -142,17 +142,27 @@
   DA.fireEnemyBullet = function (arr, x, y, dx, dy, opts) {
     arr.push({ id: DA.newId(), x: x, y: y, dx: dx, dy: dy,
                r: (opts && opts.r) || 6, speed: (opts && opts.speed) || 0,
+               friction: (opts && opts.friction) || 0, settleT: 0,
                color: opts && opts.color });
   };
   // st is optional (sims/tests may omit it) — used for combo reset on hit
   DA.updateEnemyBullets = function (arr, player, dt, st) {
     for (var i = arr.length - 1; i >= 0; i--) {
       var b = arr[i];
-      var sp = b.speed || EB_SPEED;
-      b.x += b.dx * sp * dt; b.y += b.dy * sp * dt;
-      if (b.x < DA.ARENA.x0 || b.x > DA.ARENA.x1 || b.y < DA.ARENA.y0 || b.y > DA.ARENA.y1) {
-        arr.splice(i, 1);
-        continue;
+      // friction-bearing bullets (brute gore) decelerate and LAND instead
+      // of flying until they leave the arena — once slow enough, they sit
+      // in place (still a real hazard) for a beat, then fade
+      if (b.friction && b.speed <= 6) {
+        b.settleT += dt;
+        if (b.settleT > 1.2) { arr.splice(i, 1); continue; }
+      } else {
+        var sp = b.speed || EB_SPEED;
+        b.x += b.dx * sp * dt; b.y += b.dy * sp * dt;
+        if (b.friction) b.speed = Math.max(0, sp - b.friction * dt);
+        if (b.x < DA.ARENA.x0 || b.x > DA.ARENA.x1 || b.y < DA.ARENA.y0 || b.y > DA.ARENA.y1) {
+          arr.splice(i, 1);
+          continue;
+        }
       }
       var ps = player.length != null ? player : [player];
       for (var pj = 0; pj < ps.length; pj++) {

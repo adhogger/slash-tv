@@ -206,21 +206,23 @@
     if (DA.fx.dust.length > 60) DA.fx.dust.shift();
   };
   // wisps billowing out of a door that's actively pouring zombies through —
-  // reuses the generic particle pool. A burst of 20, spread across the
-  // door's full width so it reads as smoke pouring out of the WHOLE
-  // doorway (doors are ~90-100px across), with enough reach to drift well
-  // past the wall and INTO the arena, not just hover at the threshold.
-  // 'into' is toward the arena's center from each wall — the opposite of
-  // the door's own outward-facing normal.
-  DA.doorSmoke = function (x, y, dir) {
+  // reuses the generic particle pool. Called with a SMALL count at a short
+  // interval (see main.js's smoke tick) rather than a big count rarely, so
+  // it reads as one continuous stream instead of visible pulses/waves.
+  // Spread across the door's full width so it covers the WHOLE doorway
+  // (doors are ~90-100px across), with enough reach to drift well past the
+  // wall and INTO the arena, not just hover at the threshold. 'into' is
+  // toward the arena's center from each wall — the opposite of the door's
+  // own outward-facing normal.
+  DA.doorSmoke = function (x, y, dir, count) {
     var into = dir === 'N' ? { x: 0, y: 1 } : dir === 'S' ? { x: 0, y: -1 } :
                dir === 'W' ? { x: 1, y: 0 } : { x: -1, y: 0 };
     var along = { x: -into.y, y: into.x };       // spans the door's width, perpendicular to its facing
-    for (var i = 0; i < 20; i++) {
+    for (var i = 0; i < (count || 20); i++) {
       var spread = DA.rand(-48, 48);
-      var life = DA.rand(1.1, 2.0);
+      var life = DA.rand(1.3, 2.4);
       DA.fx.particles.push({ x: x + along.x * spread, y: y + along.y * spread,
-        vx: into.x * DA.rand(24, 75) + DA.rand(-16, 16), vy: into.y * DA.rand(24, 75) - DA.rand(6, 16),
+        vx: into.x * DA.rand(35, 95) + DA.rand(-16, 16), vy: into.y * DA.rand(35, 95) - DA.rand(6, 16),
         r: DA.rand(6, 16), color: 'rgba(130, 128, 138, 0.28)', life: life, maxLife: life });
     }
   };

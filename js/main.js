@@ -944,10 +944,13 @@
       DA.updateWaves(st.waveManager, st.enemies, dt);
       var smokeDoors = st.waveManager.currentSpawnDoors;
       if (DA.doorSmoke && smokeDoors && smokeDoors.length) {
+        // small counts at a short interval instead of a big burst every
+        // 0.12s — same rough throughput, but reads as one continuous
+        // stream rather than visible pulses
         st.smokeT = (st.smokeT == null ? 0 : st.smokeT) - dt;
         if (st.smokeT <= 0) {
-          st.smokeT = 0.12;
-          smokeDoors.forEach(function (d) { DA.doorSmoke(d.x, d.y, d.dir); });
+          st.smokeT = 0.025;
+          smokeDoors.forEach(function (d) { DA.doorSmoke(d.x, d.y, d.dir, 5); });
         }
       }
     }
@@ -1397,14 +1400,23 @@
                                (st.bossDead && st.victoryExit === d.dir));
       var isPouring = active.indexOf(d) !== -1;       // zombies mid-pour: slab washes red
       var isSpawning = !isExit && (isPouring || !!sirenMap[d.dir]);  // lamps: warn + pour + linger
-      if (isPouring) {                                 // a neon portal glow BEHIND the doorway —
-        var doorGlowPulse = 0.6 + Math.sin(performance.now() / 150) * 0.4;   // drawn before the slab/
-        var dgw = (d.dir === 'N' || d.dir === 'S') ? 100 : 40;               // sprites/smoke, so they
-        var dgh = (d.dir === 'N' || d.dir === 'S') ? 40 : 100;               // read as backlit by it
-        ctx.fillStyle = 'rgba(120, 255, 140, ' + (0.10 + doorGlowPulse * 0.08).toFixed(2) + ')';
-        ctx.fillRect(d.x - dgw / 2 - 30, d.y - dgh / 2 - 30, dgw + 60, dgh + 60);
-        ctx.fillStyle = 'rgba(120, 255, 140, ' + (0.18 + doorGlowPulse * 0.14).toFixed(2) + ')';
-        ctx.fillRect(d.x - dgw / 2 - 12, d.y - dgh / 2 - 12, dgw + 24, dgh + 24);
+      if (isPouring) {                                 // a neon portal glow, drawn before the
+        var doorGlowPulse = 0.6 + Math.sin(performance.now() / 150) * 0.4;   // slab/sprites/smoke so
+        var dgw = (d.dir === 'N' || d.dir === 'S') ? 100 : 40;               // they read as backlit —
+        var dgh = (d.dir === 'N' || d.dir === 'S') ? 40 : 100;               // stays close to the black
+        var doorInto = d.dir === 'N' ? { x: 0, y: 1 } : d.dir === 'S' ? { x: 0, y: -1 } :  // of the door,
+                       d.dir === 'W' ? { x: 1, y: 0 } : { x: -1, y: 0 };                    // NOT a block
+        // a soft reflection bouncing off the floor/walls into the room —
+        // wide and very faint, not a hard-edged rectangle
+        var refX = d.x + doorInto.x * 90, refY = d.y + doorInto.y * 90;
+        var doorReflect = ctx.createRadialGradient(refX, refY, 0, refX, refY, 140);
+        doorReflect.addColorStop(0, 'rgba(120, 255, 140, ' + (0.05 + doorGlowPulse * 0.045).toFixed(3) + ')');
+        doorReflect.addColorStop(1, 'rgba(120, 255, 140, 0)');
+        ctx.fillStyle = doorReflect;
+        ctx.fillRect(refX - 140, refY - 140, 280, 280);
+        // the doorway's own glow, hugging the black slab closely
+        ctx.fillStyle = 'rgba(120, 255, 140, ' + (0.16 + doorGlowPulse * 0.12).toFixed(2) + ')';
+        ctx.fillRect(d.x - dgw / 2 - 8, d.y - dgh / 2 - 8, dgw + 16, dgh + 16);
       }
       ctx.fillStyle = isExit ? '#2e6b3a' :
         (isPouring ? 'rgba(150, 35, 45, ' + (0.65 + Math.sin(performance.now() / 200) * 0.25) + ')' : '#101018');
@@ -2261,11 +2273,7 @@
     ctx.font = '22px monospace';
     ctx.fillStyle = '#e8d44d';
     var label = st.room.name;
-    if (st.room.endless) label += ' — WAVE ' + (wm.wave + 1);
-    else if (!st.room.boss && wm.room.waves.length) {
-      var waveNo = Math.min(wm.wave + 1, wm.room.waves.length);
-      label += ' — WAVE ' + waveNo + '/' + wm.room.waves.length;
-    }
+    if (st.room.endless) label += ' — WAVE ' + (wm.wave + 1);  // Endless is genuinely wave-by-wave; keep it
     ctx.fillText(label, DA.W / 2, 28);
     var heartPulse = DA.audio && DA.audio.heartPulse ? DA.audio.heartPulse() : 0;
     for (var i = 0; i < DA.MAX_HEARTS; i++) drawHeart(ctx, 16 + i * 30, 12, 22, i < st.player.hearts, heartPulse);
@@ -2526,7 +2534,12 @@
       return;
     }
     if (st.mode === 'choice') {
-      ctx.fillStyle = '#0c0c12';
+      // the room was just cleared, so st.room/players/etc. are still the
+      // frozen scene — draw it behind a translucent wash (same pattern as
+      // the pause menu) so this reads as "the broadcast paused for a beat",
+      // not a hard cut to a different screen
+      drawWorld(ctx, st);
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.8)';
       ctx.fillRect(0, 0, DA.W, DA.H);
       ctx.textAlign = 'center';
       ctx.font = 'bold 52px monospace'; ctx.fillStyle = '#e8d44d';

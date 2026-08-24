@@ -322,7 +322,11 @@
   }
   function inShow() {                            // true once the contestant is actually on set
     var st = DA.state;
-    return !!st && (st.mode === 'playing' || st.mode === 'dying');
+    // 'choice' (the between-rooms upgrade pick) keeps the in-show heartbeat
+    // going too — it's a brief pause mid-broadcast, not a scene change, and
+    // having the music cut to the quiet menu jingle and back made the
+    // transition feel like leaving the game entirely
+    return !!st && (st.mode === 'playing' || st.mode === 'dying' || st.mode === 'choice');
   }
   // 80s-synthwave menu theme: a four-on-the-floor kick, a light off-beat
   // tick, a bouncing bass, and a DRIVING 16th-note arpeggio lead — upbeat,

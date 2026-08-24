@@ -280,9 +280,11 @@
     }
   };
   // Brutes go out in pieces: several gore chunks fly outward on death and
-  // can still hurt anyone they hit — a real dodgeable projectile (reusing
-  // the enemy-bullet system, same collision/damage as a spitter's glob),
-  // not an instant blast radius like a boomer.
+  // can still hurt anyone they hit — a real dodgeable hazard (reusing the
+  // enemy-bullet system, same collision/damage as a spitter's glob), not
+  // an instant blast radius like a boomer. Bigger and slower than before,
+  // and they decelerate to a stop and settle near the brute instead of
+  // flying all the way out to the arena wall.
   DA.bruteGore = function (st, x, y) {
     if (DA.burst) { DA.burst(x, y, '#9b6bb3', 20); DA.burst(x, y, '#6e4585', 10); }
     if (DA.splat) DA.splat(x, y);
@@ -291,7 +293,7 @@
     for (var i = 0; i < n; i++) {
       var a = (i / n) * 6.283 + DA.rand(-0.3, 0.3);
       DA.fireEnemyBullet(st.enemyBullets, x, y, Math.cos(a), Math.sin(a),
-                          { speed: DA.rand(220, 320), r: 7, color: '#6e4585' });
+                          { speed: DA.rand(90, 150), friction: 130, r: DA.rand(10, 13), color: '#6e4585' });
     }
   };
   // Zombies render from pre-baked sprite sheets (js/sprites.js): one drawImage
