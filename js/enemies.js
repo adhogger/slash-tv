@@ -12,6 +12,56 @@
   // Spitters hold this range and lob bile globs instead of closing in —
   // the only non-boss ranged threat, so "walk backwards forever" stops working.
   var SPIT_RANGE = 340, SPIT_WINDUP = 0.5;
+  // Weak points: a called shot on a specific spot changes how a type fights,
+  // not just how much hp it has left. Coordinates are local to the enemy's
+  // own heading (dx = forward/back, dy = right/left of facing), scaled by
+  // its radius, so the target moves and turns with the body — a real spot
+  // to lead your shots into, not a free bonus. 'head' offset matches the
+  // existing jaw-bulge draw position exactly, so it reads as the same spot.
+  var WEAKPOINTS = {
+    spitter: [{ dx: 0.5, dy: 0, r: 0.4, part: 'head' }],
+    gusher:  [{ dx: 0.5, dy: 0, r: 0.4, part: 'head' }],
+    boomer:  [{ dx: -0.4, dy: 0, r: 0.42, part: 'fuse' }],
+    brute:   [{ dx: -0.35, dy: -0.55, r: 0.32, part: 'leg', side: 'left' },
+              { dx: -0.35, dy: 0.55, r: 0.32, part: 'leg', side: 'right' }]
+  };
+  function weakPointWorldPos(e, wp) {
+    var h = e.heading != null ? e.heading : 0;
+    var ch = Math.cos(h), sh = Math.sin(h);
+    return { x: e.x + (ch * wp.dx - sh * wp.dy) * e.r,
+             y: e.y + (sh * wp.dx + ch * wp.dy) * e.r,
+             r: wp.r * e.r };
+  }
+  function drawWeakMark(ctx, x, y) {                // a scar where a called shot landed
+    ctx.strokeStyle = 'rgba(20, 16, 14, 0.85)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x - 4, y - 4); ctx.lineTo(x + 4, y + 4);
+    ctx.moveTo(x + 4, y - 4); ctx.lineTo(x - 4, y + 4);
+    ctx.stroke();
+  }
+  // called once per confirmed bullet hit (from resolveCombat). Returns the
+  // part name on a fresh landed hit ('head'/'fuse'/'leg'), else false —
+  // combat.js only needs to react to 'fuse' (an instant pop); head/leg
+  // just flip a flag here that updateEnemies/drawEnemies read on their own.
+  DA.checkWeakPoint = function (e, hitX, hitY) {
+    var wps = WEAKPOINTS[e.type];
+    if (!wps) return false;
+    for (var i = 0; i < wps.length; i++) {
+      var wp = wps[i];
+      if (wp.part === 'leg') {
+        if (wp.side === 'left' && e.leftLegHit) continue;
+        if (wp.side === 'right' && e.rightLegHit) continue;
+      } else if (e.weakPointHit) continue;          // head/fuse: one-shot, already spent
+      var pos = weakPointWorldPos(e, wp);
+      if (!DA.circleHit(pos.x, pos.y, pos.r, hitX, hitY, 1.5)) continue;
+      if (DA.burst) DA.burst(pos.x, pos.y, '#ffe17a', 12);
+      if (DA.audio && DA.audio.weakPoint) DA.audio.weakPoint();
+      if (wp.part === 'leg') { if (wp.side === 'left') e.leftLegHit = true; else e.rightLegHit = true; }
+      else e.weakPointHit = true;
+      return wp.part;
+    }
+    return false;
+  };
   // Stalkers cycle: 1.2s visible, 0.8s near-invisible — and they sprint while faint.
   DA.stalkerFaint = function (e) { return (e.phaseT || 0) > 1.2; };
   // 4 spawn doors, one per wall; dir names match room exit directions
@@ -84,7 +134,11 @@
         e.phaseT = ((e.phaseT == null ? Math.random() * 2 : e.phaseT) + dt) % 2;
         if (DA.stalkerFaint(e)) sp *= 1.5;
       }
-      if (e.type === 'spitter' || e.type === 'gusher') {
+      if (e.type === 'brute') {                // a crippled leg costs 25% speed, stacking
+        if (e.leftLegHit) sp *= 0.75;
+        if (e.rightLegHit) sp *= 0.75;
+      }
+      if ((e.type === 'spitter' || e.type === 'gusher') && !e.weakPointHit) {
         if (e.spitT == null) e.spitT = 2 + Math.random() * 1.5;
         if (!(e.grace > 0) && DA.dist2(e.x, e.y, player.x, player.y) < SPIT_RANGE * SPIT_RANGE) {
           sp = 0;                             // in range: plant feet and lob bile
@@ -259,7 +313,7 @@
       // the body jitters and a tracking laser locks onto whoever it's about
       // to hit, so the threat reads BEFORE the glob leaves its mouth
       var wind = 0;
-      if (e.type === 'spitter' || e.type === 'gusher') {
+      if ((e.type === 'spitter' || e.type === 'gusher') && !e.weakPointHit) {
         wind = e.spitT != null && e.spitT < SPIT_WINDUP ? 1 - e.spitT / SPIT_WINDUP : 0;
       }
       var jx = wind > 0 ? DA.rand(-3, 3) * wind : 0, jy = wind > 0 ? DA.rand(-3, 3) * wind : 0;
@@ -320,6 +374,16 @@
         ctx.beginPath();
         DA.polyPath(ctx, hx + ch * hr * 0.6, hy + sh * hr * 0.6, hr * (0.35 + wind * 0.55), hr * (0.35 + wind * 0.55), 5, 0, 0.08);
         ctx.fill();
+      }
+      var myWps = WEAKPOINTS[e.type];                // called-shot scars, wherever they landed
+      if (myWps) {
+        for (var wi = 0; wi < myWps.length; wi++) {
+          var wp = myWps[wi];
+          var landed = wp.part === 'leg' ? (wp.side === 'left' ? e.leftLegHit : e.rightLegHit) : e.weakPointHit;
+          if (!landed) continue;
+          var mp = weakPointWorldPos(e, wp);
+          drawWeakMark(ctx, mp.x, mp.y);
+        }
       }
       ctx.globalAlpha = 1;
     }

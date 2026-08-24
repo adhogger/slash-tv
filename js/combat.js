@@ -71,7 +71,9 @@
         if (DA.circleHit(e.x, e.y, e.r, b.x, b.y, br)) {
           if (b.pierce) b.hit.push(e);
           else st.bullets.splice(j, 1);
-          e.hp -= (b.dmg || 1);
+          var wpPart = DA.checkWeakPoint && DA.checkWeakPoint(e, b.x, b.y);
+          if (wpPart === 'fuse') e.hp = 0;    // called shot on the fuse pack: pop it now, full kill credit
+          else e.hp -= (b.dmg || 1);
           e.hitFlash = 0.12;
           // a pained groan on impact — reuses the same low ambient-groan
           // voice, gated so a minigun spraying six zombies at once doesn't

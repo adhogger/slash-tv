@@ -177,6 +177,10 @@
     comboUp: function (step) {           // multiplier steps up: pitch climbs with it
       blip(360 + Math.min(step || 1, 9) * 55, 0.1, 'triangle', 0.14, 700);
     },
+    weakPoint: function () {             // a called shot lands — bright and metallic, not a normal thud
+      blip(1400, 0.05, 'triangle', 0.16, 2200);
+      noise(0.04, 0.08, 5000);
+    },
     bossSting: function () {             // boss entrance / phase-2 enrage
       blip(110, 0.5, 'sawtooth', 0.28, 55);
       setTimeout(function () { blip(104, 0.55, 'sawtooth', 0.26, 52); }, 180);
