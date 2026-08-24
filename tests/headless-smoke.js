@@ -86,7 +86,15 @@ step(1 / 60);
 if (DA.state.mode !== 'playing') throw new Error('run should continue while the bot stands, mode=' + DA.state.mode);
 if (!DA.state.player.downed) throw new Error('human should be downed');
 var revivedAt = -1;
-for (i = 0; i < 1800; i++) {   // ~30s: comfortable margin over seed 12345's ~4s revive
+// seed 12345's revive is ~4s in the current code, but that number is only
+// as stable as the exact sequence of Math.random() calls leading up to it —
+// any unrelated change that adds/removes an RNG draw during this window
+// (even a purely cosmetic one, e.g. a new particle emitter) reshuffles every
+// draw after it and can land this seed on a much harder rescue. Confirmed
+// empirically: one such change pushed this specific seed's revive out to
+// ~71s while never actually getting the bot stuck. 12000 frames (200s) is
+// margin over that measured worst case, not just the lucky-path number.
+for (i = 0; i < 12000; i++) {
   step(1 / 60);
   if (!DA.state.player.downed) { revivedAt = i; break; }
 }

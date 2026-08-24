@@ -202,6 +202,16 @@
     DA.fx.dust.push({ x: x, y: y, r: DA.rand(2, 4), vy: -8, life: 0.32, maxLife: 0.32 });
     if (DA.fx.dust.length > 60) DA.fx.dust.shift();
   };
+  // a wisp curling out of a door that's actively pouring zombies through —
+  // reuses the generic particle pool, just slower and longer-lived than a
+  // muzzle spark: drifts out and up, away from the wall the door sits in
+  DA.doorSmoke = function (x, y, dir) {
+    var out = dir === 'N' ? { x: 0, y: -1 } : dir === 'S' ? { x: 0, y: 1 } :
+              dir === 'W' ? { x: -1, y: 0 } : { x: 1, y: 0 };
+    DA.fx.particles.push({ x: x, y: y,
+      vx: out.x * DA.rand(10, 22) + DA.rand(-10, 10), vy: out.y * DA.rand(10, 22) - DA.rand(8, 16),
+      r: DA.rand(5, 11), color: 'rgba(130, 128, 138, 0.3)', life: 1.1, maxLife: 1.1 });
+  };
 
   // dx/dy optional: when the killing shot's direction is known, the stain
   // SPRAYS along it — a main pool plus droplets thrown down-range

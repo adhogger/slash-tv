@@ -102,6 +102,25 @@
     DA.state = { mode: 'bounty', pendingStartRoom: startRoom, pendingCarry: carry,
                  bossKey: bossKeyForStartRoom(startRoom) };
   }
+  // "We'll be right back" — a fake in-universe commercial break before each
+  // bounty dossier. No real video (this project draws/synthesizes
+  // everything, no external assets), just the same satirical corporate-TV
+  // voice the rest of the show already uses, dressed up with a VHS static
+  // wipe (reuses drawCamStatic) in/out instead of a hard cut.
+  DA.COMMERCIAL_AD_TIME = 3.2;
+  var COMMERCIAL_ADS = [
+    { brand: 'GUTPUNCH ENERGY', tagline: 'Tastes like a bad decision. Now with 30% more regret.', color: '#ff8a3d' },
+    { brand: 'SEVERANCE PACKAGE INSURANCE™', tagline: "Because someday, it'll be you.", color: '#7a8aff' },
+    { brand: 'BEEFCUBE', tagline: "It's sort of meat. Legally, we can't say more.", color: '#c95d63' },
+    { brand: 'NOTHING BURGER', tagline: 'All the calories. None of the burger.', color: '#e8d44d' },
+    { brand: 'FIRST NATIONAL BANK OF YOUR DATA', tagline: 'We already have it. Might as well get a toaster.', color: '#5bc8d6' },
+    { brand: 'STUDIO AUDIENCE STAFFING AGENCY', tagline: 'Laughter not guaranteed. Contracts are.', color: '#b78bff' }
+  ];
+  function openCommercialBreak(startRoom, carry) {
+    DA.state = { mode: 'commercial', pendingStartRoom: startRoom, pendingCarry: carry,
+                 ad: COMMERCIAL_ADS[Math.floor(Math.random() * COMMERCIAL_ADS.length)],
+                 adT: DA.COMMERCIAL_AD_TIME };
+  }
   function enterRoom(st, roomId, entryDir) {
     st.roomId = roomId;
     st.room = DA.ROOMS[roomId];
@@ -698,9 +717,16 @@
         st.page++;
         if (st.page >= INTRO.length) {
           store('slashtv_intro', '1');
-          openBountyBoard();
+          openCommercialBreak();
         }
       }
+      startWasHeld = startHeld;
+      DA.updateFx(dt);
+      return;
+    }
+    if (st.mode === 'commercial') {
+      st.adT -= dt;
+      if ((startHeld && !startWasHeld) || st.adT <= 0) openBountyBoard(st.pendingStartRoom, st.pendingCarry);
       startWasHeld = startHeld;
       DA.updateFx(dt);
       return;
@@ -780,8 +806,8 @@
         }
         padNavWas.d = padD; padNavWas.u = padU; padNavWas.a = padA;
       } else if (startHeld && !startWasHeld) {     // winner/gameover: fire continues the run
-        if (st.mode === 'winner' && (st.room.ep || 1) === 1) openBountyBoard('writers', st);
-        else if (st.mode === 'winner' && st.room.ep === 2) openBountyBoard('controlbooth', st);
+        if (st.mode === 'winner' && (st.room.ep || 1) === 1) openCommercialBreak('writers', st);
+        else if (st.mode === 'winner' && st.room.ep === 2) openCommercialBreak('controlbooth', st);
         else DA.state = newGame();
       }
       var endlessHeld = endlessKeyHeld || DA.input.padButton(3);
@@ -913,6 +939,14 @@
       }
     } else {
       DA.updateWaves(st.waveManager, st.enemies, dt);
+      var smokeDoors = st.waveManager.currentSpawnDoors;
+      if (DA.doorSmoke && smokeDoors && smokeDoors.length) {
+        st.smokeT = (st.smokeT == null ? 0 : st.smokeT) - dt;
+        if (st.smokeT <= 0) {
+          st.smokeT = 0.12;
+          smokeDoors.forEach(function (d) { DA.doorSmoke(d.x, d.y, d.dir); });
+        }
+      }
     }
     for (var ne = 0; ne < st.enemies.length; ne++) {   // first-encounter callouts
       var newType = st.enemies[ne].type;
@@ -1459,7 +1493,7 @@
   // stay visible with a lock + how to earn them, instead of vanishing.
   function startShow() {   // first-ever launch tells the story first; everyone else goes straight in
     if (load('slashtv_intro') !== '1') DA.state = { mode: 'intro', page: 0 };
-    else openBountyBoard();
+    else openCommercialBreak();
   }
   function buildTitleMenu() {
     var touch = DA.input.touchActive();
@@ -2399,6 +2433,33 @@
       ctx.fillStyle = '#7ee081';
       ctx.font = 'bold 20px monospace';
       ctx.fillText('FIRE ▸', DA.W / 2, DA.H - 44);
+      drawScreenFx(ctx);
+      return;
+    }
+    if (st.mode === 'commercial') {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, DA.W, DA.H);
+      var ad = st.ad;
+      ctx.strokeStyle = ad.color; ctx.lineWidth = 6;
+      ctx.strokeRect(40, 40, DA.W - 80, DA.H - 80);
+      ctx.textAlign = 'center';
+      ctx.font = '16px monospace'; ctx.fillStyle = '#8888a0';
+      ctx.fillText('— PAID PROGRAMMING —', DA.W / 2, 110);
+      ctx.save();                                       // an abstract "logo": a slow-turning facet
+      ctx.translate(DA.W / 2, 270);
+      var pulse = 1 + Math.sin(performance.now() / 220) * 0.06;
+      ctx.scale(pulse, pulse);
+      ctx.fillStyle = ad.color;
+      ctx.beginPath(); DA.polyPath(ctx, 0, 0, 70, 70, 6, (performance.now() / 1400) % 6.283); ctx.fill();
+      ctx.restore();
+      ctx.font = 'bold 42px monospace'; ctx.fillStyle = '#f2f2e9';
+      ctx.fillText(ad.brand, DA.W / 2, 420);
+      ctx.font = '21px monospace'; ctx.fillStyle = '#c9c9d4';
+      ctx.fillText(ad.tagline, DA.W / 2, 460);
+      ctx.font = 'bold 18px monospace'; ctx.fillStyle = '#7ee081';
+      ctx.fillText('FIRE ▸ SKIP', DA.W / 2, DA.H - 50);
+      var adG = Math.max(0, 1 - (DA.COMMERCIAL_AD_TIME - st.adT) / 0.4, 1 - st.adT / 0.4);
+      if (adG > 0.02) drawCamStatic(ctx, 0, 0, DA.W, DA.H, adG);
       drawScreenFx(ctx);
       return;
     }
