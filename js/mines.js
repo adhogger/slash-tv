@@ -45,6 +45,8 @@
       st.enemies.splice(i, 1);
       st.score += e.score;
       if (DA.onKill) DA.onKill(st, e);
+      if (e.type === 'boomer') DA.boomerBlast(st, e.x, e.y);   // chain reaction, same as any other kill
+      if (e.type === 'brute' && DA.bruteGore) DA.bruteGore(st, e.x, e.y);
     }
   }
   DA.updateMines = function (st, dt) {

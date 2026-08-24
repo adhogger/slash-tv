@@ -78,6 +78,30 @@
     executive: '"YOUR CONTRACT HAS A DEATH CLAUSE. PAGE 40."',
     algorithm: '"I HAVE SEEN EVERY WAY YOU DIE. PICK ONE."'
   };
+  // Tonight's bounty: a mission-briefing beat shown before each boss fight —
+  // not a target-select (the season order is fixed), a dossier card for the
+  // one you're about to face. Shown at a true campaign start and again at
+  // each episode transition, never on a plain death-retry (that stays instant).
+  var BOUNTY_INFO = {
+    producer: { name: 'THE PRODUCER',
+      charge: 'CHARGED WITH: repeated cruelty to contestants, three canceled catering budgets, and greenlighting this show personally.' },
+    executive: { name: 'THE EXECUTIVE',
+      charge: "CHARGED WITH: outsourcing your severance, weaponizing the quarterly earnings call, and a heroic volume of NDAs." },
+    algorithm: { name: 'THE ALGORITHM',
+      charge: "CHARGED WITH: replacing the writers' room, predicting your death for engagement, and technically not being a person." }
+  };
+  function bossKeyForStartRoom(startRoom) {
+    if (startRoom === 'writers') return 'executive';
+    if (startRoom === 'controlbooth') return 'algorithm';
+    return 'producer';
+  }
+  function makeBountyBoss(key) {
+    return key === 'executive' ? DA.makeExecutive() : (key === 'algorithm' ? DA.makeAlgorithm() : DA.makeBoss());
+  }
+  function openBountyBoard(startRoom, carry) {
+    DA.state = { mode: 'bounty', pendingStartRoom: startRoom, pendingCarry: carry,
+                 bossKey: bossKeyForStartRoom(startRoom) };
+  }
   function enterRoom(st, roomId, entryDir) {
     st.roomId = roomId;
     st.room = DA.ROOMS[roomId];
@@ -329,6 +353,10 @@
     if (DA.state.mode === 'title') {          // taps route to the menu buttons
       var bi = DA.titleHit ? DA.titleHit(x, y) : -1;
       if (bi >= 0) return 'btn:' + bi;
+    }
+    if (DA.state.mode === 'choice') {         // between-rooms upgrade pick
+      var chi = hitMenu(buildChoiceMenu(DA.state), x, y);
+      if (chi >= 0) return 'btn:' + chi;
     }
     return false;
   };
@@ -670,9 +698,15 @@
         st.page++;
         if (st.page >= INTRO.length) {
           store('slashtv_intro', '1');
-          DA.state = newGame();
+          openBountyBoard();
         }
       }
+      startWasHeld = startHeld;
+      DA.updateFx(dt);
+      return;
+    }
+    if (st.mode === 'bounty') {
+      if (startHeld && !startWasHeld) DA.state = newGame(st.pendingStartRoom, st.pendingCarry);
       startWasHeld = startHeld;
       DA.updateFx(dt);
       return;
@@ -746,8 +780,8 @@
         }
         padNavWas.d = padD; padNavWas.u = padU; padNavWas.a = padA;
       } else if (startHeld && !startWasHeld) {     // winner/gameover: fire continues the run
-        if (st.mode === 'winner' && (st.room.ep || 1) === 1) DA.state = newGame('writers', st);
-        else if (st.mode === 'winner' && st.room.ep === 2) DA.state = newGame('controlbooth', st);
+        if (st.mode === 'winner' && (st.room.ep || 1) === 1) openBountyBoard('writers', st);
+        else if (st.mode === 'winner' && st.room.ep === 2) openBountyBoard('controlbooth', st);
         else DA.state = newGame();
       }
       var endlessHeld = endlessKeyHeld || DA.input.padButton(3);
@@ -826,7 +860,10 @@
           } else if (!showSettings) paused = false;   // click outside resumes
         }
         if (pTap >= 0 && pMenu[pTap] && !pMenu[pTap].locked) pMenu[pTap].act();
-        else if (pTap < 0 && pAny && DA.input.touchActive() && !showSettings) paused = false;
+        // the tap that just opened the pause chip also sets the "any tap"
+        // flag input.js uses for "tap outside to resume" — without excluding
+        // it here, that same tap immediately closes the menu it just opened
+        else if (pTap < 0 && pAny && DA.input.touchActive() && !showSettings && !cornerTap) paused = false;
         var ppD = DA.input.padButton(13), ppU = DA.input.padButton(12), ppA = DA.input.padButton(0);
         if ((ppD && !padNavWas.d) || (ppU && !padNavWas.u)) {
           var pdir = ppD && !padNavWas.d ? 1 : -1;
@@ -1212,7 +1249,7 @@
   }
   function drawArena(ctx, st) {
     var A = DA.ARENA;
-    ctx.fillStyle = '#2a2a38';                        // walls
+    ctx.fillStyle = '#201e29';                        // walls — darker now the CRT vignette is gone
     ctx.fillRect(0, 0, DA.W, DA.H);
     ctx.fillStyle = floorPattern((st.room && st.room.floor) || '#1c1c26'); // tiled floor
     ctx.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0);
@@ -1222,6 +1259,8 @@
       ctx.fillStyle = tint;
       ctx.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0);
     }
+    ctx.fillStyle = 'rgba(4, 3, 8, 0.22)';             // a flat darkening wash — no vignette
+    ctx.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0); // to fake anymore, just less raw brightness
     // cable runs taped across the floor — a real set is never tidy
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)';
     ctx.lineWidth = 3.5;
@@ -1260,8 +1299,12 @@
     // unlike the tripod cameras above, these never lock onto a contestant.
     // Four lights roaming the arena on their own paths reads as a real
     // broadcast rig; four things all staring at the same two players doesn't.
-    ctx.fillStyle = 'rgba(240, 235, 200, 0.035)';
+    // Two stay warm-white (practical stage light), two run neon cyan/magenta —
+    // mixed colour temperature is what actually reads as "cyberpunk rig"
+    // rather than just a plain floodlit set.
     var corners = [[A.x0, A.y0], [A.x1, A.y0], [A.x0, A.y1], [A.x1, A.y1]];
+    var CORNER_COLOR = ['rgba(240, 235, 200, 0.035)', 'rgba(47, 215, 196, 0.06)',
+                         'rgba(240, 235, 200, 0.035)', 'rgba(255, 45, 209, 0.06)'];
     // base angle points from each corner straight at the arena's center, so
     // the sweep oscillates across the interior instead of drifting outward
     // past the wall (the bottom-right corner used to do exactly that — its
@@ -1270,25 +1313,34 @@
     for (var li = 0; li < 4; li++) {
       var cpos = corners[li];
       var a = CORNER_BASE[li] + Math.sin(sweep * (li % 2 ? -1.3 : 1) + li * 1.7) * 0.6;
+      ctx.fillStyle = CORNER_COLOR[li];
       ctx.beginPath();
       ctx.moveTo(cpos[0], cpos[1]);
       ctx.arc(cpos[0], cpos[1], 900, a - 0.13, a + 0.13);
       ctx.closePath(); ctx.fill();
     }
-    // wall bevel: a lit inner edge
-    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    // wall bevel: a lit inner edge, now a cool neon rim instead of plain white
+    ctx.strokeStyle = 'rgba(47, 215, 196, 0.12)';
     ctx.lineWidth = 2;
     ctx.strokeRect(A.x0 + 1, A.y0 + 1, A.x1 - A.x0 - 2, A.y1 - A.y0 - 2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';      // wall panel seams
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (var wx = A.x0 + 80; wx < A.x1; wx += 80) {
-      ctx.moveTo(wx, 0); ctx.lineTo(wx, A.y0);
-      ctx.moveTo(wx, A.y1); ctx.lineTo(wx, DA.H);
+    // wall panel seams: alternating cyan/magenta neon trim strips, each with
+    // a soft wide glow pass behind a bright thin core — the classic
+    // backlit-panel-line look
+    var seamX = 0;
+    for (var wx = A.x0 + 80; wx < A.x1; wx += 80, seamX++) {
+      var seamColor = seamX % 2 ? '47, 215, 196' : '255, 45, 209';
+      ctx.strokeStyle = 'rgba(' + seamColor + ', 0.18)'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(wx, 0); ctx.lineTo(wx, A.y0); ctx.moveTo(wx, A.y1); ctx.lineTo(wx, DA.H); ctx.stroke();
+      ctx.strokeStyle = 'rgba(' + seamColor + ', 0.5)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(wx, 0); ctx.lineTo(wx, A.y0); ctx.moveTo(wx, A.y1); ctx.lineTo(wx, DA.H); ctx.stroke();
     }
-    for (var wy = A.y0 + 80; wy < A.y1; wy += 80) {
-      ctx.moveTo(0, wy); ctx.lineTo(A.x0, wy);
-      ctx.moveTo(A.x1, wy); ctx.lineTo(DA.W, wy);
+    var seamY = 0;
+    for (var wy = A.y0 + 80; wy < A.y1; wy += 80, seamY++) {
+      var seamColorY = seamY % 2 ? '255, 45, 209' : '47, 215, 196';
+      ctx.strokeStyle = 'rgba(' + seamColorY + ', 0.18)'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(A.x0, wy); ctx.moveTo(A.x1, wy); ctx.lineTo(DA.W, wy); ctx.stroke();
+      ctx.strokeStyle = 'rgba(' + seamColorY + ', 0.5)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(A.x0, wy); ctx.moveTo(A.x1, wy); ctx.lineTo(DA.W, wy); ctx.stroke();
     }
     ctx.stroke();
     var active = (st.waveManager && st.waveManager.currentSpawnDoors) || [];
@@ -1406,7 +1458,8 @@
   // keys + Enter, or gamepad d-pad + A all drive the same list. Locked modes
   // stay visible with a lock + how to earn them, instead of vanishing.
   function startShow() {   // first-ever launch tells the story first; everyone else goes straight in
-    DA.state = load('slashtv_intro') !== '1' ? { mode: 'intro', page: 0 } : newGame();
+    if (load('slashtv_intro') !== '1') DA.state = { mode: 'intro', page: 0 };
+    else openBountyBoard();
   }
   function buildTitleMenu() {
     var touch = DA.input.touchActive();
@@ -2346,6 +2399,43 @@
       ctx.fillStyle = '#7ee081';
       ctx.font = 'bold 20px monospace';
       ctx.fillText('FIRE ▸', DA.W / 2, DA.H - 44);
+      drawScreenFx(ctx);
+      return;
+    }
+    if (st.mode === 'bounty') {
+      ctx.fillStyle = '#0c0c12';
+      ctx.fillRect(0, 0, DA.W, DA.H);
+      var info = BOUNTY_INFO[st.bossKey] || BOUNTY_INFO.producer;
+      var boss = makeBountyBoss(st.bossKey);
+      ctx.save();
+      ctx.translate(DA.W / 2, 300);
+      ctx.scale(1.7, 1.7);
+      ctx.translate(-boss.x, -boss.y);
+      if (st.bossKey === 'algorithm' && DA.drawAlgorithm) DA.drawAlgorithm(ctx, boss);
+      else if (DA.drawBoss) DA.drawBoss(ctx, boss);
+      ctx.restore();
+      ctx.textAlign = 'center';
+      ctx.font = '18px monospace'; ctx.fillStyle = '#d43a4b';
+      ctx.fillText("TONIGHT'S BOUNTY", DA.W / 2, 96);
+      ctx.font = 'bold 48px monospace'; ctx.fillStyle = '#e8d44d';
+      ctx.fillText(info.name, DA.W / 2, 148);
+      // word-wrap the charge sheet to fit, same technique drawHostCaption uses
+      ctx.font = '19px monospace';
+      var maxW = 640, words = info.charge.split(' '), lines = [], cur = '';
+      for (var cw = 0; cw < words.length; cw++) {
+        var tryLine = cur ? cur + ' ' + words[cw] : words[cw];
+        if (cur && ctx.measureText(tryLine).width > maxW) { lines.push(cur); cur = words[cw]; }
+        else cur = tryLine;
+      }
+      if (cur) lines.push(cur);
+      ctx.fillStyle = '#c9c9d4';
+      var chargeY = 490;
+      for (var cl = 0; cl < lines.length; cl++) { ctx.fillText(lines[cl], DA.W / 2, chargeY); chargeY += 26; }
+      ctx.font = 'bold 20px monospace'; ctx.fillStyle = '#8888a0';
+      ctx.fillText('THREAT: ' + boss.maxHp + ' HP  ·  BOUNTY: $' + boss.score.toLocaleString('en-US'),
+                   DA.W / 2, chargeY + 20);
+      ctx.font = 'bold 22px monospace'; ctx.fillStyle = '#7ee081';
+      ctx.fillText('FIRE ▸ SIGN THE CONTRACT', DA.W / 2, DA.H - 50);
       drawScreenFx(ctx);
       return;
     }
