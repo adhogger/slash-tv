@@ -101,7 +101,8 @@
   function openBountyBoard(startRoom, carry) {
     DA.state = { mode: 'bounty', pendingStartRoom: startRoom, pendingCarry: carry,
                  bossKey: bossKeyForStartRoom(startRoom) };
-  }
+    startWasHeld = true;   // same fix as startDying: don't let the press that opened
+  }                         // this screen also immediately fire its own "press to continue"
   // "We'll be right back" — a fake in-universe commercial break before each
   // bounty dossier. No real video (this project draws/synthesizes
   // everything, no external assets), just the same satirical corporate-TV
@@ -120,7 +121,8 @@
     DA.state = { mode: 'commercial', pendingStartRoom: startRoom, pendingCarry: carry,
                  ad: COMMERCIAL_ADS[Math.floor(Math.random() * COMMERCIAL_ADS.length)],
                  adT: DA.COMMERCIAL_AD_TIME };
-  }
+    startWasHeld = true;   // same fix as startDying: don't let the press that opened
+  }                         // this screen also immediately fire its own "press to continue"
   function enterRoom(st, roomId, entryDir) {
     st.roomId = roomId;
     st.room = DA.ROOMS[roomId];
@@ -717,7 +719,7 @@
         st.page++;
         if (st.page >= INTRO.length) {
           store('slashtv_intro', '1');
-          openCommercialBreak();
+          openBountyBoard();          // no ad before the first fight — commercials are for AFTER a boss
         }
       }
       startWasHeld = startHeld;
@@ -1333,12 +1335,11 @@
     // unlike the tripod cameras above, these never lock onto a contestant.
     // Four lights roaming the arena on their own paths reads as a real
     // broadcast rig; four things all staring at the same two players doesn't.
-    // Two stay warm-white (practical stage light), two run neon cyan/magenta —
-    // mixed colour temperature is what actually reads as "cyberpunk rig"
-    // rather than just a plain floodlit set.
+    // All four run neon now, mirrored left/right: top pair cyan, bottom pair
+    // magenta — a full cyberpunk rig, not just an accent on one side.
     var corners = [[A.x0, A.y0], [A.x1, A.y0], [A.x0, A.y1], [A.x1, A.y1]];
-    var CORNER_COLOR = ['rgba(240, 235, 200, 0.035)', 'rgba(47, 215, 196, 0.06)',
-                         'rgba(240, 235, 200, 0.035)', 'rgba(255, 45, 209, 0.06)'];
+    var CORNER_COLOR = ['rgba(47, 215, 196, 0.06)', 'rgba(47, 215, 196, 0.06)',
+                         'rgba(255, 45, 209, 0.06)', 'rgba(255, 45, 209, 0.06)'];
     // base angle points from each corner straight at the arena's center, so
     // the sweep oscillates across the interior instead of drifting outward
     // past the wall (the bottom-right corner used to do exactly that — its
@@ -1359,21 +1360,29 @@
     ctx.strokeRect(A.x0 + 1, A.y0 + 1, A.x1 - A.x0 - 2, A.y1 - A.y0 - 2);
     // wall panel seams: alternating cyan/magenta neon trim strips, each with
     // a soft wide glow pass behind a bright thin core — the classic
-    // backlit-panel-line look
+    // backlit-panel-line look. They flare brighter on anything the game
+    // already treats as a big moment: a shake-worthy hit/kill/explosion, a
+    // hot combo streak, or the exact instant the combo steps up — reusing
+    // signals that already exist rather than tracking a new one.
+    var excite = Math.max(
+      Math.min(1, (DA.fx.shake || 0) / 16),
+      Math.min(1, ((st.combo || 1) - 1) / 6),
+      (st.comboPopT || 0) > 0 ? 0.85 : 0
+    );
     var seamX = 0;
     for (var wx = A.x0 + 80; wx < A.x1; wx += 80, seamX++) {
       var seamColor = seamX % 2 ? '47, 215, 196' : '255, 45, 209';
-      ctx.strokeStyle = 'rgba(' + seamColor + ', 0.18)'; ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(' + seamColor + ', ' + (0.18 + excite * 0.55).toFixed(2) + ')'; ctx.lineWidth = 4 + excite * 4;
       ctx.beginPath(); ctx.moveTo(wx, 0); ctx.lineTo(wx, A.y0); ctx.moveTo(wx, A.y1); ctx.lineTo(wx, DA.H); ctx.stroke();
-      ctx.strokeStyle = 'rgba(' + seamColor + ', 0.5)'; ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(' + seamColor + ', ' + (0.5 + excite * 0.5).toFixed(2) + ')'; ctx.lineWidth = 1 + excite * 1.5;
       ctx.beginPath(); ctx.moveTo(wx, 0); ctx.lineTo(wx, A.y0); ctx.moveTo(wx, A.y1); ctx.lineTo(wx, DA.H); ctx.stroke();
     }
     var seamY = 0;
     for (var wy = A.y0 + 80; wy < A.y1; wy += 80, seamY++) {
       var seamColorY = seamY % 2 ? '255, 45, 209' : '47, 215, 196';
-      ctx.strokeStyle = 'rgba(' + seamColorY + ', 0.18)'; ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(' + seamColorY + ', ' + (0.18 + excite * 0.55).toFixed(2) + ')'; ctx.lineWidth = 4 + excite * 4;
       ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(A.x0, wy); ctx.moveTo(A.x1, wy); ctx.lineTo(DA.W, wy); ctx.stroke();
-      ctx.strokeStyle = 'rgba(' + seamColorY + ', 0.5)'; ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(' + seamColorY + ', ' + (0.5 + excite * 0.5).toFixed(2) + ')'; ctx.lineWidth = 1 + excite * 1.5;
       ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(A.x0, wy); ctx.moveTo(A.x1, wy); ctx.lineTo(DA.W, wy); ctx.stroke();
     }
     ctx.stroke();
@@ -1493,7 +1502,7 @@
   // stay visible with a lock + how to earn them, instead of vanishing.
   function startShow() {   // first-ever launch tells the story first; everyone else goes straight in
     if (load('slashtv_intro') !== '1') DA.state = { mode: 'intro', page: 0 };
-    else openCommercialBreak();
+    else openBountyBoard();          // no ad before the first fight — commercials are for AFTER a boss
   }
   function buildTitleMenu() {
     var touch = DA.input.touchActive();

@@ -83,8 +83,17 @@
       var armed = m.armT > 0;
       ctx.save();
       ctx.translate(m.x, m.y);
+      // neon glow underneath the plate — cyan idle, red once armed (matches
+      // the blink light's own colour swap, just visible before you're close
+      // enough to see the light itself)
+      var glowColor = armed ? '255, 59, 59' : '47, 215, 196';
+      var glowPulse = 0.5 + Math.sin(performance.now() / (armed ? 90 : 260)) * 0.5;
+      ctx.fillStyle = 'rgba(' + glowColor + ', ' + (0.08 + glowPulse * 0.1).toFixed(2) + ')';
+      ctx.beginPath(); ctx.arc(0, 0, 26, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(' + glowColor + ', ' + (0.18 + glowPulse * 0.14).toFixed(2) + ')';
+      ctx.beginPath(); ctx.arc(0, 0, 16, 0, 7); ctx.fill();
       ctx.fillStyle = 'rgba(20, 20, 22, 0.55)';
-      ctx.beginPath(); DA.polyPath(ctx, 0, 0, 13, 13, 6, 0.3);
+      ctx.beginPath(); DA.polyPath(ctx, 0, 0, 13, 13, 8, 0.39);   // octagon, not hexagon
       ctx.fill();
       ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1;
       ctx.stroke();
