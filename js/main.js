@@ -135,7 +135,8 @@
     st.enemyBullets = [];
     st.powerups = [];
     st.powerupT = undefined;
-    if (DA.spawnMines) DA.spawnMines(st);     // more likely the further into the show you get
+    var isFirstRoom = !entryDir;              // a fresh episode opener, not a connecting-door room
+    if (!isFirstRoom && DA.spawnMines) DA.spawnMines(st);   // give the first room a clean look, no hazards yet
     st.waveManager = DA.makeWaveManager(st.room);
     st.roomCleared = false;
     st.bossDead = false;
@@ -163,7 +164,7 @@
       st.powerups.push({ id: DA.newId(), type: 'gun_' + GUNS[Math.floor(Math.random() * GUNS.length)],
                          t: 60, x: DA.W / 2 + 60, y: DA.H / 2 });
     }
-    if (DA.spawnMail) DA.spawnMail(st);      // optional collectible, never required
+    if (!isFirstRoom && DA.spawnMail) DA.spawnMail(st);      // optional collectible, never required
     if (st.room.boss) {
       var boss = st.room.boss === 'executive' ? DA.makeExecutive() :
                  (st.room.boss === 'algorithm' ? DA.makeAlgorithm() : DA.makeBoss());
@@ -960,6 +961,11 @@
         if (line && DA.hostSay) DA.hostSay(line, 'monster', 4.0, newType);
       }
     }
+    if (st.mines && st.mines.length && !st.seenTypes.mine) {   // mines get the same CAST SPOTLIGHT intro
+      st.seenTypes.mine = true;
+      var mineLine = DA.threatLine && DA.threatLine('mine');
+      if (mineLine && DA.hostSay) DA.hostSay(mineLine, 'monster', 4.0, 'mine');
+    }
     var boss = findBoss(st);
     if (boss && boss.grace > 0 && !boss.dying) {      // entrance: glide down to the mark
       boss.wobble += dt;
@@ -1360,15 +1366,11 @@
     ctx.strokeRect(A.x0 + 1, A.y0 + 1, A.x1 - A.x0 - 2, A.y1 - A.y0 - 2);
     // wall panel seams: alternating cyan/magenta neon trim strips, each with
     // a soft wide glow pass behind a bright thin core — the classic
-    // backlit-panel-line look. They flare brighter on anything the game
-    // already treats as a big moment: a shake-worthy hit/kill/explosion, a
-    // hot combo streak, or the exact instant the combo steps up — reusing
-    // signals that already exist rather than tracking a new one.
-    var excite = Math.max(
-      Math.min(1, (DA.fx.shake || 0) / 16),
-      Math.min(1, ((st.combo || 1) - 1) / 6),
-      (st.comboPopT || 0) > 0 ? 0.85 : 0
-    );
+    // backlit-panel-line look. Dim by default — they only flare on a bomb
+    // or rocket-launcher explosion specifically (DA.fx.neonFlash), not on
+    // every kill/shake/combo, so the effect stays a genuine "big moment"
+    // beat instead of near-constant background noise.
+    var excite = DA.fx.neonFlash || 0;
     var seamX = 0;
     for (var wx = A.x0 + 80; wx < A.x1; wx += 80, seamX++) {
       var seamColor = seamX % 2 ? '47, 215, 196' : '255, 45, 209';
@@ -1395,6 +1397,15 @@
                                (st.bossDead && st.victoryExit === d.dir));
       var isPouring = active.indexOf(d) !== -1;       // zombies mid-pour: slab washes red
       var isSpawning = !isExit && (isPouring || !!sirenMap[d.dir]);  // lamps: warn + pour + linger
+      if (isPouring) {                                 // a neon portal glow BEHIND the doorway —
+        var doorGlowPulse = 0.6 + Math.sin(performance.now() / 150) * 0.4;   // drawn before the slab/
+        var dgw = (d.dir === 'N' || d.dir === 'S') ? 100 : 40;               // sprites/smoke, so they
+        var dgh = (d.dir === 'N' || d.dir === 'S') ? 40 : 100;               // read as backlit by it
+        ctx.fillStyle = 'rgba(120, 255, 140, ' + (0.10 + doorGlowPulse * 0.08).toFixed(2) + ')';
+        ctx.fillRect(d.x - dgw / 2 - 30, d.y - dgh / 2 - 30, dgw + 60, dgh + 60);
+        ctx.fillStyle = 'rgba(120, 255, 140, ' + (0.18 + doorGlowPulse * 0.14).toFixed(2) + ')';
+        ctx.fillRect(d.x - dgw / 2 - 12, d.y - dgh / 2 - 12, dgw + 24, dgh + 24);
+      }
       ctx.fillStyle = isExit ? '#2e6b3a' :
         (isPouring ? 'rgba(150, 35, 45, ' + (0.65 + Math.sin(performance.now() / 200) * 0.25) + ')' : '#101018');
       if (d.dir === 'N' || d.dir === 'S') ctx.fillRect(d.x - 50, d.y - 20, 100, 40);
@@ -1934,12 +1945,17 @@
       return;
     }
     if (hst.monsterType) {                              // CAST SPOTLIGHT: the monster itself,
-      var fake = DA.makeEnemy(hst.monsterType, 0, 0);    // drawn live — same renderer as the bestiary
-      fake.wobble = now / 200;
-      var mscale = Math.min(1.6, 26 / (fake.r || 16));
-      ctx.translate(bx + bs / 2, by + bs / 2);
-      ctx.scale(mscale, mscale);
-      if (DA.drawEnemies) DA.drawEnemies(ctx, [fake]);
+      ctx.translate(bx + bs / 2, by + bs / 2);            // drawn live — same renderer as the bestiary
+      if (hst.monsterType === 'mine') {                   // mines get the same intro treatment,
+        ctx.scale(2.2, 2.2);                              // reusing the real mine renderer directly
+        if (DA.drawMines) DA.drawMines(ctx, { mines: [{ x: 0, y: 0, armT: 0, blown: false }] });
+      } else {
+        var fake = DA.makeEnemy(hst.monsterType, 0, 0);
+        fake.wobble = now / 200;
+        var mscale = Math.min(1.6, 26 / (fake.r || 16));
+        ctx.scale(mscale, mscale);
+        if (DA.drawEnemies) DA.drawEnemies(ctx, [fake]);
+      }
       ctx.restore();
       ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
       ctx.strokeRect(bx, by, bs, bs);

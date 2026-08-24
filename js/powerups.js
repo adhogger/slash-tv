@@ -63,6 +63,7 @@
   // climb (the audience knows you didn't earn those). Boss takes a chunk.
   DA.detonateBomb = function (st) {
     if (DA.addShake) DA.addShake(22);
+    if (DA.addNeonFlash) DA.addNeonFlash();
     if (DA.audio) { DA.audio.roar(); if (DA.audio.cheer) DA.audio.cheer(); }
     for (var i = st.enemies.length - 1; i >= 0; i--) {
       var e = st.enemies[i];

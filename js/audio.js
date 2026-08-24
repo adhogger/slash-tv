@@ -363,7 +363,6 @@
           noteAt(menuNext, 130, 0.09, 'sine', 0.14, 40);
           noteAt(menuNext, hz(40 + MENU_CHORDS[bar] + MENU_BASS[beatIn]), MENU_STEP * 3.2, 'triangle', 0.15);
         }
-        if (sub === 2) noiseAt(menuNext, 0.035, 0.04, 7500);   // light off-beat tick
         noteAt(menuNext, hz(40 + MENU_ARP[bar][sub]), MENU_STEP * 0.85, 'triangle', 0.11);
         menuStep++;
         menuNext += MENU_STEP;

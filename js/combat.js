@@ -42,6 +42,7 @@
     if (DA.splat) DA.splat(x, y);
     if (DA.shockwave) DA.shockwave(x, y, radius);
     if (DA.addShake) DA.addShake(16);
+    if (DA.addNeonFlash) DA.addNeonFlash();
     if (DA.haptic) DA.haptic(0.6, 90);
     if (DA.fx) DA.fx.hitStop = Math.max(DA.fx.hitStop || 0, 0.04);
     if (DA.addAberration) DA.addAberration(0.75);

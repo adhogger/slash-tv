@@ -129,7 +129,10 @@
   };
 
   DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], dust: [], rings: [], casings: [], host: null,
-            shake: 0, aberration: 0 };
+            shake: 0, aberration: 0, neonFlash: 0 };
+  // the wall's neon trim strips stay dim except for this — set to 1 by a
+  // bomb or rocket-launcher explosion specifically, decays over ~1.6s
+  DA.addNeonFlash = function () { DA.fx.neonFlash = 1; };
 
   // The presenter appears ON CAMERA: a HOST CAM window in the corner with his
   // talking head and the line as a caption — his quips live there now, so the
@@ -203,19 +206,21 @@
     if (DA.fx.dust.length > 60) DA.fx.dust.shift();
   };
   // wisps billowing out of a door that's actively pouring zombies through —
-  // reuses the generic particle pool. A burst of 10, spread across the
+  // reuses the generic particle pool. A burst of 20, spread across the
   // door's full width so it reads as smoke pouring out of the WHOLE
   // doorway (doors are ~90-100px across), with enough reach to drift well
-  // past the wall and into the arena, not just hover at the threshold.
+  // past the wall and INTO the arena, not just hover at the threshold.
+  // 'into' is toward the arena's center from each wall — the opposite of
+  // the door's own outward-facing normal.
   DA.doorSmoke = function (x, y, dir) {
-    var out = dir === 'N' ? { x: 0, y: -1 } : dir === 'S' ? { x: 0, y: 1 } :
-              dir === 'W' ? { x: -1, y: 0 } : { x: 1, y: 0 };
-    var along = { x: -out.y, y: out.x };        // spans the door's width, perpendicular to its facing
-    for (var i = 0; i < 10; i++) {
+    var into = dir === 'N' ? { x: 0, y: 1 } : dir === 'S' ? { x: 0, y: -1 } :
+               dir === 'W' ? { x: 1, y: 0 } : { x: -1, y: 0 };
+    var along = { x: -into.y, y: into.x };       // spans the door's width, perpendicular to its facing
+    for (var i = 0; i < 20; i++) {
       var spread = DA.rand(-48, 48);
       var life = DA.rand(1.1, 2.0);
       DA.fx.particles.push({ x: x + along.x * spread, y: y + along.y * spread,
-        vx: out.x * DA.rand(24, 75) + DA.rand(-16, 16), vy: out.y * DA.rand(24, 75) - DA.rand(6, 16),
+        vx: into.x * DA.rand(24, 75) + DA.rand(-16, 16), vy: into.y * DA.rand(24, 75) - DA.rand(6, 16),
         r: DA.rand(6, 16), color: 'rgba(130, 128, 138, 0.28)', life: life, maxLife: life });
     }
   };
@@ -311,6 +316,7 @@
     }
     if (fx.shake > 0) fx.shake = Math.max(0, fx.shake - 30 * dt);
     if (fx.aberration > 0) fx.aberration = Math.max(0, fx.aberration - 1.8 * dt);
+    if (fx.neonFlash > 0) fx.neonFlash = Math.max(0, fx.neonFlash - dt / 1.6);
     for (var d = fx.dust.length - 1; d >= 0; d--) {
       var du = fx.dust[d];
       du.y += du.vy * dt; du.life -= dt;
@@ -459,7 +465,8 @@
     stalker:  'STALKER — FADES OUT. FASTER WHEN YOU CAN BARELY SEE IT.',
     brute:    'BRUTE — SLOW, BUT IT HITS LIKE A CANCELLED CONTRACT.',
     spitter:  'SPITTER — LOBS BILE FROM ACROSS THE SET. SIDESTEP OR CLOSE IN.',
-    gusher:   'GUSHER — HOSES A THREE-GLOB FAN. ONE SIDESTEP IS NOT ENOUGH.'
+    gusher:   'GUSHER — HOSES A THREE-GLOB FAN. ONE SIDESTEP IS NOT ENOUGH.',
+    mine:     'MINES — BURIED IN THE FLOOR. THE BLINK IS YOUR ONLY WARNING.'
   };
   DA.threatLine = function (type) { return THREATS[type]; };
 
