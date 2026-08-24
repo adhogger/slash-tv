@@ -342,7 +342,7 @@
     [3, 10, 7, 10]       // over G
   ];
   var T123 = 60 / 123;                              // the show's canonical resting heart rate
-  var beatNext = 0, beatNo = 0, menuNext = 0, menuStep = 0, menuHeartNext = 0;
+  var beatNext = 0, beatNo = 0, hatBuildT = 0, menuNext = 0, menuStep = 0, menuHeartNext = 0;
   setInterval(function () {
     if (!ctx || muted || ctx.state !== 'running') return;
     if (!inShow()) {
@@ -389,12 +389,19 @@
       // "resting" cadence, just the same lub-dub racing a little faster
       var T = k >= 0.5 ? T123 / 1.25 : T123;
       lub(beatNext, 0.55 + k * 0.35, T);
-      if (k > 0.35) {                             // a double hat, every other beat...
-        var hatEvery = k >= 0.9 ? 1 : 2;           // ...or every beat once combat's live (boss OR a room fight)
+      if (k > 0.35) {
+        hatBuildT += T;                            // how long THIS intense stretch has held
+        // starts at half the old density and only tightens up the longer
+        // the moment holds (or if the streak's already hot) — it earns a
+        // driving beat instead of snapping straight to one
+        var hatEvery = k >= 1 ? (hatBuildT > 5 ? 1 : 2) : (hatBuildT > 8 ? 2 : 4);
+        if (DA.state && (DA.state.combo || 1) >= 6) hatEvery = Math.max(1, hatEvery - 1);
         if (beatNo % hatEvery === 0) {
           hatAt(beatNext + T / 2, 0.03 + k * 0.045, 0.1 + k * 0.03);
           hatAt(beatNext + T * 0.75, 0.025 + k * 0.04, 0.08 + k * 0.025);
         }
+      } else {
+        hatBuildT = 0;                             // back to idle: the next fight builds up fresh
       }
       if (k >= 1 && beatNo % 4 === 2) noteAt(beatNext, hz(45), 0.14, 'square', 0.07); // boss stab
       beatNo++;
