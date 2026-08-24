@@ -994,23 +994,6 @@
   })();
   var abCtx = abScratch.getContext('2d');
 
-  // host-cam portrait: rendered at 1/4 size into this buffer, then blown back
-  // up with smoothing off — the chunky-block SNES look, cheap because it's
-  // the same draw calls at fewer pixels plus one drawImage, no extra canvas
-  // allocated per frame
-  var HOSTCAM_BUF = 20;                              // 80 / 20 = an exact 4x block scale
-  var hostCamBuf = (function () {
-    var c = document.createElement('canvas'); c.width = c.height = HOSTCAM_BUF;
-    return c;
-  })();
-  var hostCamBufCtx = hostCamBuf.getContext('2d');
-  function flushHostCamBuf(realCtx, bx, by, bs) {
-    realCtx.save();
-    realCtx.imageSmoothingEnabled = false;
-    realCtx.drawImage(hostCamBuf, 0, 0, HOSTCAM_BUF, HOSTCAM_BUF, bx, by, bs, bs);
-    realCtx.restore();
-  }
-
   // per-room set dressing: deterministic decals pre-rendered once per room
   var decorCache = {};
   function decorCanvas(st) {
@@ -1701,17 +1684,8 @@
     var by = y + 26;                                    // the talking head
     ctx.fillStyle = '#1c1c28';
     ctx.fillRect(bx, by, bs, bs);
-    // every branch below draws the character art into a tiny buffer instead
-    // of the real canvas — same draw calls, just aimed at 'ctx' redirected to
-    // HOSTCAM_BUF pixels, then blown back up with smoothing off for the
-    // chunky SNES-style look. The buffer's own bounds do the clipping.
-    var realCtx = ctx;
-    hostCamBufCtx.setTransform(1, 0, 0, 1, 0, 0);
-    hostCamBufCtx.clearRect(0, 0, HOSTCAM_BUF, HOSTCAM_BUF);
-    hostCamBufCtx.save();
-    hostCamBufCtx.scale(HOSTCAM_BUF / bs, HOSTCAM_BUF / bs);
-    hostCamBufCtx.translate(-bx, -by);
-    ctx = hostCamBufCtx;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(bx, by, bs, bs); ctx.clip();
     var now = performance.now();
     var open = Math.abs(Math.sin(now / 90)) * (hst.t > 0.6 ? 1 : 0.15);
     if (hst.speaker === 'algorithm') {                  // the drone: a lens, not a face —
@@ -1729,8 +1703,6 @@
       ctx.fillStyle = '#0a0a0f';
       ctx.beginPath(); DA.polyPath(ctx, bx + bs / 2, by + bs / 2, bs * 0.07 + open * 2, bs * 0.07 + open * 2, 6, 0); ctx.fill();
       ctx.restore();
-      ctx = realCtx;
-      flushHostCamBuf(ctx, bx, by, bs);
       ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
       ctx.strokeRect(bx, by, bs, bs);
       drawHostCaption(ctx, hst, x, y, w, bx, bs);
@@ -1759,8 +1731,6 @@
       ctx.fillStyle = '#5c2a2a';
       ctx.beginPath(); ctx.ellipse(ex, ey + er * 0.52, er * 0.32, er * (0.07 + 0.2 * open), 0, 0, 7); ctx.fill();
       ctx.restore();
-      ctx = realCtx;
-      flushHostCamBuf(ctx, bx, by, bs);
       ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
       ctx.strokeRect(bx, by, bs, bs);
       drawHostCaption(ctx, hst, x, y, w, bx, bs);
@@ -1776,8 +1746,6 @@
       ctx.scale(mscale, mscale);
       if (DA.drawEnemies) DA.drawEnemies(ctx, [fake]);
       ctx.restore();
-      ctx = realCtx;
-      flushHostCamBuf(ctx, bx, by, bs);
       ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
       ctx.strokeRect(bx, by, bs, bs);
       drawHostCaption(ctx, hst, x, y, w, bx, bs);
@@ -1819,8 +1787,6 @@
       ctx.fillRect(px + pr * 0.85, py + pr * 0.05, 4, pr * 0.95);
       ctx.beginPath(); DA.polyPath(ctx, px + pr * 0.87, py - pr * 0.02, 6, 7, 6, 0); ctx.fill();
       ctx.restore();
-      ctx = realCtx;
-      flushHostCamBuf(ctx, bx, by, bs);
       ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
       ctx.strokeRect(bx, by, bs, bs);
       drawHostCaption(ctx, hst, x, y, w, bx, bs);
@@ -1924,8 +1890,6 @@
       ctx.fillRect(bx, by, bs, bs);
     }
     ctx.restore();
-    ctx = realCtx;
-    flushHostCamBuf(ctx, bx, by, bs);
     ctx.strokeStyle = '#3a3a48'; ctx.lineWidth = 1.5;
     ctx.strokeRect(bx, by, bs, bs);
     drawHostCaption(ctx, hst, x, y, w, bx, bs);

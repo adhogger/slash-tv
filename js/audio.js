@@ -388,8 +388,8 @@
       if (k > 0.35) {                             // a double hat, every other beat...
         var hatEvery = k >= 0.9 ? 1 : 2;           // ...or every beat once combat's live (boss OR a room fight)
         if (beatNo % hatEvery === 0) {
-          noiseAt(beatNext + T / 2, 0.025, 0.03 + k * 0.045, 7000);
-          noiseAt(beatNext + T * 0.75, 0.02, 0.025 + k * 0.04, 7500);
+          hatAt(beatNext + T / 2, 0.03 + k * 0.045, 0.1 + k * 0.03);
+          hatAt(beatNext + T * 0.75, 0.025 + k * 0.04, 0.08 + k * 0.025);
         }
       }
       if (k >= 1 && beatNo % 4 === 2) noteAt(beatNext, hz(45), 0.14, 'square', 0.07); // boss stab
@@ -418,6 +418,14 @@
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     src.connect(f); f.connect(g); g.connect(musicGain);
     src.start(t);
+  }
+  // a splashy cymbal hit, not a dry click: two layered noise bursts (a
+  // lower body layer plus a brighter top layer) with a real ring-out —
+  // short single-band noiseAt bursts read as a "tick", too close to the
+  // crowd's own short bright shout/clap texture
+  function hatAt(t, vol, dur) {
+    noiseAt(t, dur, vol, 5000);
+    noiseAt(t, dur * 0.8, vol * 0.65, 9500);
   }
 
 })();

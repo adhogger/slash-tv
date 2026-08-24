@@ -58,11 +58,20 @@
         if (m.armT <= 0) blowMine(st, m);
         continue;
       }
+      var armed = false;
       for (var pc = 0; pc < ps.length; pc++) {
         var pl = ps[pc];
         if (pl.downed) continue;
-        if (DA.circleHit(m.x, m.y, 15, pl.x, pl.y, pl.r)) { m.armT = 0.22; break; }
+        if (DA.circleHit(m.x, m.y, 15, pl.x, pl.y, pl.r)) { armed = true; break; }
       }
+      if (!armed) {
+        for (var ei = 0; ei < st.enemies.length; ei++) {
+          var e = st.enemies[ei];
+          if (e.isBoss) continue;           // immune to mines entirely, same as the blast itself
+          if (DA.circleHit(m.x, m.y, 15, e.x, e.y, e.r)) { armed = true; break; }
+        }
+      }
+      if (armed) m.armT = 0.22;
     }
   };
   DA.drawMines = function (ctx, st) {
