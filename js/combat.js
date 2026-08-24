@@ -10,7 +10,10 @@
   DA.bumpCombo = function (st) {
     st.comboKills = (st.comboKills || 0) + 1;
     st.comboTimer = COMBO_WINDOW;
-    if (st.comboKills >= KILLS_PER_STEP) {
+    var speedCut = Math.min(0.9, (st.mods && st.mods.comboSpeedCut) || 0);      // stacks, but always needs at least 1 kill
+    var step = Math.max(1, Math.round(KILLS_PER_STEP * (1 - speedCut)));  // Photogenic
+    st.comboStepNeeded = step;                              // HUD reads this instead of the flat constant
+    if (st.comboKills >= step) {
       st.comboKills = 0;
       st.combo++; st.comboPopT = 0.3;
       if (DA.audio && DA.audio.comboUp) DA.audio.comboUp(st.combo);
@@ -26,8 +29,9 @@
   DA.resetCombo = function (st) {
     st.combo = 1; st.comboKills = 0; st.comboTimer = 0;
   };
-  DA.comboHit = function (st) {        // a hit costs half the streak, not all of it
-    st.combo = Math.max(1, Math.ceil(st.combo / 2));
+  DA.comboHit = function (st) {        // a hit costs half the streak, not all of it (less with Vengeance)
+    var frac = (st.mods && st.mods.comboHitFrac) || 0.5;
+    st.combo = Math.max(1, Math.ceil(st.combo * frac));
     st.comboKills = 0;
     st.comboTimer = st.combo > 1 ? COMBO_WINDOW : 0;
   };
@@ -73,7 +77,13 @@
           else st.bullets.splice(j, 1);
           var wpPart = DA.checkWeakPoint && DA.checkWeakPoint(e, b.x, b.y);
           if (wpPart === 'fuse') e.hp = 0;    // called shot on the fuse pack: pop it now, full kill credit
-          else e.hp -= (b.dmg || 1);
+          else {
+            var hitDmg = b.dmg || 1;
+            if ((wpPart === 'head' || wpPart === 'leg') && st.mods && st.mods.weakPointDmgBonus) {
+              hitDmg *= 1 + st.mods.weakPointDmgBonus;   // Executioner: bonus damage on a called shot
+            }
+            e.hp -= hitDmg;
+          }
           e.hitFlash = 0.12;
           // a pained groan on impact — reuses the same low ambient-groan
           // voice, gated so a minigun spraying six zombies at once doesn't
@@ -92,11 +102,17 @@
       }
       if (killed) {
         st.enemies.splice(i, 1);
-        st.score += e.score * st.combo;
+        st.score += e.score * st.combo * (1 + (st.mods && st.mods.scoreBonus || 0));   // Big Spender
         if (DA.bumpCombo) DA.bumpCombo(st);
         if (DA.onKill) DA.onKill(st, e, b);
         if (e.type === 'boomer') DA.boomerBlast(st, e.x, e.y); // shot boomers still detonate
         if (e.type === 'brute' && DA.bruteGore) DA.bruteGore(st, e.x, e.y);
+        if (st.mods && st.mods.cooldownRefund) {     // Chain Reaction: a kill shaves both barrels
+          var refund = Math.min(0.9, st.mods.cooldownRefund);   // stacks, but never below a 10% cooldown
+          (st.players || [p]).forEach(function (rp) {
+            if (rp.fireCooldown > 0) rp.fireCooldown *= 1 - refund;
+          });
+        }
         continue;
       }
       var ps = st.players || [p];
@@ -106,7 +122,7 @@
         if (pl.invuln <= 0 && !(e.grace > 0) && !(pl.shieldT > 0) &&
             DA.circleHit(e.x, e.y, e.r, pl.x, pl.y, pl.r)) {
           pl.hearts--;
-          pl.invuln = 1.5;
+          pl.invuln = 1.5 + (st.mods && st.mods.invulnBonus || 0);   // Thick Skin
           if (!pl.bot) DA.comboHit(st);            // only the human's hits cost the streak
           var v = DA.norm(e.x - pl.x, e.y - pl.y); // knock enemy back
           e.x += v.x * 60; e.y += v.y * 60;

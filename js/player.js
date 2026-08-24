@@ -4,7 +4,7 @@
   DA.makePlayer = function () {
     return { x: DA.W / 2, y: DA.H / 2, r: 12, speed: 215, vx: 0, vy: 0,
              hearts: 3, invuln: 0, aimX: 1, aimY: 0, fireCooldown: 0, firing: false,
-             gun: 'pistol', gunT: 0, bootsT: 0, shieldT: 0 };
+             gun: 'pistol', gunT: 0, bootsT: 0, shieldT: 0, mods: {} };
   };
   DA.clampToArena = function (e) {
     e.x = DA.clamp(e.x, DA.ARENA.x0 + e.r, DA.ARENA.x1 - e.r);
@@ -15,7 +15,7 @@
   // feels planted instead of skating.
   DA.movePlayer = function (p, mx, my, dt) {
     var mv = DA.norm(mx, my);
-    var sp = p.speed * (p.bootsT > 0 ? 1.4 : 1);
+    var sp = p.speed * (p.bootsT > 0 ? 1.4 : 1) * (1 + (p.mods && p.mods.speedBonus || 0));
     var k = Math.min(1, (mv.x || mv.y ? 10 : 22) * dt);
     p.vx += (mv.x * sp - p.vx) * k;
     p.vy += (mv.y * sp - p.vy) * k;

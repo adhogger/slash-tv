@@ -4,6 +4,7 @@
   var GUN_TYPES = ['triple', 'smg', 'shotgun', 'minigun', 'railgun', 'flamer', 'rocket'];
   var COLORS = { boots: '#4cc9f0', heart: '#d43a4b', shield: '#9ad7ff', bomb: '#ffb020', mail: '#f0d9a0' };
   var DURATION = 30;       // seconds of gun/boots effect (only ticks during combat)
+  DA.GUN_DURATION = DURATION;   // Stockpile (main.js) refreshes a running timer to this on room entry
   var SHIELD_TIME = 8;     // shorter: total protection is strong
   var LIFETIME = 12;       // seconds before an unclaimed drop despawns
 
@@ -37,7 +38,9 @@
   // ~35% of non-boss rooms, never in Endless (no discrete "rooms" to tuck
   // one into there) — tucked at a random point, same as combat drops
   DA.spawnMail = function (st) {
-    if (st.room.boss || st.room.endless || Math.random() >= 0.35) return;
+    if (st.room.boss || st.room.endless) return;
+    var guaranteed = st.mods && st.mods.guaranteedMail;             // Fan Favorite
+    if (!guaranteed && Math.random() >= 0.35) return;
     st.powerups.push({ id: DA.newId(), type: 'mail', t: 999,
                        x: DA.rand(DA.ARENA.x0 + 120, DA.ARENA.x1 - 120),
                        y: DA.rand(DA.ARENA.y0 + 120, DA.ARENA.y1 - 120) });
@@ -72,16 +75,18 @@
   };
 
   DA.applyPowerup = function (player, type) {
+    var mods = player.mods || {};
     if (type.indexOf('gun_') === 0) {
       player.gun = type.slice(4);
-      player.gunT = DURATION;
+      player.gunT = DURATION * (1 + (mods.gunDurationBonus || 0));   // Quartermaster
       player.gunWarnPlayed = false;
     } else if (type === 'boots') {
       player.bootsT = DURATION;
     } else if (type === 'shield') {
-      player.shieldT = SHIELD_TIME;
+      player.shieldT = SHIELD_TIME * (1 + (mods.shieldDurationBonus || 0));   // Guardian Angel
     } else if (type === 'heart') {
-      player.hearts = Math.min(player.hearts + 1, DA.MAX_HEARTS);
+      player.hearts = mods.fullHealHearts ? DA.MAX_HEARTS :          // Bargain Hunter
+                       Math.min(player.hearts + 1, DA.MAX_HEARTS);
     }
   };
 
@@ -92,7 +97,7 @@
     if (st.enemies.length > 0 && st.powerups.length < 2) {
       st.powerupT -= dt;
       if (st.powerupT <= 0) {
-        st.powerupT = DA.rand(18, 26);
+        st.powerupT = DA.rand(18, 26) * (1 - Math.min(0.85, (st.mods && st.mods.dropRateBonus) || 0));   // Lucky Break, stacks but always leaves a real gap
         var type = DA.pickDropType(st.player, st.lastGunDrop);
         for (var rr = 0; rr < 3; rr++) {       // don't drop a type already on the floor
           var taken = false;
@@ -116,7 +121,8 @@
       for (var pc = 0; pc < ps.length; pc++) {
         var pl = ps[pc];
         if (pl.downed) continue;
-        if (!DA.circleHit(pu.x, pu.y, 22, pl.x, pl.y, pl.r)) continue;
+        var pickR = 22 * (1 + (st.mods && st.mods.pickupRadiusBonus || 0));   // Magnetic
+        if (!DA.circleHit(pu.x, pu.y, pickR, pl.x, pl.y, pl.r)) continue;
         if (pu.type === 'bomb') DA.detonateBomb(st);
         else if (pu.type === 'mail') DA.collectMail(st);
         else DA.applyPowerup(pl, pu.type);

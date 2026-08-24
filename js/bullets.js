@@ -18,6 +18,21 @@
                speed: 540, dmg: 6, splash: 3, splashR: 100, shake: 8 }
   };
 
+  // applies a player's picked mods to a gun's base stats — a fresh object,
+  // the shared DA.GUNS entries themselves are never mutated
+  function modGun(g, mods) {
+    mods = mods || {};
+    var mg = Object.assign({}, g);
+    mg.dmg += mods.dmgBonus || 0;
+    mg.jitter *= 1 - Math.min(1, mods.jitterCut || 0);       // stacks, but never past zero jitter
+    mg.rate *= 1 - Math.min(0.85, mods.rateCut || 0);        // stacks, but always leaves a real cooldown
+    mg.speed *= 1 + (mods.bulletSpeedBonus || 0);
+    if (mods.pierceAll) mg.pierce = true;                       // Full Metal Jacket
+    if (mg.splash && mods.splashRBonus) mg.splashR *= 1 + mods.splashRBonus;   // Overpressure
+    if (mg.range && mods.rangeBonus) mg.range *= 1 + mods.rangeBonus;          // Extended Barrel
+    if (mg.pellets > 1 && mods.pelletBonus) mg.pellets += mods.pelletBonus;    // Twin Link
+    return mg;
+  }
   DA.fireBullet = function (arr, x, y, dx, dy, gun) {
     var g = gun || DA.GUNS.pistol;
     arr.push({ x: x, y: y, ox: x, oy: y, dx: dx, dy: dy, r: g.dmg > 1 ? 5 : 4, speed: g.speed,
@@ -43,7 +58,7 @@
   // returns how many bullets left the barrel (for the accuracy stat)
   DA.tryPlayerFire = function (p, arr) {
     if (!p.firing || p.fireCooldown > 0) return 0;
-    var g = DA.GUNS[p.gun] || DA.GUNS.pistol;
+    var g = modGun(DA.GUNS[p.gun] || DA.GUNS.pistol, p.mods);
     p.fireCooldown = g.rate;
     var base = Math.atan2(p.aimY, p.aimX);
     for (var i = 0; i < g.pellets; i++) {

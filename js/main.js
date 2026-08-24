@@ -110,6 +110,7 @@
       }
       p.vx = 0; p.vy = 0;
       p.downed = false; p.reviveP = 0;
+      if (st.mods && st.mods.refreshGunOnRoom && p.gunT > 0) p.gunT = DA.GUN_DURATION;   // Stockpile
     }
     if (st.room.gift) {                     // the sponsors left something out for you
       var GUNS = ['triple', 'smg', 'shotgun', 'minigun', 'railgun', 'flamer', 'rocket'];
@@ -168,7 +169,8 @@
       player: DA.makePlayer(),
       score: 0, combo: 1, comboTimer: 0, kills: 0,
       roomsCleared: 0, groanT: 3, visited: {}, cleared: {}, seenTypes: {},
-      stats: { shots: 0, hits: 0, killsByGun: {}, maxCombo: 1, start: performance.now() }
+      stats: { shots: 0, hits: 0, killsByGun: {}, maxCombo: 1, start: performance.now() },
+      mods: {}      // picks from the between-rooms choice screen — spans the whole campaign
     };
     if (carry) {                              // the run rolls on: bank the last episode
       st.score = carry.score;
@@ -177,15 +179,19 @@
       st.saidLines = carry.saidLines;         // the host never repeats himself all run
       st.everDowned = carry.everDowned;       // the flawless-run finale spans the whole campaign
       st.mailFound = carry.mailFound;         // fan mail tally spans the whole campaign
+      st.mods = carry.mods || {};             // picked mods/perks carry into the next episode too
     }
+    st.player.mods = st.mods;                 // every player shares one mods bag — a run-wide build, not per-seat
     st.players = [st.player];                 // st.player stays the human, always
     if (localCoopOn) {
       var mate = DA.makePlayer();
       mate.localP2 = true;                    // seat 2 reads its OWN gamepad (slot 2), never seat 1's
+      mate.mods = st.mods;
       st.players.push(mate);
     } else if (botOn) {
       var buddy = DA.makePlayer();
       buddy.bot = true;
+      buddy.mods = st.mods;
       st.players.push(buddy);
     }
     enterRoom(st, startRoom || DA.START_ROOM, null);
@@ -404,6 +410,13 @@
       if (e.code === 'Escape' && showSettings) showSettings = false;
       else if (e.code === 'Escape' && showCoopChoice) showCoopChoice = false;
     }
+    if (DA.state.mode === 'choice') {           // between-rooms upgrade pick — its own menu, not nested above
+      var cMenu = buildChoiceMenu(DA.state);
+      var cMoving = (e.code === 'ArrowDown' || e.code === 'KeyS') ? 1 :
+                    ((e.code === 'ArrowUp' || e.code === 'KeyW') ? -1 : 0);
+      if (cMoving && cMenu.length) choiceSel = (choiceSel + cMoving + cMenu.length) % cMenu.length;
+      if ((e.code === 'Enter' || e.code === 'Space') && cMenu[choiceSel]) cMenu[choiceSel].act();
+    }
     if (e.code === 'KeyD' && DA.state.mode === 'title' && window.SLASHTV_DONATE_URL) {
       window.open(window.SLASHTV_DONATE_URL, '_blank', 'noopener');
     }
@@ -556,7 +569,7 @@
           st.roomsCleared++;
           st.score += 1000;
           st.players.forEach(function (hp) { hp.hearts = Math.min(hp.hearts + 1, DA.MAX_HEARTS); });
-          enterRoom(st, st.room.exits[dir], DA.oppositeDir(dir));
+          openModChoice(st, st.room.exits[dir], DA.oppositeDir(dir));
           return;
         }
       }
@@ -677,6 +690,18 @@
       if (startHeld && !startWasHeld) st.deathT = Math.min(st.deathT, 0.6); // fire skips ahead
       startWasHeld = startHeld;
       if (st.deathT <= 0) endRun(st, false);
+      return;
+    }
+    if (st.mode === 'choice') {
+      var choiceMenu = buildChoiceMenu(st);
+      var cClick = DA.input.consumeClick ? DA.input.consumeClick() : null;
+      var cTap = DA.input.consumeBtnTap ? DA.input.consumeBtnTap() : -1;
+      if (cClick) {
+        var cci = hitMenu(choiceMenu, cClick.x, cClick.y);
+        if (cci >= 0) { choiceSel = cci; choiceMenu[cci].act(); }
+      }
+      if (cTap >= 0 && choiceMenu[cTap]) choiceMenu[cTap].act();
+      DA.updateFx(dt);
       return;
     }
     if (st.mode !== 'playing') {
@@ -944,6 +969,14 @@
       } else { startDying(st); return; }
     }
     updateRevive(st, dt);
+    if (st.mods && st.mods.autoHealInterval) {          // Iron Will: a slow trickle heal
+      st.healT = (st.healT == null ? st.mods.autoHealInterval : st.healT) - dt;
+      if (st.healT <= 0) {
+        st.healT = st.mods.autoHealInterval;
+        st.players.forEach(function (hp) { if (!hp.downed) hp.hearts = Math.min(hp.hearts + 1, DA.MAX_HEARTS); });
+        if (DA.audio) DA.audio.pickup();
+      }
+    }
     if (st.room.boss) {
       if (st.bossDead && st.victoryExit) {     // walk into the glowing exit to wrap the episode
         var vd = DA.doorByDir(st.victoryExit);
@@ -1445,6 +1478,72 @@
       { x: X, y: Y0 + G * 3 + 14, w: BW, h: backH, color: '#f2f2e9',
         label: '←  BACK', state: '', act: function () { showCoopChoice = false; } }
     ];
+  }
+  // Between-rooms choice: pick one of three run-wide upgrades before the next
+  // room. mods is one shared bag on st (read by bullets.js/combat.js/
+  // player.js/powerups.js), so co-op players both benefit — it's the run's
+  // build, not a per-seat loadout. The same upgrade can come up again later
+  // and stacks (see the clamps at each consuming site).
+  var MOD_POOL = (function () {
+    function add(key, amt) { return function (st) { st.mods[key] = (st.mods[key] || 0) + amt; }; }
+    function flag(key) { return function (st) { st.mods[key] = true; }; }
+    return [
+      { name: 'HOLLOW POINTS', desc: '+1 damage, every gun', apply: add('dmgBonus', 1) },
+      { name: 'STEADY HANDS', desc: '-40% aim jitter, every gun', apply: add('jitterCut', 0.4) },
+      { name: 'QUICKDRAW', desc: '-15% time between shots', apply: add('rateCut', 0.15) },
+      { name: 'FULL METAL JACKET', desc: 'bullets pierce everything', apply: flag('pierceAll') },
+      { name: 'OVERPRESSURE', desc: '+30% splash radius', apply: add('splashRBonus', 0.3) },
+      { name: 'HOT LOADS', desc: '+20% bullet speed', apply: add('bulletSpeedBonus', 0.2) },
+      { name: 'BIG SPENDER', desc: '+10% score from kills', apply: add('scoreBonus', 0.1) },
+      { name: 'TWIN LINK', desc: '+1 pellet, multi-pellet guns', apply: add('pelletBonus', 1) },
+      { name: 'CHAIN REACTION', desc: 'a kill refunds 15% of your cooldown', apply: add('cooldownRefund', 0.15) },
+      { name: 'EXTENDED BARREL', desc: '+25% bullet range', apply: add('rangeBonus', 0.25) },
+      { name: 'PHOTOGENIC', desc: 'combo climbs 20% faster', apply: add('comboSpeedCut', 0.2) },
+      { name: 'EXECUTIONER', desc: '+50% damage on called shots', apply: add('weakPointDmgBonus', 0.5) },
+      { name: 'COMBAT MEDIC', desc: 'full heal, right now',
+        apply: function (st) { st.players.forEach(function (p) { if (!p.downed) p.hearts = DA.MAX_HEARTS; }); } },
+      { name: 'THICK SKIN', desc: '+0.5s invulnerable after a hit', apply: add('invulnBonus', 0.5) },
+      { name: 'VENGEANCE', desc: 'a hit only costs 25% of your combo',
+        apply: function (st) { st.mods.comboHitFrac = 0.25; } },
+      { name: 'IRON WILL', desc: 'auto-heal 1 heart every 45s',
+        apply: function (st) { st.mods.autoHealInterval = 45; } },
+      { name: 'ADRENALINE', desc: '+10% move speed', apply: add('speedBonus', 0.1) },
+      { name: 'GUARDIAN ANGEL', desc: 'shields last 50% longer', apply: add('shieldDurationBonus', 0.5) },
+      { name: 'LUCKY BREAK', desc: 'drops arrive ~20% more often', apply: add('dropRateBonus', 0.2) },
+      { name: 'MAGNETIC', desc: '+50% pickup radius', apply: add('pickupRadiusBonus', 0.5) },
+      { name: 'BARGAIN HUNTER', desc: 'hearts always heal to full', apply: flag('fullHealHearts') },
+      { name: 'STOCKPILE', desc: 'room transitions refresh your gun timer', apply: flag('refreshGunOnRoom') },
+      { name: 'FAN FAVORITE', desc: 'guarantees fan mail, every room', apply: flag('guaranteedMail') },
+      { name: 'QUARTERMASTER', desc: 'gun-crate timers last 25% longer', apply: add('gunDurationBonus', 0.25) }
+    ];
+  })();
+  var choiceSel = 0;
+  function openModChoice(st, nextRoomId, nextEntryDir) {
+    st.mode = 'choice';
+    st.pendingRoom = nextRoomId;
+    st.pendingEntryDir = nextEntryDir;
+    var pool = MOD_POOL.slice();
+    st.choiceOptions = [];
+    for (var i = 0; i < 3 && pool.length; i++) {
+      st.choiceOptions.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    }
+    choiceSel = 0;
+  }
+  function pickModChoice(st, entry) {
+    entry.apply(st);
+    if (DA.audio && DA.audio.comboUp) DA.audio.comboUp(3);
+    var roomId = st.pendingRoom, entryDir = st.pendingEntryDir;
+    st.mode = 'playing';
+    enterRoom(st, roomId, entryDir);
+  }
+  function buildChoiceMenu(st) {
+    var touch = DA.input.touchActive();
+    var BW = 620, X = (DA.W - BW) / 2, Y0 = 270, G = touch ? 92 : 80, BH = touch ? 78 : 66;
+    return (st.choiceOptions || []).map(function (entry, i) {
+      return { x: X, y: Y0 + G * i, w: BW, h: BH, color: '#7ee081', primary: true,
+               label: entry.name, state: entry.desc,
+               act: function () { pickModChoice(st, entry); } };
+    });
   }
   function buildPauseMenu() {
     var touch = DA.input.touchActive();
@@ -2095,7 +2194,7 @@
     }
     var chain = st.comboKills || 0;                 // chain progress toward the next step
     if (st.combo > 1 || chain > 0) {
-      var frac = DA.clamp(chain / (DA.COMBO_STEP || 6), 0, 1);
+      var frac = DA.clamp(chain / (st.comboStepNeeded || DA.COMBO_STEP || 6), 0, 1);
       ctx.fillStyle = 'rgba(232, 212, 77, 0.22)';
       ctx.fillRect(rx - 64, 70, 64, 5);
       ctx.fillStyle = '#e8d44d';
@@ -2247,6 +2346,19 @@
       ctx.fillStyle = '#7ee081';
       ctx.font = 'bold 20px monospace';
       ctx.fillText('FIRE ▸', DA.W / 2, DA.H - 44);
+      drawScreenFx(ctx);
+      return;
+    }
+    if (st.mode === 'choice') {
+      ctx.fillStyle = '#0c0c12';
+      ctx.fillRect(0, 0, DA.W, DA.H);
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 52px monospace'; ctx.fillStyle = '#e8d44d';
+      ctx.fillText('PICK YOUR UPGRADE', DA.W / 2, 170);
+      ctx.font = '19px monospace'; ctx.fillStyle = '#8888a0';
+      ctx.fillText('A GIFT FROM TONIGHT\'S SPONSOR — CARRIES THROUGH THE REST OF THE SHOW', DA.W / 2, 206);
+      var choiceMenu = buildChoiceMenu(st);
+      choiceSel = drawMenu(ctx, choiceMenu, choiceSel);
       drawScreenFx(ctx);
       return;
     }
