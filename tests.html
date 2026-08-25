@@ -627,8 +627,14 @@ test('kills shatter into flying shards that fade and expire', function () {
   var s0 = DA.fx.corpses[0], x0 = s0.x, y0 = s0.y;
   DA.updateFx(0.1);
   assert(s0.x !== x0 || s0.y !== y0, 'shards actually fly outward');
-  DA.updateFx(1);
-  assert(DA.fx.corpses.length === 0, 'shards fade away');
+  // small steps, like the real per-frame loop — a single large dt would
+  // overshoot the landing moment instead of actually stopping there
+  for (var i = 0; i < 60; i++) DA.updateFx(1 / 60);       // well past flightT (0.4s)
+  var xLanded = s0.x, yLanded = s0.y;
+  for (var j = 0; j < 30; j++) DA.updateFx(1 / 60);
+  assert(s0.x === xLanded && s0.y === yLanded, 'shards settle and hold still once landed, not fall forever');
+  for (var k = 0; k < 120; k++) DA.updateFx(1 / 60);      // now well past the longer persistence window
+  assert(DA.fx.corpses.length === 0, 'shards fade away eventually');
   for (var i = 0; i < 40; i++) DA.corpse(i, i, 12, '#6fae5c');
   assert(DA.fx.corpses.length <= 320, 'shard pile is capped, got ' + DA.fx.corpses.length);
   DA.fx.corpses.length = 0;

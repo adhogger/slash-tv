@@ -129,7 +129,7 @@
   };
 
   DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], dust: [], rings: [], casings: [], host: null,
-            shake: 0, aberration: 0, neonFlash: 0 };
+            shake: 0, shakeDirX: 0, shakeDirY: 0, aberration: 0, neonFlash: 0 };
   // the wall's neon trim strips stay dim except for this — set to 1 by a
   // bomb or rocket-launcher explosion specifically, decays over ~1.6s
   DA.addNeonFlash = function () { DA.fx.neonFlash = 1; };
@@ -164,6 +164,11 @@
   DA.corpse = function (x, y, r, color, dx, dy) {
     var big = r >= 16;
     var n = big ? 8 + Math.floor(r / 3.5) : 10 + Math.floor(r / 2);
+    // shards fly for a beat, then SETTLE (flightT runs out, physics stops)
+    // and just lie there for the rest of a much longer life — actual
+    // persistent debris littering the floor, not a burst that's gone in
+    // under a second
+    var life = (big ? 0.95 : 0.75) * 4;
     for (var i = 0; i < n; i++) {
       var a = DA.rand(0, 6.283), speed = DA.rand(100, big ? 260 : 340);
       DA.fx.corpses.push({
@@ -173,7 +178,7 @@
         rot: DA.rand(0, 6.283), rotV: DA.rand(-13, 13),
         w: DA.rand(big ? r * 0.35 : 4, Math.max(5, r * (big ? 0.9 : 0.65))),
         h: DA.rand(big ? r * 0.35 : 4, Math.max(5, r * (big ? 0.9 : 0.65))),
-        color: color, t: big ? 0.95 : 0.75, max: big ? 0.95 : 0.75, grav: 360
+        color: color, t: life, max: life, grav: 360, flightT: big ? 0.55 : 0.4
       });
     }
     if (DA.fx.corpses.length > 320) DA.fx.corpses.splice(0, DA.fx.corpses.length - 320);
@@ -261,9 +266,23 @@
     DA.fx.queue.push(text);
   };
 
+  // only the bigger shake wins, same "loudest one takes it" rule as before
+  // (Math.max) — but now direction rides along with magnitude, so a small
+  // shake (a routine kill, say) can't stomp a bigger directed recoil shake
+  // that's still decaying, the way an unconditional overwrite would
   DA.addShake = function (amount) {
-    if (DA.fx.shakeOn === false) return;
-    DA.fx.shake = Math.max(DA.fx.shake, amount);
+    if (DA.fx.shakeOn === false || amount <= DA.fx.shake) return;
+    DA.fx.shake = amount;
+    DA.fx.shakeDirX = 0; DA.fx.shakeDirY = 0;   // undirected: plain isotropic jitter
+  };
+  // directional shake: the screen kicks along (dx,dy) instead of jittering
+  // evenly in every direction — used for weapon recoil, where a real camera
+  // would get punched back opposite the muzzle, not shaken at random
+  DA.addShakeDir = function (amount, dx, dy) {
+    if (DA.fx.shakeOn === false || amount <= DA.fx.shake) return;
+    DA.fx.shake = amount;
+    var n = DA.norm(dx, dy);
+    DA.fx.shakeDirX = n.x; DA.fx.shakeDirY = n.y;
   };
 
   // Haptics: gamepad rumble (Chrome dual-rumble) + phone vibration (Android;
@@ -320,9 +339,12 @@
       var sh = fx.corpses[c];
       sh.t -= dt;
       if (sh.t <= 0) { fx.corpses.splice(c, 1); continue; }
-      sh.vy += sh.grav * dt;
-      sh.x += sh.vx * dt; sh.y += sh.vy * dt;
-      sh.rot += sh.rotV * dt;
+      if (sh.flightT > 0) {                    // still airborne: full arc physics
+        sh.flightT -= dt;
+        sh.vy += sh.grav * dt;
+        sh.x += sh.vx * dt; sh.y += sh.vy * dt;
+        sh.rot += sh.rotV * dt;
+      }                                         // flightT spent: it's landed, hold still
     }
     if (fx.shake > 0) fx.shake = Math.max(0, fx.shake - 30 * dt);
     if (fx.aberration > 0) fx.aberration = Math.max(0, fx.aberration - 1.8 * dt);
@@ -382,9 +404,10 @@
       }
     }
     var corpses = DA.fx.corpses;                     // flying glass-shard fragments
+    var CORPSE_FADE_TAIL = 0.6;                       // stays fully solid until near the very end
     for (var c = 0; c < corpses.length; c++) {
       var sh = corpses[c];
-      var k = sh.t / sh.max;
+      var k = sh.t > CORPSE_FADE_TAIL ? 1 : sh.t / CORPSE_FADE_TAIL;
       ctx.save();
       ctx.translate(sh.x, sh.y);
       ctx.rotate(sh.rot);

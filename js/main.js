@@ -318,12 +318,21 @@
   var startWasHeld = false;   // require a release between screens
   var endlessWasHeld = false;
   var paused = false;
-  var showBestiary = false;   // pause-screen "who's who" overlay
+  var showBestiary = false;   // pause-screen "who's who" overlay — now a 2-page
+  var helpPage = 0;           // modal: page 0 = HOW TO PLAY, page 1 = TONIGHT'S CAST
   var showSettings = false;   // title-screen settings panel
   var showCoopChoice = false; // title-screen "how are you playing?" submenu
   var menuSel = 0, setSel = 0, pauseSel = 0, coopSel = 0;   // keyboard/gamepad cursor per menu
   var titleMenu = [], settingsMenu = [], pauseMenu = [], coopMenu = [];   // rebuilt every frame
 
+  function openHelp() { showBestiary = true; helpPage = 0; }
+  // any input dismisses the modal — but the FIRST one just turns the page
+  // (controls -> cast), same "any input advances" reflex as the rest of
+  // the show's interstitials; only a second dismiss (or Esc, always
+  // immediate) actually closes it
+  function dismissHelp() {
+    if (helpPage === 0) helpPage = 1; else showBestiary = false;
+  }
   function toggleShake() {
     DA.fx.shakeOn = DA.fx.shakeOn === false;
     try { localStorage.setItem('deadset_shake', DA.fx.shakeOn ? '1' : '0'); } catch (err) {}
@@ -402,8 +411,8 @@
     if (e.code === 'KeyG') showDebug = !showDebug;
     if ((e.code === 'Escape' || e.code === 'KeyP') && DA.state.mode === 'playing' &&
         !(e.code === 'Escape' && (showSettings || showBestiary))) paused = !paused;
-    if (e.code === 'KeyB' && paused && DA.state.mode === 'playing') showBestiary = !showBestiary;
-    if (e.code === 'KeyC' && DA.state.mode === 'title') showBestiary = !showBestiary;
+    if (e.code === 'KeyB' && paused && DA.state.mode === 'playing') { if (showBestiary) showBestiary = false; else openHelp(); }
+    if (e.code === 'KeyC' && DA.state.mode === 'title') { if (showBestiary) showBestiary = false; else openHelp(); }
     if (e.code === 'Escape' && showBestiary) showBestiary = false;
     if (e.code === 'KeyK') toggleShake();
     if (e.code === 'KeyV') toggleFx();
@@ -746,8 +755,8 @@
         var click = DA.input.consumeClick ? DA.input.consumeClick() : null;
         var btnTap = DA.input.consumeBtnTap ? DA.input.consumeBtnTap() : -1;
         var tapAny = DA.input.consumeAnyTap ? DA.input.consumeAnyTap() : false;
-        if (showBestiary) {                        // cast page: anything closes it
-          if (click || tapAny || (startHeld && !startWasHeld)) showBestiary = false;
+        if (showBestiary) {                        // help/cast modal: anything turns the page or closes it
+          if (click || tapAny || (startHeld && !startWasHeld)) dismissHelp();
           startWasHeld = startHeld;
           DA.updateFx(dt);
           return;
@@ -784,7 +793,7 @@
       }
       var endlessHeld = endlessKeyHeld || DA.input.padButton(3);
       if (endlessHeld && !endlessWasHeld) DA.state = newGame('endless');   // Endless is unlocked from the start
-      if (st.mode === 'title' && DA.input.consumeCastTap && DA.input.consumeCastTap()) showBestiary = !showBestiary;
+      if (st.mode === 'title' && DA.input.consumeCastTap && DA.input.consumeCastTap()) { if (showBestiary) showBestiary = false; else openHelp(); }
       startWasHeld = startHeld;
       endlessWasHeld = endlessHeld;
       updateAttract(dt);
@@ -847,7 +856,7 @@
       var pTap = DA.input.consumeBtnTap ? DA.input.consumeBtnTap() : -1;
       var pAny = DA.input.consumeAnyTap ? DA.input.consumeAnyTap() : false;
       if (showBestiary) {
-        if (pClick || pAny) showBestiary = false;
+        if (pClick || pAny) dismissHelp();
       } else {
         var pMenu = showSettings ? settingsMenu : pauseMenu;
         if (pClick) {
@@ -1524,8 +1533,8 @@
            act: function () { DA.state = newGame('endless'); } });
     push({ color: '#f2f2e9', label: '⚙  SETTINGS', state: 'sound · music · effects',
            act: function () { showSettings = true; setSel = 0; } });
-    push({ color: '#e8d44d', label: "🧟  TONIGHT'S CAST", state: 'know your monsters',
-           act: function () { showBestiary = true; } });
+    push({ color: '#e8d44d', label: '❓  HOW TO PLAY', state: 'controls & tonight\'s cast',
+           act: openHelp });
     if (window.SLASHTV_DONATE_URL) {
       push({ color: '#e8d44d', label: '💛  SUPPORT THE SHOW', state: 'optional — no ads, ever',
              act: function () { window.open(window.SLASHTV_DONATE_URL, '_blank', 'noopener'); } });
@@ -1646,8 +1655,8 @@
         label: '⚙ SETTINGS', state: 'sound · music · effects',
         act: function () { showSettings = true; setSel = 0; } },
       { x: X, y: Y0 + G * 2, w: BW, h: BH, color: '#e8d44d',
-        label: "🧟 TONIGHT'S CAST", state: 'B',
-        act: function () { showBestiary = true; } },
+        label: '❓ HOW TO PLAY', state: 'B',
+        act: openHelp },
       { x: X, y: Y0 + G * 3, w: BW, h: BH, color: '#d43a4b',
         label: '📺 QUIT TO TITLE SCREEN', state: 'run is abandoned',
         act: function () { paused = false; showSettings = false; DA.state = { mode: 'title' }; } }
@@ -1793,9 +1802,90 @@
   // threat lines from the same table the first-encounter callouts use — so
   // this page can never drift out of date with the actual game
   var BESTIARY_ORDER = ['shambler', 'swarmer', 'sprinter', 'boomer', 'stalker', 'brute', 'spitter', 'gusher'];
-  function drawBestiary(ctx) {
-    ctx.fillStyle = 'rgba(10, 10, 15, 0.97)';
-    ctx.fillRect(0, 0, DA.W, DA.H);
+  function drawKeycap(ctx, x, y, size, label) {
+    ctx.fillStyle = '#1c1c28';
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x - size / 2, y - size / 2, size, size, 6); ctx.fill(); }
+    else ctx.fillRect(x - size / 2, y - size / 2, size, size);
+    ctx.strokeStyle = '#4a4a58'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#f2f2e9';
+    ctx.font = 'bold ' + Math.round(size * 0.42) + 'px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x, y + size * 0.16);
+  }
+  // controls explainer: left hand steers, right hand aims — drawn as the
+  // literal WASD cluster vs. a mouse (or arrow keys), so it reads at a
+  // glance instead of as a sentence to parse
+  // matches the real in-game virtual stick exactly (see drawTouchUI): a
+  // ring plus an offset thumb dot, not a generic joystick clip-art
+  function drawStickIcon(ctx, x, y, r, thumbColor) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
+    ctx.fillStyle = thumbColor;
+    ctx.beginPath(); ctx.arc(x, y - r * 0.3, r * 0.42, 0, 7); ctx.fill();
+  }
+  function drawHowToPlay(ctx) {
+    var isTouch = DA.input.touchActive();
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 34px monospace';
+    ctx.fillStyle = '#e8d44d';
+    ctx.fillText('HOW TO PLAY', DA.W / 2, 74);
+    ctx.font = '18px monospace'; ctx.fillStyle = '#8888a0';
+    ctx.fillText('two ' + (isTouch ? 'thumbs' : 'hands') + ', two jobs', DA.W / 2, 108);
+
+    var cy = 270, gap = 60;
+    var lx = DA.W / 2 - 300, rx = DA.W / 2 + 300;
+    ctx.font = 'bold 16px monospace'; ctx.fillStyle = '#7ee081';
+    ctx.fillText(isTouch ? '◄ LEFT THUMB' : '◄ LEFT HAND', lx, cy - 110);
+    ctx.fillText(isTouch ? 'RIGHT THUMB ►' : 'RIGHT HAND ►', rx, cy - 110);
+    if (isTouch) {
+      // the same two virtual sticks drawn on the real touchscreen HUD —
+      // this page shows exactly what you'll actually see, not an abstraction
+      drawStickIcon(ctx, lx, cy, 44, 'rgba(255,255,255,0.55)');
+      drawStickIcon(ctx, rx, cy, 44, 'rgba(232,212,77,0.65)');
+    } else {
+      var ks = 52;
+      drawKeycap(ctx, lx, cy - gap, ks, 'W');
+      drawKeycap(ctx, lx - gap, cy, ks, 'A');
+      drawKeycap(ctx, lx, cy, ks, 'S');
+      drawKeycap(ctx, lx + gap, cy, ks, 'D');
+      // mouse icon: hand-drawn, not an emoji glyph — 🖱 isn't in every
+      // browser/OS's canvas font fallback and silently renders as a blank
+      // shape, which is worse than no icon at all
+      var mw = 34, mh = 48;
+      ctx.fillStyle = '#1c1c28';
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(rx - mw / 2, cy - mh / 2, mw, mh, mw / 2);
+      else ctx.rect(rx - mw / 2, cy - mh / 2, mw, mh);
+      ctx.fill();
+      ctx.strokeStyle = '#4a4a58'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.strokeStyle = '#4a4a58'; ctx.lineWidth = 1.5;             // left/right click divider
+      ctx.beginPath(); ctx.moveTo(rx, cy - mh / 2 + 5); ctx.lineTo(rx, cy - mh * 0.08); ctx.stroke();
+      ctx.fillStyle = '#7ee081';                                   // scroll wheel
+      ctx.fillRect(rx - 2, cy - mh / 2 + 9, 4, 9);
+      ctx.font = '15px monospace'; ctx.fillStyle = '#8888a0';
+      ctx.fillText('(or ↑↓←→)', rx, cy + 44);
+    }
+    ctx.font = 'bold 22px monospace'; ctx.fillStyle = '#f2f2e9';
+    ctx.fillText('MOVE', lx, cy + 90);
+    ctx.fillText('AIM & FIRE', rx, cy + 90);
+
+    // a straight vertical rule between the two hands, same visual language
+    // as the arena's own wall-panel seams
+    ctx.strokeStyle = 'rgba(136, 136, 160, 0.25)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(DA.W / 2, cy - 130); ctx.lineTo(DA.W / 2, cy + 110); ctx.stroke();
+
+    var other = isTouch ?
+      'keyboard/mouse and gamepad work too, if one\'s connected' :
+      (DA.input.gamepadConnected() ?
+        '🎮 gamepad: left stick moves, right stick fires' :
+        '🎮 gamepad also works: left stick moves, right stick fires');
+    ctx.font = '16px monospace'; ctx.fillStyle = '#8888a0';
+    ctx.fillText(other, DA.W / 2, cy + 150);
+
+    ctx.font = 'bold 20px monospace'; ctx.fillStyle = '#7ee081';
+    ctx.fillText('▶ press anything to meet tonight\'s cast', DA.W / 2, 682);
+  }
+  function drawCast(ctx) {
     ctx.textAlign = 'center';
     ctx.font = 'bold 34px monospace';
     ctx.fillStyle = '#e8d44d';
@@ -1814,6 +1904,11 @@
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = '#7ee081';
     ctx.fillText('Esc — back to the show', DA.W / 2, 682);
+  }
+  function drawBestiary(ctx) {
+    ctx.fillStyle = 'rgba(10, 10, 15, 0.97)';
+    ctx.fillRect(0, 0, DA.W, DA.H);
+    if (helpPage === 0) drawHowToPlay(ctx); else drawCast(ctx);
   }
 
   // TV lower-third: the room's title card slides up when the show cuts to a
@@ -2328,7 +2423,12 @@
       ctx.translate(-st.player.x, -st.player.y);
     }
     if (DA.fx.shake > 0 && !paused) {
-      ctx.translate(DA.rand(-DA.fx.shake, DA.fx.shake), DA.rand(-DA.fx.shake, DA.fx.shake));
+      // directed shake (recoil) kicks mostly along shakeDirX/Y with a little
+      // random texture on top; undirected shake (the old default) has
+      // shakeDirX/Y at 0 and falls back to pure isotropic jitter
+      var sm = DA.fx.shake;
+      ctx.translate(DA.fx.shakeDirX * sm * 0.8 + DA.rand(-sm * 0.35, sm * 0.35),
+                    DA.fx.shakeDirY * sm * 0.8 + DA.rand(-sm * 0.35, sm * 0.35));
     }
     drawArena(ctx, st);
     DA.drawFxUnder(ctx);

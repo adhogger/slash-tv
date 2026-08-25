@@ -40,7 +40,9 @@
   }
   DA.fireBullet = function (arr, x, y, dx, dy, gun) {
     var g = gun || DA.GUNS.pistol;
-    arr.push({ x: x, y: y, ox: x, oy: y, dx: dx, dy: dy, r: g.dmg > 1 ? 5 : 4, speed: g.speed,
+    // slightly oversized vs. real-world proportion — reads clearly at a
+    // glance mid-firefight instead of vanishing as a thin dot
+    arr.push({ x: x, y: y, ox: x, oy: y, dx: dx, dy: dy, r: g.dmg > 1 ? 6.5 : 5, speed: g.speed,
                dmg: g.dmg, pierce: !!g.pierce, hit: g.pierce ? [] : null,
                range: g.range || 0, splash: g.splash || 0, splashR: g.splashR || 0, fuse: g.fuse || 0,
                color: g.color, gunLabel: g.label, bot: !!(gun && gun.botOwned) });
@@ -100,7 +102,12 @@
     if (DA.eject && !g.pierce && !g.splash && !g.range) {   // brass for the ballistic guns
       DA.eject(p.x + Math.cos(base) * 14, p.y + Math.sin(base) * 14, base);
     }
-    if (g.shake && DA.addShake) DA.addShake(g.shake);
+    // recoil kicks the camera opposite the muzzle, not a generic rumble —
+    // same direction the gun itself pushes the player back via g.kick above
+    if (g.shake) {
+      if (DA.addShakeDir) DA.addShakeDir(g.shake, -Math.cos(base), -Math.sin(base));
+      else if (DA.addShake) DA.addShake(g.shake);
+    }
     if (DA.audio) DA.audio.shot();
     return g.pellets;
   };
