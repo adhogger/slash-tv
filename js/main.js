@@ -78,36 +78,11 @@
     executive: '"YOUR CONTRACT HAS A DEATH CLAUSE. PAGE 40."',
     algorithm: '"I HAVE SEEN EVERY WAY YOU DIE. PICK ONE."'
   };
-  // Tonight's bounty: a mission-briefing beat shown before each boss fight —
-  // not a target-select (the season order is fixed), a dossier card for the
-  // one you're about to face. Shown at a true campaign start and again at
-  // each episode transition, never on a plain death-retry (that stays instant).
-  var BOUNTY_INFO = {
-    producer: { name: 'THE PRODUCER',
-      charge: 'CHARGED WITH: repeated cruelty to contestants, three canceled catering budgets, and greenlighting this show personally.' },
-    executive: { name: 'THE EXECUTIVE',
-      charge: "CHARGED WITH: outsourcing your severance, weaponizing the quarterly earnings call, and a heroic volume of NDAs." },
-    algorithm: { name: 'THE ALGORITHM',
-      charge: "CHARGED WITH: replacing the writers' room, predicting your death for engagement, and technically not being a person." }
-  };
-  function bossKeyForStartRoom(startRoom) {
-    if (startRoom === 'writers') return 'executive';
-    if (startRoom === 'controlbooth') return 'algorithm';
-    return 'producer';
-  }
-  function makeBountyBoss(key) {
-    return key === 'executive' ? DA.makeExecutive() : (key === 'algorithm' ? DA.makeAlgorithm() : DA.makeBoss());
-  }
-  function openBountyBoard(startRoom, carry) {
-    DA.state = { mode: 'bounty', pendingStartRoom: startRoom, pendingCarry: carry,
-                 bossKey: bossKeyForStartRoom(startRoom) };
-    startWasHeld = true;   // same fix as startDying: don't let the press that opened
-  }                         // this screen also immediately fire its own "press to continue"
   // "We'll be right back" — a fake in-universe commercial break before each
-  // bounty dossier. No real video (this project draws/synthesizes
-  // everything, no external assets), just the same satirical corporate-TV
-  // voice the rest of the show already uses, dressed up with a VHS static
-  // wipe (reuses drawCamStatic) in/out instead of a hard cut.
+  // boss fight. No real video (this project draws/synthesizes everything,
+  // no external assets), just the same satirical corporate-TV voice the
+  // rest of the show already uses, dressed up with a VHS static wipe
+  // (reuses drawCamStatic) in/out instead of a hard cut.
   DA.COMMERCIAL_AD_TIME = 3.2;
   var COMMERCIAL_ADS = [
     { brand: 'GUTPUNCH ENERGY', tagline: 'Tastes like a bad decision. Now with 30% more regret.', color: '#ff8a3d' },
@@ -720,7 +695,7 @@
         st.page++;
         if (st.page >= INTRO.length) {
           store('slashtv_intro', '1');
-          openBountyBoard();          // no ad before the first fight — commercials are for AFTER a boss
+          DA.state = newGame();
         }
       }
       startWasHeld = startHeld;
@@ -729,13 +704,7 @@
     }
     if (st.mode === 'commercial') {
       st.adT -= dt;
-      if ((startHeld && !startWasHeld) || st.adT <= 0) openBountyBoard(st.pendingStartRoom, st.pendingCarry);
-      startWasHeld = startHeld;
-      DA.updateFx(dt);
-      return;
-    }
-    if (st.mode === 'bounty') {
-      if (startHeld && !startWasHeld) DA.state = newGame(st.pendingStartRoom, st.pendingCarry);
+      if ((startHeld && !startWasHeld) || st.adT <= 0) DA.state = newGame(st.pendingStartRoom, st.pendingCarry);
       startWasHeld = startHeld;
       DA.updateFx(dt);
       return;
@@ -1527,7 +1496,7 @@
   // stay visible with a lock + how to earn them, instead of vanishing.
   function startShow() {   // first-ever launch tells the story first; everyone else goes straight in
     if (load('slashtv_intro') !== '1') DA.state = { mode: 'intro', page: 0 };
-    else openBountyBoard();          // no ad before the first fight — commercials are for AFTER a boss
+    else DA.state = newGame();
   }
   function buildTitleMenu() {
     var touch = DA.input.touchActive();
@@ -2503,43 +2472,6 @@
       ctx.fillText('FIRE ▸ SKIP', DA.W / 2, DA.H - 50);
       var adG = Math.max(0, 1 - (DA.COMMERCIAL_AD_TIME - st.adT) / 0.4, 1 - st.adT / 0.4);
       if (adG > 0.02) drawCamStatic(ctx, 0, 0, DA.W, DA.H, adG);
-      drawScreenFx(ctx);
-      return;
-    }
-    if (st.mode === 'bounty') {
-      ctx.fillStyle = '#0c0c12';
-      ctx.fillRect(0, 0, DA.W, DA.H);
-      var info = BOUNTY_INFO[st.bossKey] || BOUNTY_INFO.producer;
-      var boss = makeBountyBoss(st.bossKey);
-      ctx.save();
-      ctx.translate(DA.W / 2, 300);
-      ctx.scale(1.7, 1.7);
-      ctx.translate(-boss.x, -boss.y);
-      if (st.bossKey === 'algorithm' && DA.drawAlgorithm) DA.drawAlgorithm(ctx, boss);
-      else if (DA.drawBoss) DA.drawBoss(ctx, boss);
-      ctx.restore();
-      ctx.textAlign = 'center';
-      ctx.font = '18px monospace'; ctx.fillStyle = '#d43a4b';
-      ctx.fillText("TONIGHT'S BOUNTY", DA.W / 2, 96);
-      ctx.font = 'bold 48px monospace'; ctx.fillStyle = '#e8d44d';
-      ctx.fillText(info.name, DA.W / 2, 148);
-      // word-wrap the charge sheet to fit, same technique drawHostCaption uses
-      ctx.font = '19px monospace';
-      var maxW = 640, words = info.charge.split(' '), lines = [], cur = '';
-      for (var cw = 0; cw < words.length; cw++) {
-        var tryLine = cur ? cur + ' ' + words[cw] : words[cw];
-        if (cur && ctx.measureText(tryLine).width > maxW) { lines.push(cur); cur = words[cw]; }
-        else cur = tryLine;
-      }
-      if (cur) lines.push(cur);
-      ctx.fillStyle = '#c9c9d4';
-      var chargeY = 490;
-      for (var cl = 0; cl < lines.length; cl++) { ctx.fillText(lines[cl], DA.W / 2, chargeY); chargeY += 26; }
-      ctx.font = 'bold 20px monospace'; ctx.fillStyle = '#8888a0';
-      ctx.fillText('THREAT: ' + boss.maxHp + ' HP  ·  BOUNTY: $' + boss.score.toLocaleString('en-US'),
-                   DA.W / 2, chargeY + 20);
-      ctx.font = 'bold 22px monospace'; ctx.fillStyle = '#7ee081';
-      ctx.fillText('FIRE ▸ SIGN THE CONTRACT', DA.W / 2, DA.H - 50);
       drawScreenFx(ctx);
       return;
     }
