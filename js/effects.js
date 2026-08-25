@@ -145,7 +145,15 @@
   DA.hostSay = function (text, speaker, dur, monsterType) {
     if (!text) return;
     var t = dur || 4.6;
-    DA.fx.host = { text: text, lines: null, t: t, max: t, speaker: speaker || 'host', monsterType: monsterType };
+    // CAST SPOTLIGHT bakes its fake enemy ONCE here, not per render frame —
+    // DA.makeEnemy hands out a fresh DA.newId() every call, and the sprite
+    // sheet is keyed by that id (see DA.sprite), so recreating it every
+    // frame in drawHostCam cycled through different baked variants each
+    // frame and read as the monster glitching/flickering
+    var fakeEnemy = (monsterType && monsterType !== 'mine' && DA.makeEnemy) ?
+                     DA.makeEnemy(monsterType, 0, 0) : null;
+    DA.fx.host = { text: text, lines: null, t: t, max: t, speaker: speaker || 'host',
+                   monsterType: monsterType, fakeEnemy: fakeEnemy };
   };
   try { DA.fx.shakeOn = localStorage.getItem('deadset_shake') !== '0'; }
   catch (e) { DA.fx.shakeOn = true; }
@@ -339,7 +347,7 @@
     if (fx.host) {
       // hold the host's entrance while a room title card owns that corner
       if (!(DA.state && DA.state.introCardT > 0)) fx.host.t -= dt;
-      if (fx.host.t <= 0) fx.host = null;
+      if (fx.host.t <= 0) { fx.host = null; fx.hostClearedAt = performance.now(); }
     }
   };
 
@@ -508,7 +516,6 @@
     if (DA.audio) DA.audio.hurt();
   };
   DA.onWaveStart = function (n) {
-    if (n > 1) DA.announce('WAVE ' + n);   // wave 1 follows the room name: let it breathe
     if (DA.audio) DA.audio.wave();
     // the presenter speaks ONCE per wave, a few seconds in — and waits for
     // any monster CAST SPOTLIGHT already using his window to actually
@@ -517,9 +524,15 @@
     if (st && st.mode === 'playing' && DA.presenterQuip) {
       var line = DA.presenterQuip(st);
       if (line) {
+        // HOST_GAP: a beat of quiet after the corner clears before it's
+        // allowed to pop up again — refilling it the instant it's free
+        // read as a strobe once wave-to-wave pacing tightened up
+        var HOST_GAP = 1800;
         var tryShow = function () {
           if (DA.state !== st || st.mode !== 'playing') return;
           if (DA.fx.host) { setTimeout(tryShow, 500); return; }   // still spotlighting — wait
+          var sinceCleared = DA.fx.hostClearedAt ? performance.now() - DA.fx.hostClearedAt : HOST_GAP;
+          if (sinceCleared < HOST_GAP) { setTimeout(tryShow, HOST_GAP - sinceCleared); return; }
           DA.hostSay(line);
         };
         setTimeout(tryShow, 5000);

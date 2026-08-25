@@ -399,6 +399,12 @@
         // driving beat instead of snapping straight to one
         var hatEvery = k >= 1 ? (hatBuildT > 5 ? 1 : 2) : (hatBuildT > 8 ? 2 : 4);
         if (DA.state && (DA.state.combo || 1) >= 6) hatEvery = Math.max(1, hatEvery - 1);
+        // a packed room tightens the hat further, on top of (not instead
+        // of) the build-up/combo factors above — a distinct "the set is
+        // FULL" cue, separate from "this fight has been going a while"
+        var onScreen = DA.state && DA.state.enemies ? DA.state.enemies.length : 0;
+        if (onScreen >= 12) hatEvery = Math.max(1, hatEvery - 2);
+        else if (onScreen >= 6) hatEvery = Math.max(1, hatEvery - 1);
         if (beatNo % hatEvery === 0) {
           hatAt(beatNext + T / 2, 0.03 + k * 0.045, 0.1 + k * 0.03);
           hatAt(beatNext + T * 0.75, 0.025 + k * 0.04, 0.08 + k * 0.025);
@@ -440,6 +446,11 @@
   function hatAt(t, vol, dur) {
     noiseAt(t, dur, vol, 5000);
     noiseAt(t, dur * 0.8, vol * 0.65, 9500);
+    // a long, quiet shimmer on top — the two layers above stop dead at
+    // `dur`, which reads as a hit; a real cymbal keeps ringing well after
+    // the initial transient, so this one decays over a much longer window
+    // at low volume and a brighter filter, just the wash, not the punch
+    noiseAt(t, dur * 4.5, vol * 0.2, 11000);
   }
 
 })();

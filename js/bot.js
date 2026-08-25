@@ -58,6 +58,21 @@
       }
     }
 
+    // --- known mines: full state, so it gives them a wide berth the same
+    // way it already avoids live spawn doors — an armed mine (ticking down
+    // to blow) gets pushed away harder and from further out than a dormant
+    // one, which just needs a light nudge to route around
+    if (st.mines && st.mines.length) {
+      for (i = 0; i < st.mines.length; i++) {
+        var mn = st.mines[i];
+        if (mn.blown) continue;
+        d2 = DA.dist2(mn.x, mn.y, p.x, p.y);
+        var mineReach = mn.armT > 0 ? 130 : 70;
+        if (d2 > mineReach * mineReach) continue;
+        addPull(v, mn.x, mn.y, p.x, p.y, mn.armT > 0 ? 2.0 : 1.3);
+      }
+    }
+
     // --- walls and corners are where robots die
     var A = DA.ARENA, wallW = 0.9;
     if (p.x - A.x0 < 80) v.x += wallW * (80 - (p.x - A.x0)) / 80;

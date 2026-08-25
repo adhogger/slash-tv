@@ -743,7 +743,7 @@
     if (st.mode === 'dying') {
       st.deathT -= dt;
       DA.updateEnemies(st.enemies, st.players, dt * 0.5);  // the horde closes in
-      DA.updateBullets(st.bullets, dt);                    // stray shots finish flying
+      DA.updateBullets(st.bullets, dt, st);                 // stray shots finish flying
       DA.updateFx(dt);
       st.bloodT = (st.bloodT || 0) - dt;
       if (st.bloodT <= 0) {                                // the pool spreads
@@ -928,7 +928,7 @@
         if (!pl.bot) st.stats.shots += fired;    // accuracy tracks the human
       }
     }
-    DA.updateBullets(st.bullets, dt);
+    DA.updateBullets(st.bullets, dt, st);
     if (st.countdownT > 0) {                     // 3... 2... 1... nothing spawns yet
       var cdPrev = Math.ceil(st.countdownT / 1.0);
       st.countdownT -= dt;
@@ -1009,8 +1009,9 @@
     DA.updateBoomers(st, dt);
     if (DA.updateHazards) DA.updateHazards(st, dt);
     DA.updateEnemyBullets(st.enemyBullets, st.players, dt, st);
-    DA.resolveCombat(st);
+    DA.resolveCombat(st, dt);
     if (DA.updateMines) DA.updateMines(st, dt);
+    if (DA.updateCompanions) DA.updateCompanions(st, dt);
     DA.updateCombo(st, dt);
     if (st.introCardT > 0) st.introCardT -= dt;
     if (st.combo > st.stats.maxCombo) st.stats.maxCombo = st.combo;
@@ -1369,25 +1370,26 @@
     ctx.strokeRect(A.x0 + 1, A.y0 + 1, A.x1 - A.x0 - 2, A.y1 - A.y0 - 2);
     // wall panel seams: alternating cyan/magenta neon trim strips, each with
     // a soft wide glow pass behind a bright thin core — the classic
-    // backlit-panel-line look. Dim by default — they only flare on a bomb
-    // or rocket-launcher explosion specifically (DA.fx.neonFlash), not on
-    // every kill/shake/combo, so the effect stays a genuine "big moment"
-    // beat instead of near-constant background noise.
+    // backlit-panel-line look. A slow ambient breathe keeps the rig from
+    // reading as flat/dead at rest; a bomb or rocket-launcher explosion
+    // (DA.fx.neonFlash) still spikes it far brighter on top of that, so the
+    // effect stays a genuine "big moment" beat, not just louder idle noise.
+    var breathe = 0.5 + Math.sin(performance.now() / 900) * 0.5;
     var excite = DA.fx.neonFlash || 0;
     var seamX = 0;
     for (var wx = A.x0 + 80; wx < A.x1; wx += 80, seamX++) {
       var seamColor = seamX % 2 ? '47, 215, 196' : '255, 45, 209';
-      ctx.strokeStyle = 'rgba(' + seamColor + ', ' + (0.18 + excite * 0.55).toFixed(2) + ')'; ctx.lineWidth = 4 + excite * 4;
+      ctx.strokeStyle = 'rgba(' + seamColor + ', ' + (0.14 + breathe * 0.1 + excite * 0.55).toFixed(2) + ')'; ctx.lineWidth = 4 + excite * 4;
       ctx.beginPath(); ctx.moveTo(wx, 0); ctx.lineTo(wx, A.y0); ctx.moveTo(wx, A.y1); ctx.lineTo(wx, DA.H); ctx.stroke();
-      ctx.strokeStyle = 'rgba(' + seamColor + ', ' + (0.5 + excite * 0.5).toFixed(2) + ')'; ctx.lineWidth = 1 + excite * 1.5;
+      ctx.strokeStyle = 'rgba(' + seamColor + ', ' + (0.4 + breathe * 0.2 + excite * 0.5).toFixed(2) + ')'; ctx.lineWidth = 1 + excite * 1.5;
       ctx.beginPath(); ctx.moveTo(wx, 0); ctx.lineTo(wx, A.y0); ctx.moveTo(wx, A.y1); ctx.lineTo(wx, DA.H); ctx.stroke();
     }
     var seamY = 0;
     for (var wy = A.y0 + 80; wy < A.y1; wy += 80, seamY++) {
       var seamColorY = seamY % 2 ? '255, 45, 209' : '47, 215, 196';
-      ctx.strokeStyle = 'rgba(' + seamColorY + ', ' + (0.18 + excite * 0.55).toFixed(2) + ')'; ctx.lineWidth = 4 + excite * 4;
+      ctx.strokeStyle = 'rgba(' + seamColorY + ', ' + (0.14 + breathe * 0.1 + excite * 0.55).toFixed(2) + ')'; ctx.lineWidth = 4 + excite * 4;
       ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(A.x0, wy); ctx.moveTo(A.x1, wy); ctx.lineTo(DA.W, wy); ctx.stroke();
-      ctx.strokeStyle = 'rgba(' + seamColorY + ', ' + (0.5 + excite * 0.5).toFixed(2) + ')'; ctx.lineWidth = 1 + excite * 1.5;
+      ctx.strokeStyle = 'rgba(' + seamColorY + ', ' + (0.4 + breathe * 0.2 + excite * 0.5).toFixed(2) + ')'; ctx.lineWidth = 1 + excite * 1.5;
       ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(A.x0, wy); ctx.moveTo(A.x1, wy); ctx.lineTo(DA.W, wy); ctx.stroke();
     }
     ctx.stroke();
@@ -1458,13 +1460,13 @@
           ctx.fillStyle = 'rgba(220, 50, 60, 0.28)';   // the beacon head
           ctx.beginPath();
           ctx.moveTo(LX, LY);
-          ctx.arc(LX, LY, 26, beam, beam + 0.9);
+          ctx.arc(LX, LY, 40, beam, beam + 0.9);
           ctx.closePath(); ctx.fill();
           var ra = 0.55 + Math.sin(lampNow / 90) * 0.45;
           ctx.fillStyle = 'rgba(220, 50, 60, ' + (ra * 0.4).toFixed(3) + ')';
-          ctx.beginPath(); ctx.arc(LX, LY, 12, 0, 7); ctx.fill();
+          ctx.beginPath(); ctx.arc(LX, LY, 24, 0, 7); ctx.fill();
           ctx.fillStyle = 'rgba(230, 60, 70, ' + ra.toFixed(3) + ')';
-          ctx.beginPath(); ctx.arc(LX, LY, 4.5, 0, 7); ctx.fill();
+          ctx.beginPath(); ctx.arc(LX, LY, 8, 0, 7); ctx.fill();
         } else {                                       // idle: a dark dome
           ctx.fillStyle = '#3a3a44';
           ctx.beginPath(); ctx.arc(LX, LY, 3.5, 0, 7); ctx.fill();
@@ -1941,7 +1943,11 @@
       ctx.fillStyle = '#d8a988';
       ctx.beginPath(); DA.polyPath(ctx, ex, ey, er, er, 7, 0.4); ctx.fill();
       ctx.fillStyle = '#2c2c34';                        // corporate hair — back wedge, not the whole head
-      ctx.beginPath(); DA.polyPath(ctx, ex, ey - er * 0.28, er * 1.05, er * 1.05, 6, 3.3, 0.04, null, 0.446); ctx.fill();
+      // a seeded rng, not null: null falls back to Math.random() PER CALL,
+      // which re-jitters this hair silhouette's edge every single render
+      // frame — reads as the portrait glitching. A seeded generator resets
+      // to the same sequence every frame, so the shape stays static.
+      ctx.beginPath(); DA.polyPath(ctx, ex, ey - er * 0.28, er * 1.05, er * 1.05, 6, 3.3, 0.04, DA.makeRng(102), 0.446); ctx.fill();
       ctx.fillStyle = '#111';                           // full-width visor
       ctx.fillRect(ex - er * 0.9, ey - er * 0.34, er * 1.8, er * 0.42);
       ctx.fillStyle = '#22222c';                        // phone welded to the ear
@@ -1962,7 +1968,7 @@
         ctx.scale(2.2, 2.2);                              // reusing the real mine renderer directly
         if (DA.drawMines) DA.drawMines(ctx, { mines: [{ x: 0, y: 0, armT: 0, blown: false }] });
       } else {
-        var fake = DA.makeEnemy(hst.monsterType, 0, 0);
+        var fake = hst.fakeEnemy || (hst.fakeEnemy = DA.makeEnemy(hst.monsterType, 0, 0));
         fake.wobble = now / 200;
         var mscale = Math.min(1.6, 26 / (fake.r || 16));
         ctx.scale(mscale, mscale);
@@ -1991,7 +1997,9 @@
       ctx.fillStyle = '#e0b08c';
       ctx.beginPath(); DA.polyPath(ctx, px, py, pr, pr, 7, 0.4); ctx.fill();
       ctx.fillStyle = '#b8b0a0';                         // silver/gray slicked hair — the boss's, not the host's jet black
-      ctx.beginPath(); DA.polyPath(ctx, px, py - pr * 0.28, pr * 1.06, pr * 1.06, 6, 3.25, 0.05, null, 0.465); ctx.fill();
+      // seeded, not null — see the executive's hair comment above; this is
+      // the same bug on the producer, i.e. the first boss's BOSS CAM
+      ctx.beginPath(); DA.polyPath(ctx, px, py - pr * 0.28, pr * 1.06, pr * 1.06, 6, 3.25, 0.05, DA.makeRng(103), 0.465); ctx.fill();
       ctx.fillStyle = '#2c2116';                         // jammed-down angry brows — no sunglasses on this one
       ctx.save(); ctx.translate(px - pr * 0.42, py - pr * 0.18); ctx.rotate(0.3);
       ctx.fillRect(-pr * 0.26, -pr * 0.06, pr * 0.52, pr * 0.14); ctx.restore();
@@ -2050,7 +2058,8 @@
     ctx.beginPath(); DA.polyPath(ctx, hx - hr * 0.3, hy - hr * 0.35, hr * 0.35, hr * 0.35, 5, 0); ctx.fill();
     ctx.fillStyle = '#14100c';                          // jet-black lacquered helmet hair —
                                                           // a wedge round the back, not the whole head
-    ctx.beginPath(); DA.polyPath(ctx, hx, hy - hr * 0.28, hr * 1.06, hr * 1.06, 6, 3.25, 0.05, null, 0.465); ctx.fill();
+    // seeded, not null — same fix as the boss faces above
+    ctx.beginPath(); DA.polyPath(ctx, hx, hy - hr * 0.28, hr * 1.06, hr * 1.06, 6, 3.25, 0.05, DA.makeRng(101), 0.465); ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.35)';         // the hair shine streak
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(hx, hy - hr * 0.28, hr * 0.88, 3.7, 4.5); ctx.stroke();
@@ -2356,6 +2365,7 @@
     DA.drawFxUnder(ctx);
     if (DA.drawHazards) DA.drawHazards(ctx, st);
     if (DA.drawMines) DA.drawMines(ctx, st);
+    if (DA.drawCompanions) DA.drawCompanions(ctx, st);
     DA.drawPowerups(ctx, st.powerups);
     DA.drawBullets(ctx, st.bullets);
     DA.drawEnemyBullets(ctx, st.enemyBullets);

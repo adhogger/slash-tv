@@ -8,6 +8,7 @@
 <script src="js/input.js"></script>
 <script src="js/effects.js"></script>
 <script src="js/bullets.js"></script>
+<script src="js/companions.js"></script>
 <script src="js/enemies.js"></script>
 <script src="js/player.js"></script>
 <script src="js/rooms.js"></script>
@@ -713,6 +714,48 @@ test('bullets move and expire off-arena', function () {
   assert(bs[0].x > 100);
   bs[0].x = 5000; DA.updateBullets(bs, 0.016);
   assert(bs.length === 0);
+});
+test('grenade launcher detonates on a fuse even without hitting anything', function () {
+  var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1 };
+  var e = DA.makeEnemy('shambler', 400, 400);
+  var startHp = e.hp;
+  st.enemies.push(e);
+  // fired past the enemy so it can't score a direct hit — the only way it
+  // still does damage is the fuse detonating on its own
+  DA.fireBullet(st.bullets, 400, 320, 1, 0, DA.GUNS.grenade);
+  assert(st.bullets[0].fuse > 0, 'grenade carries a fuse');
+  DA.updateBullets(st.bullets, 1, st);       // longer than the 0.9s fuse
+  assert(st.bullets.length === 0, 'grenade is gone after detonating');
+  assert(e.hp < startHp, 'fuse-out splash still hit the nearby enemy, hp ' + startHp + ' -> ' + e.hp);
+});
+
+// boss DPS cap
+test('boss damage is capped within a rolling window, not blocked outright', function () {
+  var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1 };
+  var boss = DA.makeBoss(); st.enemies.push(boss);   // maxHp 320
+  for (var i = 0; i < 6; i++) {
+    DA.fireBullet(st.bullets, boss.x, boss.y, 1, 0, { dmg: 30, color: '#fff', speed: 0 });
+    DA.resolveCombat(st, 0.05);
+  }
+  assert(boss.hp === boss.maxHp - 120, 'capped at 120 dmg within the rolling window, got ' + (boss.maxHp - boss.hp));
+  DA.fireBullet(st.bullets, boss.x, boss.y, 1, 0, { dmg: 30, color: '#fff', speed: 0 });
+  DA.resolveCombat(st, 3.1);                 // window fully ages out before this hit lands
+  assert(boss.hp === boss.maxHp - 150, 'more damage lands once the window clears, got ' + (boss.maxHp - boss.hp));
+});
+
+// deployable companions
+test('a turret companion tracks and fires at the nearest enemy, then expires', function () {
+  var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1 };
+  st.enemies.push(DA.makeEnemy('shambler', 500, 300));
+  DA.spawnCompanion(st, 'turret', 400, 300);
+  var c = st.companions[0];
+  c.fireT = 0;                                     // ready to fire immediately
+  DA.updateCompanions(st, 0.016);
+  assert(st.bullets.length === 1, 'turret fired at the nearest enemy');
+  assert(st.bullets[0].gunLabel === 'TURRET', "shot tagged as the turret's own");
+  c.t = 0.01;
+  DA.updateCompanions(st, 0.02);
+  assert(st.companions.length === 0, 'turret expires after its lifetime');
 });
 </script>
 <script>

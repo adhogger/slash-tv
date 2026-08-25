@@ -16,7 +16,6 @@
     if (st.comboKills >= step) {
       st.comboKills = 0;
       st.combo++; st.comboPopT = 0.3;
-      if (DA.audio && DA.audio.comboUp) DA.audio.comboUp(st.combo);
     }
   };
   DA.updateCombo = function (st, dt) {
@@ -61,7 +60,23 @@
       if (e.type === 'brute' && DA.bruteGore) DA.bruteGore(st, e.x, e.y);
     }
   };
-  DA.resolveCombat = function (st) {
+  // no build can burst a boss down faster than this: at most BOSS_DPS_CAP
+  // damage lands on a boss within any rolling BOSS_DPS_WINDOW seconds, so
+  // even a maxed-out minigun/railgun combo can't skip past the fight's
+  // attack patterns. Leaves every normal build untouched — it only clips
+  // in once sustained damage is already well above what any single stock
+  // weapon deals, so this doesn't need its own mod-pool interaction.
+  var BOSS_DPS_WINDOW = 3, BOSS_DPS_CAP = 120;
+  function bossDamageAllowed(e, dmg, dt) {
+    e.dpsHits = (e.dpsHits || []).filter(function (h) { h.age += dt; return h.age < BOSS_DPS_WINDOW; });
+    var dealt = 0;
+    for (var i = 0; i < e.dpsHits.length; i++) dealt += e.dpsHits[i].dmg;
+    var allowed = Math.max(0, Math.min(dmg, BOSS_DPS_CAP - dealt));
+    if (allowed > 0) e.dpsHits.push({ age: 0, dmg: allowed });
+    return allowed;
+  }
+  DA.resolveCombat = function (st, dt) {
+    dt = dt || 0;
     var p = st.player;
     for (var i = st.enemies.length - 1; i >= 0; i--) {
       var e = st.enemies[i];
@@ -83,6 +98,7 @@
             if ((wpPart === 'head' || wpPart === 'leg') && st.mods && st.mods.weakPointDmgBonus) {
               hitDmg *= 1 + st.mods.weakPointDmgBonus;   // Executioner: bonus damage on a called shot
             }
+            if (e.isBoss) hitDmg = bossDamageAllowed(e, hitDmg, dt);
             e.hp -= hitDmg;
           }
           e.hitFlash = 0.12;

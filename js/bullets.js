@@ -15,7 +15,12 @@
     flamer:  { label: 'FLAMETHROWER', color: '#ff5b1f', rate: 0.035, pellets: 1, fan: 0, jitter: 0.14,
                speed: 480, dmg: 1, range: 190 },
     rocket:  { label: 'ROCKET LAUNCHER', color: '#ff3b3b', rate: 0.85, pellets: 1, fan: 0, jitter: 0,
-               speed: 540, dmg: 6, splash: 3, splashR: 100, shake: 8 }
+               speed: 540, dmg: 6, splash: 3, splashR: 100, shake: 8 },
+    // lobbed, not aimed like the rocket: slower, a lighter direct hit, but a
+    // bigger/harder-hitting splash — and it detonates on a fuse even if it
+    // never touches anything, so it's an area-denial tool, not a sniper shot
+    grenade: { label: 'GRENADE LAUNCHER', color: '#7ee081', rate: 0.75, pellets: 1, fan: 0, jitter: 0,
+               speed: 420, dmg: 3, splash: 5, splashR: 130, fuse: 0.9, shake: 7 }
   };
 
   // applies a player's picked mods to a gun's base stats — a fresh object,
@@ -37,18 +42,28 @@
     var g = gun || DA.GUNS.pistol;
     arr.push({ x: x, y: y, ox: x, oy: y, dx: dx, dy: dy, r: g.dmg > 1 ? 5 : 4, speed: g.speed,
                dmg: g.dmg, pierce: !!g.pierce, hit: g.pierce ? [] : null,
-               range: g.range || 0, splash: g.splash || 0, splashR: g.splashR || 0,
+               range: g.range || 0, splash: g.splash || 0, splashR: g.splashR || 0, fuse: g.fuse || 0,
                color: g.color, gunLabel: g.label, bot: !!(gun && gun.botOwned) });
   };
-  DA.updateBullets = function (arr, dt) {
+  // st is optional (older/test call sites omit it) — only needed to apply
+  // a grenade's fuse-out splash damage; everything else works without it
+  DA.updateBullets = function (arr, dt, st) {
     for (var i = arr.length - 1; i >= 0; i--) {
       var b = arr[i];
+      if (b.fuse) {                        // grenades: lands and detonates on a timer,
+        b.fuse -= dt;                       // even if it never touches anything
+        if (b.fuse <= 0) {
+          if (st && b.splash) DA.explodeSplash(st, b.x, b.y, b.splash, b.splashR, null);
+          arr.splice(i, 1);
+          continue;
+        }
+      }
       b.x += b.dx * b.speed * dt; b.y += b.dy * b.speed * dt;
       if (b.x < DA.ARENA.x0 || b.x > DA.ARENA.x1 || b.y < DA.ARENA.y0 || b.y > DA.ARENA.y1) {
         arr.splice(i, 1); continue;
       }
       if (b.range && DA.dist2(b.x, b.y, b.ox, b.oy) > b.range * b.range) { arr.splice(i, 1); continue; }
-      if (b.splash && DA.fx && Math.random() < 0.7) {   // rockets leave a smoke trail
+      if (b.splash && DA.fx && Math.random() < 0.7) {   // rockets/grenades leave a smoke trail
         DA.fx.particles.push({ x: b.x - b.dx * 8, y: b.y - b.dy * 8,
           vx: DA.rand(-15, 15), vy: DA.rand(-20, 5),
           life: 0.4, maxLife: 0.4, color: 'rgba(150,150,160,0.5)', r: DA.rand(2, 4) });

@@ -1,8 +1,9 @@
 (function () {
   // Audience drops: the crowd throws sponsor gifts into the arena mid-combat.
   // Gun crates ('gun_smg' etc.) swap the player's weapon for 30 combat-seconds.
-  var GUN_TYPES = ['triple', 'smg', 'shotgun', 'minigun', 'railgun', 'flamer', 'rocket'];
-  var COLORS = { boots: '#4cc9f0', heart: '#d43a4b', shield: '#9ad7ff', bomb: '#ffb020', mail: '#f0d9a0' };
+  var GUN_TYPES = ['triple', 'smg', 'shotgun', 'minigun', 'railgun', 'flamer', 'rocket', 'grenade'];
+  var COLORS = { boots: '#4cc9f0', heart: '#d43a4b', shield: '#9ad7ff', bomb: '#ffb020', mail: '#f0d9a0',
+                 turret: '#5bc8d6', drone: '#7ee081' };
   var DURATION = 30;       // seconds of gun/boots effect (only ticks during combat)
   DA.GUN_DURATION = DURATION;   // Stockpile (main.js) refreshes a running timer to this on room entry
   var SHIELD_TIME = 8;     // shorter: total protection is strong
@@ -49,7 +50,7 @@
   // hearts never drop when the meter is full; the same gun never drops twice
   // in a row, and never the one the player is already holding
   DA.pickDropType = function (player, lastGunDrop) {
-    var pool = ['boots', 'boots', 'shield', 'bomb'];   // bomb & shield are rarer than guns
+    var pool = ['boots', 'boots', 'shield', 'bomb', 'turret', 'drone'];   // as rare as bomb/shield
     if (player.hearts < DA.MAX_HEARTS) pool.push('heart', 'heart');
     for (var i = 0; i < GUN_TYPES.length; i++) {
       var g = 'gun_' + GUN_TYPES[i];
@@ -126,7 +127,9 @@
         if (!DA.circleHit(pu.x, pu.y, pickR, pl.x, pl.y, pl.r)) continue;
         if (pu.type === 'bomb') DA.detonateBomb(st);
         else if (pu.type === 'mail') DA.collectMail(st);
-        else DA.applyPowerup(pl, pu.type);
+        else if ((pu.type === 'turret' || pu.type === 'drone') && DA.spawnCompanion) {
+          DA.spawnCompanion(st, pu.type, pu.x, pu.y);
+        } else DA.applyPowerup(pl, pu.type);
         if (DA.burst) DA.burst(pu.x, pu.y, colorOf(pu.type), 14);
         if (DA.audio) DA.audio.pickup();
         st.powerups.splice(i, 1);
@@ -170,6 +173,16 @@
         ctx.beginPath();
         ctx.moveTo(-11, -8); ctx.lineTo(0, 2); ctx.lineTo(11, -8);
         ctx.stroke();
+      } else if (pu.type === 'turret') {              // squat base + barrel stub
+        ctx.beginPath(); DA.polyPath(ctx, 0, 1, 9, 9, 6, 0.39); ctx.fill();
+        ctx.fillRect(-2, -11, 4, 9);
+      } else if (pu.type === 'drone') {                // quad rotor housing
+        ctx.beginPath(); DA.polyPath(ctx, 0, 0, 7, 5, 6, 0); ctx.fill();
+        ctx.strokeStyle = '#14141c'; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-9, -6); ctx.lineTo(-3, -2); ctx.moveTo(9, -6); ctx.lineTo(3, -2);
+        ctx.moveTo(-9, 6); ctx.lineTo(-3, 2); ctx.moveTo(9, 6); ctx.lineTo(3, 2);
+        ctx.stroke();
       } else {                                        // gun crate
         if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(-11, -11, 22, 22, 5); ctx.fill(); }
         else ctx.fillRect(-11, -11, 22, 22);
@@ -185,6 +198,11 @@
           ctx.moveTo(-8, 3); ctx.lineTo(4, 3); ctx.lineTo(8, 0); ctx.lineTo(4, -3); ctx.lineTo(-8, -3);
           ctx.closePath(); ctx.fill();
           ctx.fillRect(-10, -4, 3, 8);                 // tail fin
+        } else if (gunType === 'grenade') {            // round body + pin
+          ctx.beginPath(); ctx.arc(0, 2, 7, 0, 7); ctx.fill();
+          ctx.fillRect(-1.5, -8, 3, 6);
+          ctx.strokeStyle = '#14141c'; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(2, -8, 3, 0, 7); ctx.stroke();
         } else {                                       // generic gun silhouette
           ctx.fillRect(-7, -2, 14, 5);
           ctx.fillRect(2, -5, 5, 4);

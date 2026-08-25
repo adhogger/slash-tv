@@ -10,7 +10,7 @@
     if (!room || room.boss || !room.decor) return 0;
     var ep = room.ep === 'syn' ? 2 : (room.ep || 1);
     var depth = room.map ? (room.map.x + room.map.y) : 0;
-    return DA.clamp(1 + Math.floor((ep - 1) * 2.4 + depth * 0.8), 0, 8);
+    return DA.clamp(2 + Math.floor((ep - 1) * 3.2 + depth * 1.1), 0, 10);
   }
   DA.spawnMines = function (st) {
     var n = mineCountFor(st.room);
