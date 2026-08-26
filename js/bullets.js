@@ -44,7 +44,8 @@
     // glance mid-firefight instead of vanishing as a thin dot
     arr.push({ x: x, y: y, ox: x, oy: y, dx: dx, dy: dy, r: g.dmg > 1 ? 6.5 : 5, speed: g.speed,
                dmg: g.dmg, pierce: !!g.pierce, hit: g.pierce ? [] : null,
-               range: g.range || 0, splash: g.splash || 0, splashR: g.splashR || 0, fuse: g.fuse || 0,
+               range: g.range || 0, splash: g.splash || 0, splashR: g.splashR || 0,
+               fuse: g.fuse || 0, fuseMax: g.fuse || 0,   // fuseMax: original value, for the arc's 0-1 progress
                color: g.color, gunLabel: g.label, bot: !!(gun && gun.botOwned) });
   };
   // st is optional (older/test call sites omit it) — only needed to apply
@@ -152,6 +153,23 @@
         ctx.stroke();
         ctx.fillStyle = 'rgba(255,255,255,0.85)';
         ctx.beginPath(); ctx.arc(c.x, c.y, 1.6, 0, 7); ctx.fill();
+        continue;
+      }
+      if (c.fuseMax > 0) {   // grenade: a lobbed, looping arc — flies UP off the
+                              // ground track and back down, unlike the rocket's
+                              // flat line-of-sight flight. c.x/c.y (and hit
+                              // detection) still travel the flat ground path;
+                              // only this draw is offset, so nothing about
+                              // physics/collision changes, just the read
+        var arcT = DA.clamp(1 - c.fuse / c.fuseMax, 0, 1);
+        var hop = Math.sin(arcT * Math.PI) * 34;
+        var pop = 1 + (hop / 34) * 0.5;          // grows as it nears the peak — reads as "closer"
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';    // ground shadow, stays on the real track
+        ctx.beginPath(); ctx.ellipse(c.x, c.y, c.r * 0.9, c.r * 0.4, 0, 0, 7); ctx.fill();
+        ctx.fillStyle = c.color || '#7ee081';
+        ctx.beginPath(); ctx.arc(c.x, c.y - hop, c.r * pop, 0, 7); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.beginPath(); ctx.arc(c.x, c.y - hop, c.r * pop * 0.45, 0, 7); ctx.fill();
         continue;
       }
       ctx.fillStyle = c.color || '#ffd94a';

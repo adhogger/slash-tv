@@ -41,6 +41,7 @@
   // rocket splash: damages every OTHER non-boss enemy within radius of the
   // impact point. No combo credit for the freebies, same rule as boomerBlast.
   DA.explodeSplash = function (st, x, y, dmg, radius, exclude) {
+    if (DA.addScorch) DA.addScorch(x, y, true);   // rocket AND grenade both route through here
     if (DA.burst) { DA.burst(x, y, '#ff8a3d', 30); DA.burst(x, y, '#ffe17a', 16); }
     if (DA.splat) DA.splat(x, y);
     if (DA.shockwave) DA.shockwave(x, y, radius);

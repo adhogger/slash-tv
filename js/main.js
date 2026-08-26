@@ -1504,6 +1504,22 @@
     else { ctx.strokeStyle = '#4a3a40'; ctx.lineWidth = 2; ctx.stroke(); }
   }
 
+  // builds the actual joinable URL (?join=<code> on this same page) and
+  // copies it — the room code alone isn't something a friend can act on;
+  // requires a real user gesture to have fired first (a menu click does)
+  function copyInviteLink() {
+    if (!DA.net || !DA.net.code) return;
+    var link = location.origin + location.pathname + '?join=' + DA.net.code;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(
+        function () { DA.announce('INVITE LINK COPIED'); },
+        function () { DA.announce('COPY FAILED: ' + link); }
+      );
+    } else {
+      DA.announce('COPY FAILED: ' + link);
+    }
+  }
+
   // the studio map: shown while choosing an exit, and while paused
   // ---- the title menu: REAL buttons, not hotkey trivia. Click, tap, arrow
   // keys + Enter, or gamepad d-pad + A all drive the same list. Locked modes
@@ -1527,9 +1543,14 @@
     push({ color: '#9ad7ff', label: '👥  2 PLAYER', state: 'local, online, or with a bot',
            act: function () { showCoopChoice = true; coopSel = 0; } });
     var hosting = DA.net && DA.net.status === 'hosting';
-    push({ color: '#9ad7ff', locked: !DA.net, label: '🌍  ONLINE MULTIPLAYER',
-           state: hosting ? 'ROOM ' + (DA.net.code || '····') : 'get a link to share',
-           act: function () { botOn = false; localCoopOn = false; if (DA.net) DA.net.host(); } });
+    push({ color: '#9ad7ff', locked: !DA.net,
+           label: (hosting && DA.net.code ? '📋  ' : '🌍  ') + 'ONLINE MULTIPLAYER',
+           state: hosting ? (DA.net.code ? 'ROOM ' + DA.net.code + ' — click to copy invite link' : 'ROOM ····')
+                           : 'get a link to share',
+           act: function () {
+             if (hosting && DA.net.code) { copyInviteLink(); return; }
+             botOn = false; localCoopOn = false; if (DA.net) DA.net.host();
+           } });
     // unlocked from the start (was gated behind beating Episode 1) — it's
     // the one place to warm up or grind combat skill without the campaign's
     // stakes, so gating it behind the campaign defeated its own purpose

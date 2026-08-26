@@ -23,6 +23,7 @@
   };
   function blowMine(st, m) {
     m.blown = true;
+    if (DA.addScorch) DA.addScorch(m.x, m.y, true);
     if (DA.burst) { DA.burst(m.x, m.y, '#ff8a3d', 26); DA.burst(m.x, m.y, '#2a2a2a', 14); }
     if (DA.shockwave) DA.shockwave(m.x, m.y, 90);
     if (DA.addShake) DA.addShake(14);

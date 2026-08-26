@@ -69,6 +69,7 @@
     for (var i = st.enemies.length - 1; i >= 0; i--) {
       var e = st.enemies[i];
       if (e.isBoss) { e.hp -= 15; continue; }
+      if (DA.addScorch) DA.addScorch(e.x, e.y, true);   // a mark where each one stood
       st.enemies.splice(i, 1);
       st.score += e.score;
       if (DA.onKill) DA.onKill(st, e);
