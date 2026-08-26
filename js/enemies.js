@@ -250,6 +250,7 @@
     }
   };
   DA.boomerBlast = function (st, x, y) {
+    if (DA.addScorch) DA.addScorch(x, y, true);   // a zombie explosion leaves a mark too
     if (DA.burst) DA.burst(x, y, '#e8843c', 26);
     if (DA.splat) DA.splat(x, y);
     if (DA.addShake) DA.addShake(12);

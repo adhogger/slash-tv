@@ -116,6 +116,7 @@
     st.roomCleared = false;
     st.bossDead = false;
     st.lastWave = 0;
+    st.introducedThisRoom = false;   // one first-encounter CAST SPOTLIGHT per room, max
     DA.fx.splats.length = 0;   // fresh floor for a fresh studio
     DA.fx.corpses.length = 0;
     DA.fx.scorch.length = 0;
@@ -937,18 +938,27 @@
         }
       }
     }
-    for (var ne = 0; ne < st.enemies.length; ne++) {   // first-encounter callouts
+    // first-encounter callouts: capped at ONE per room. Two new things
+    // encountered in the same room used to both call DA.hostSay in the same
+    // pass — the second call overwrites DA.fx.host before the first was
+    // ever actually shown, silently losing an introduction (and marking it
+    // "seen" despite the player never having seen it). Whichever new
+    // type/mine ISN'T introduced this room stays unmarked, so it gets a
+    // proper spotlight the next time it's actually encountered.
+    for (var ne = 0; ne < st.enemies.length; ne++) {
       var newType = st.enemies[ne].type;
-      if (!st.seenTypes[newType]) {
+      if (!st.seenTypes[newType] && !st.introducedThisRoom) {
         st.seenTypes[newType] = true;
+        st.introducedThisRoom = true;
         var line = DA.threatLine && DA.threatLine(newType);
         // CAST SPOTLIGHT: the monster on screen in the presenter's window,
         // not a yellow popup line — same corner, same caption box
         if (line && DA.hostSay) DA.hostSay(line, 'monster', 4.0, newType);
       }
     }
-    if (st.mines && st.mines.length && !st.seenTypes.mine) {   // mines get the same CAST SPOTLIGHT intro
+    if (st.mines && st.mines.length && !st.seenTypes.mine && !st.introducedThisRoom) {
       st.seenTypes.mine = true;
+      st.introducedThisRoom = true;
       var mineLine = DA.threatLine && DA.threatLine('mine');
       if (mineLine && DA.hostSay) DA.hostSay(mineLine, 'monster', 4.0, 'mine');
     }
@@ -1331,8 +1341,7 @@
     // All four run neon now, mirrored left/right: top pair cyan, bottom pair
     // magenta — a full cyberpunk rig, not just an accent on one side.
     var corners = [[A.x0, A.y0], [A.x1, A.y0], [A.x0, A.y1], [A.x1, A.y1]];
-    var CORNER_COLOR = ['rgba(47, 215, 196, 0.06)', 'rgba(47, 215, 196, 0.06)',
-                         'rgba(255, 45, 209, 0.06)', 'rgba(255, 45, 209, 0.06)'];
+    var CORNER_RGB = ['47, 215, 196', '47, 215, 196', '255, 45, 209', '255, 45, 209'];
     // base angle points from each corner straight at the arena's center, so
     // the sweep oscillates across the interior instead of drifting outward
     // past the wall (the bottom-right corner used to do exactly that — its
@@ -1341,7 +1350,13 @@
     for (var li = 0; li < 4; li++) {
       var cpos = corners[li];
       var a = CORNER_BASE[li] + Math.sin(sweep * (li % 2 ? -1.3 : 1) + li * 1.7) * 0.6;
-      ctx.fillStyle = CORNER_COLOR[li];
+      // full brightness for most of the throw, then a soft radial taper to
+      // transparent at the very tip instead of the beam just stopping dead
+      var beamGrad = ctx.createRadialGradient(cpos[0], cpos[1], 0, cpos[0], cpos[1], 900);
+      beamGrad.addColorStop(0, 'rgba(' + CORNER_RGB[li] + ', 0.06)');
+      beamGrad.addColorStop(0.7, 'rgba(' + CORNER_RGB[li] + ', 0.06)');
+      beamGrad.addColorStop(1, 'rgba(' + CORNER_RGB[li] + ', 0)');
+      ctx.fillStyle = beamGrad;
       ctx.beginPath();
       ctx.moveTo(cpos[0], cpos[1]);
       ctx.arc(cpos[0], cpos[1], 900, a - 0.13, a + 0.13);
@@ -2447,12 +2462,6 @@
       ctx.translate(st.player.x, st.player.y);
       ctx.scale(zk, zk);
       ctx.translate(-st.player.x, -st.player.y);
-    }
-    if (st.mode === 'playing' && DA.fx.killCamT > 0) {   // punch-in on the kill that cleared the set
-      var kzk = 1 + 0.1 * (DA.fx.killCamT / DA.fx.killCamMax);
-      ctx.translate(DA.fx.killCamX, DA.fx.killCamY);
-      ctx.scale(kzk, kzk);
-      ctx.translate(-DA.fx.killCamX, -DA.fx.killCamY);
     }
     if (DA.fx.shake > 0 && !paused) {
       // directed shake (recoil) kicks mostly along shakeDirX/Y with a little

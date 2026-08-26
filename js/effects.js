@@ -129,8 +129,7 @@
   };
 
   DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], dust: [], rings: [], casings: [], scorch: [], host: null,
-            shake: 0, shakeDirX: 0, shakeDirY: 0, aberration: 0, neonFlash: 0,
-            killCamT: 0, killCamMax: 0, killCamX: 0, killCamY: 0 };
+            shake: 0, shakeDirX: 0, shakeDirY: 0, aberration: 0, neonFlash: 0 };
   // the wall's neon trim strips stay dim except for this — set to 1 by a
   // bomb or rocket-launcher explosion specifically, decays over ~1.6s
   DA.addNeonFlash = function () { DA.fx.neonFlash = 1; };
@@ -239,13 +238,15 @@
         r: DA.rand(6, 16), color: 'rgba(130, 128, 138, 0.28)', life: life, maxLife: life });
     }
   };
-  // permanent (per-room) burn mark where an explosion or a bullet hit the
-  // wall instead of an enemy — vertices/splash are baked ONCE here, not
-  // re-rolled per draw call, so the mark stays a fixed shape every frame
-  // instead of flickering (the exact bug class fixed in the host-cam hair
-  // silhouette elsewhere). Side count, overall size, and an elongation
-  // axis all vary per mark so a floor full of them doesn't read as the
-  // same stamp repeated.
+  // permanent (per-room) burn mark left by an EXPLOSION — rocket, grenade,
+  // mine, bomb, or a zombie (boomer) going off. Deliberately NOT used for
+  // ordinary bullets missing and hitting a wall — that read as too much
+  // clutter for something that isn't really an explosion. Vertices/splash
+  // are baked ONCE here, not re-rolled per draw call, so the mark stays a
+  // fixed shape every frame instead of flickering (the exact bug class
+  // fixed in the host-cam hair silhouette elsewhere). Side count, overall
+  // size, and an elongation axis all vary per mark so a floor full of them
+  // doesn't read as the same stamp repeated.
   DA.addScorch = function (x, y, big) {
     var n = 5 + Math.floor(DA.rand(0, 5));             // 5-9 sides
     var baseR = big ? DA.rand(10, 22) : DA.rand(2.5, 7);
@@ -277,7 +278,6 @@
       }
     }
   };
-
   // dx/dy optional: when the killing shot's direction is known, the stain
   // SPRAYS along it — a main pool plus droplets thrown down-range
   DA.splat = function (x, y, dx, dy) {
@@ -387,10 +387,6 @@
     if (fx.shake > 0) fx.shake = Math.max(0, fx.shake - 30 * dt);
     if (fx.aberration > 0) fx.aberration = Math.max(0, fx.aberration - 1.8 * dt);
     if (fx.neonFlash > 0) fx.neonFlash = Math.max(0, fx.neonFlash - dt / 1.6);
-    // note: this only runs once update() actually resumes ticking (it's
-    // skipped during hitStop's early return), so the kill-cam zoom holds
-    // rock-steady through the freeze and only eases back out once play does
-    if (fx.killCamT > 0) fx.killCamT = Math.max(0, fx.killCamT - dt);
     for (var d = fx.dust.length - 1; d >= 0; d--) {
       var du = fx.dust[d];
       du.y += du.vy * dt; du.life -= dt;
@@ -445,7 +441,7 @@
         ctx.beginPath(); ctx.arc(s.x + blob.dx, s.y + blob.dy, blob.r, 0, 7); ctx.fill();
       }
     }
-    var scorch = DA.fx.scorch;                        // permanent burn marks: explosions + wall hits
+    var scorch = DA.fx.scorch;                        // permanent burn marks: explosions only
     for (var sc = 0; sc < scorch.length; sc++) {
       var mark = scorch[sc];
       if (mark.splash) {                              // faint soot speckles, behind the main burn
@@ -588,36 +584,6 @@
       DA.burst(e.x, e.y, '#e8d44d', 18);
       if (DA.audio && DA.audio.elite) DA.audio.elite();
     }
-  };
-  // the kill that empties the set: a punchier freeze-frame + zoom-punch on
-  // top of onKill's own (smaller, size-gated) hitStop — Math.max so the two
-  // layer correctly regardless of which one set fx.hitStop first, instead
-  // of a plain overwrite silently dropping whichever fired second
-  DA.onWaveClearKill = function (st, e) {
-    DA.fx.hitStop = Math.max(DA.fx.hitStop || 0, 0.18);
-    DA.addAberration(0.4);
-    DA.fx.killCamT = DA.fx.killCamMax = 0.45;
-    DA.fx.killCamX = e.x; DA.fx.killCamY = e.y;
-  };
-  // combo-milestone celebration: bright ticker-tape confetti, reusing the
-  // same rotating-rect-with-physics pipeline as corpse shards (DA.fx.corpses)
-  // — just neon colors and a shorter life. It's a party, not a crime scene.
-  var CONFETTI_COLORS = ['#e8d44d', '#7ee081', '#5bc8d6', '#ff3b3b', '#b78bff', '#ff9f1c'];
-  DA.confettiBurst = function (x, y) {
-    for (var i = 0; i < 26; i++) {
-      var a = DA.rand(0, 6.283), speed = DA.rand(140, 340);
-      var life = DA.rand(1.4, 2.0);
-      DA.fx.corpses.push({
-        x: x, y: y,
-        vx: Math.cos(a) * speed, vy: Math.sin(a) * speed - DA.rand(120, 260),
-        rot: DA.rand(0, 6.283), rotV: DA.rand(-16, 16),
-        w: DA.rand(4, 8), h: DA.rand(4, 8),
-        color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
-        t: life, max: life, grav: 280, flightT: 0.5
-      });
-    }
-    if (DA.fx.corpses.length > 320) DA.fx.corpses.splice(0, DA.fx.corpses.length - 320);
-    if (DA.audio && DA.audio.cheer) DA.audio.cheer();
   };
   DA.onPlayerHurt = function (st, sx, sy) {
     var p = st.player;
