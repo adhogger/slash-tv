@@ -1627,33 +1627,56 @@
   var MOD_POOL = (function () {
     function add(key, amt) { return function (st) { st.mods[key] = (st.mods[key] || 0) + amt; }; }
     function flag(key) { return function (st) { st.mods[key] = true; }; }
+    // some mods only touch a stat certain guns don't have (e.g. splash, or
+    // a pellet count > 1) — a small secondary bonus on a stat EVERY gun
+    // has means the pick is never a flat zero regardless of what's
+    // currently equipped, while the named stat stays the real headline
+    function add2(key1, amt1, key2, amt2) {
+      return function (st) { st.mods[key1] = (st.mods[key1] || 0) + amt1; st.mods[key2] = (st.mods[key2] || 0) + amt2; };
+    }
     return [
       { name: 'HOLLOW POINTS', desc: '+1 damage, every gun', apply: add('dmgBonus', 1) },
-      { name: 'STEADY HANDS', desc: '-40% aim jitter, every gun', apply: add('jitterCut', 0.4) },
+      { name: 'STEADY HANDS', desc: '-40% aim jitter, every gun (+6% fire rate, every gun)',
+        apply: add2('jitterCut', 0.4, 'rateCut', 0.06) },
       { name: 'QUICKDRAW', desc: '-15% time between shots', apply: add('rateCut', 0.15) },
       { name: 'FULL METAL JACKET', desc: 'bullets pierce everything', apply: flag('pierceAll') },
-      { name: 'OVERPRESSURE', desc: '+30% splash radius', apply: add('splashRBonus', 0.3) },
+      { name: 'OVERPRESSURE', desc: '+30% splash radius (+8% bullet speed, every gun)',
+        apply: add2('splashRBonus', 0.3, 'bulletSpeedBonus', 0.08) },
       { name: 'HOT LOADS', desc: '+20% bullet speed', apply: add('bulletSpeedBonus', 0.2) },
       { name: 'BIG SPENDER', desc: '+10% score from kills', apply: add('scoreBonus', 0.1) },
-      { name: 'TWIN LINK', desc: '+1 pellet, multi-pellet guns', apply: add('pelletBonus', 1) },
+      { name: 'TWIN LINK', desc: '+1 pellet, multi-pellet guns (-15% aim jitter, every gun)',
+        apply: add2('pelletBonus', 1, 'jitterCut', 0.15) },
       { name: 'CHAIN REACTION', desc: 'a kill refunds 15% of your cooldown', apply: add('cooldownRefund', 0.15) },
-      { name: 'EXTENDED BARREL', desc: '+25% bullet range', apply: add('rangeBonus', 0.25) },
+      { name: 'EXTENDED BARREL', desc: '+25% bullet range (+0.25 damage, every gun)',
+        apply: add2('rangeBonus', 0.25, 'dmgBonus', 0.25) },
       { name: 'PHOTOGENIC', desc: 'combo climbs 20% faster', apply: add('comboSpeedCut', 0.2) },
       { name: 'EXECUTIONER', desc: '+50% damage on called shots', apply: add('weakPointDmgBonus', 0.5) },
-      { name: 'COMBAT MEDIC', desc: 'full heal, right now',
-        apply: function (st) { st.players.forEach(function (p) { if (!p.downed) p.hearts = DA.MAX_HEARTS; }); } },
+      { name: 'COMBAT MEDIC', desc: 'full heal, right now, +0.25s invulnerable after a hit',
+        apply: function (st) {
+          st.players.forEach(function (p) { if (!p.downed) p.hearts = DA.MAX_HEARTS; });
+          st.mods.invulnBonus = (st.mods.invulnBonus || 0) + 0.25;   // never a total whiff, even at full hearts
+        } },
       { name: 'THICK SKIN', desc: '+0.5s invulnerable after a hit', apply: add('invulnBonus', 0.5) },
       { name: 'VENGEANCE', desc: 'a hit only costs 25% of your combo',
         apply: function (st) { st.mods.comboHitFrac = 0.25; } },
       { name: 'IRON WILL', desc: 'auto-heal 1 heart every 45s',
         apply: function (st) { st.mods.autoHealInterval = 45; } },
       { name: 'ADRENALINE', desc: '+10% move speed', apply: add('speedBonus', 0.1) },
-      { name: 'GUARDIAN ANGEL', desc: 'shields last 50% longer', apply: add('shieldDurationBonus', 0.5) },
+      { name: 'GUARDIAN ANGEL', desc: 'shields last 50% longer (+0.15s invulnerable after a hit)',
+        apply: add2('shieldDurationBonus', 0.5, 'invulnBonus', 0.15) },
       { name: 'LUCKY BREAK', desc: 'drops arrive ~20% more often', apply: add('dropRateBonus', 0.2) },
       { name: 'MAGNETIC', desc: '+50% pickup radius', apply: add('pickupRadiusBonus', 0.5) },
       { name: 'BARGAIN HUNTER', desc: 'hearts always heal to full', apply: flag('fullHealHearts') },
-      { name: 'STOCKPILE', desc: 'room transitions refresh your gun timer', apply: flag('refreshGunOnRoom') },
-      { name: 'FAN FAVORITE', desc: 'guarantees fan mail, every room', apply: flag('guaranteedMail') },
+      { name: 'STOCKPILE', desc: 'room transitions refresh your gun timer (+10% gun-crate duration)',
+        apply: function (st) {
+          st.mods.refreshGunOnRoom = true;
+          st.mods.gunDurationBonus = (st.mods.gunDurationBonus || 0) + 0.1;   // still worth picking even if the timing never lines up
+        } },
+      { name: 'FAN FAVORITE', desc: 'guarantees fan mail, +5% score from kills',
+        apply: function (st) {
+          st.mods.guaranteedMail = true;
+          st.mods.scoreBonus = (st.mods.scoreBonus || 0) + 0.05;   // still worth something in boss rooms, where mail never spawns
+        } },
       { name: 'QUARTERMASTER', desc: 'gun-crate timers last 25% longer', apply: add('gunDurationBonus', 0.25) }
     ];
   })();
