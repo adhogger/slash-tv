@@ -16,6 +16,10 @@
     if (st.comboKills >= step) {
       st.comboKills = 0;
       st.combo++; st.comboPopT = 0.3;
+      // every 5th step is a "big" milestone — the crowd throws confetti
+      if (st.combo % 5 === 0 && DA.confettiBurst && st.player) {
+        DA.confettiBurst(st.player.x, st.player.y);
+      }
     }
   };
   DA.updateCombo = function (st, dt) {
@@ -122,6 +126,10 @@
         st.score += e.score * st.combo * (1 + (st.mods && st.mods.scoreBonus || 0));   // Big Spender
         if (DA.bumpCombo) DA.bumpCombo(st);
         if (DA.onKill) DA.onKill(st, e, b);
+        // the kill that leaves the arena empty gets its own freeze-frame beat,
+        // on top of onKill's own (smaller, size-gated) one — bosses are
+        // excluded, they already get a full death cutscene of their own
+        if (!e.isBoss && st.enemies.length === 0 && DA.onWaveClearKill) DA.onWaveClearKill(st, e);
         if (e.type === 'boomer') DA.boomerBlast(st, e.x, e.y); // shot boomers still detonate
         if (e.type === 'brute' && DA.bruteGore) DA.bruteGore(st, e.x, e.y);
         if (st.mods && st.mods.cooldownRefund) {     // Chain Reaction: a kill shaves both barrels

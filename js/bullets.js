@@ -62,6 +62,9 @@
       }
       b.x += b.dx * b.speed * dt; b.y += b.dy * b.speed * dt;
       if (b.x < DA.ARENA.x0 || b.x > DA.ARENA.x1 || b.y < DA.ARENA.y0 || b.y > DA.ARENA.y1) {
+        if (DA.addScorch) {
+          DA.addScorch(DA.clamp(b.x, DA.ARENA.x0, DA.ARENA.x1), DA.clamp(b.y, DA.ARENA.y0, DA.ARENA.y1), !!b.splash);
+        }
         arr.splice(i, 1); continue;
       }
       if (b.range && DA.dist2(b.x, b.y, b.ox, b.oy) > b.range * b.range) { arr.splice(i, 1); continue; }

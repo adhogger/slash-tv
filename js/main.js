@@ -118,6 +118,7 @@
     st.lastWave = 0;
     DA.fx.splats.length = 0;   // fresh floor for a fresh studio
     DA.fx.corpses.length = 0;
+    DA.fx.scorch.length = 0;
     for (var pi = 0; pi < st.players.length; pi++) {
       var p = st.players[pi];
       var off = (pi === 0 ? -1 : 1) * 26;    // shoulder to shoulder, not stacked
@@ -185,6 +186,7 @@
     DA.fx.popups.length = 0;
     DA.fx.queue.length = 0;
     DA.fx.corpses.length = 0;
+    DA.fx.scorch.length = 0;
     var st = {
       mode: 'playing',
       player: DA.makePlayer(),
@@ -692,7 +694,10 @@
           });
       }
     }
-    DA.announce(won ? "THAT'S A WRAP!" : 'CUT TO COMMERCIAL!');
+    // loss case dropped its own "CUT TO COMMERCIAL!" toast — it fired at the
+    // exact moment the gameover screen appeared, redundant with both that
+    // screen's own text and the real commercial-break screen right after it
+    if (won) DA.announce("THAT'S A WRAP!");
   }
 
   function update(dt) {
@@ -2422,6 +2427,12 @@
       ctx.scale(zk, zk);
       ctx.translate(-st.player.x, -st.player.y);
     }
+    if (st.mode === 'playing' && DA.fx.killCamT > 0) {   // punch-in on the kill that cleared the set
+      var kzk = 1 + 0.1 * (DA.fx.killCamT / DA.fx.killCamMax);
+      ctx.translate(DA.fx.killCamX, DA.fx.killCamY);
+      ctx.scale(kzk, kzk);
+      ctx.translate(-DA.fx.killCamX, -DA.fx.killCamY);
+    }
     if (DA.fx.shake > 0 && !paused) {
       // directed shake (recoil) kicks mostly along shakeDirX/Y with a little
       // random texture on top; undirected shake (the old default) has
@@ -2487,10 +2498,6 @@
     if (acc >= 55) candidates.push({ label: '🎯 SHARPSHOOTER', text: acc + '% ACCURACY', w: acc });
     if (st.stats.maxCombo >= 6) candidates.push({ label: '🔥 ON A STREAK', text: 'x' + st.stats.maxCombo + ' MULTIPLIER HIT', w: st.stats.maxCombo * 12 });
     if (st.kills >= 120) candidates.push({ label: '💀 BODY COUNT', text: st.kills + ' KILLS', w: st.kills / 3 });
-    // no partner means no revive if you go down even once — a genuinely
-    // harder run than the enemy-count scaling alone reflects, so it earns
-    // its own callout rather than going unnoticed
-    if (st.players.length === 1) candidates.push({ label: '🎭 SOLO ACT', text: 'NO PARTNER, NO NET', w: 85 });
     // the inverse: went down at least once but still walked out a winner
     if (st.mode === 'winner' && st.everDowned) {
       candidates.push({ label: '🎬 SAVED BY THE BELL', text: 'DOWNED, NOT OUT', w: 80 });
@@ -2743,15 +2750,16 @@
     }
 
     if (st.mode === 'gameover') {
+      // no more "CUT TO COMMERCIAL" banner here — it's redundant, the actual
+      // commercial-break screen right after this one already says it
       var goHi = highlightStat(st);
       var go = [
-        { text: 'CUT TO COMMERCIAL', font: 'bold 64px monospace', color: '#d43a4b', y: 218 },
         { text: 'You leave with $' + st.score.toLocaleString('en-US') +
                 (st.newBest ? '  —  NEW BEST!' : ''),
-          font: '26px monospace', color: st.newBest ? '#e8d44d' : '#f2f2e9', y: 268 }
+          font: '26px monospace', color: st.newBest ? '#e8d44d' : '#f2f2e9', y: 218 }
       ];
-      if (goHi) go.push({ text: goHi.label + ': ' + goHi.text, font: 'bold 20px monospace', color: '#e8d44d', y: 300 });
-      go = go.concat(statsLines(st, goHi ? 332 : 316)).concat(topFiveLines(st, goHi ? 412 : 396));
+      if (goHi) go.push({ text: goHi.label + ': ' + goHi.text, font: 'bold 20px monospace', color: '#e8d44d', y: 250 });
+      go = go.concat(statsLines(st, goHi ? 282 : 266)).concat(topFiveLines(st, goHi ? 362 : 346));
       if (st.mailFound) {
         go.push({ text: '📬 ' + st.mailFound + ' piece' + (st.mailFound === 1 ? '' : 's') + ' of fan mail collected',
                   font: '17px monospace', color: '#f0d9a0', y: goHi ? 460 : 446 });
