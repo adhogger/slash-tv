@@ -239,17 +239,43 @@
         r: DA.rand(6, 16), color: 'rgba(130, 128, 138, 0.28)', life: life, maxLife: life });
     }
   };
-  // permanent (per-room) burn mark where a bullet hit the wall instead of
-  // an enemy — vertices are baked ONCE here, not re-rolled per draw call,
-  // so the mark stays a fixed shape every frame instead of flickering
-  // (the exact bug class fixed in the host-cam hair silhouette elsewhere)
+  // permanent (per-room) burn mark where an explosion or a bullet hit the
+  // wall instead of an enemy — vertices/splash are baked ONCE here, not
+  // re-rolled per draw call, so the mark stays a fixed shape every frame
+  // instead of flickering (the exact bug class fixed in the host-cam hair
+  // silhouette elsewhere). Side count, overall size, and an elongation
+  // axis all vary per mark so a floor full of them doesn't read as the
+  // same stamp repeated.
   DA.addScorch = function (x, y, big) {
-    var n = 6, verts = [];
+    var n = 5 + Math.floor(DA.rand(0, 5));             // 5-9 sides
+    var baseR = big ? DA.rand(10, 22) : DA.rand(2.5, 7);
+    var stretchA = DA.rand(0, 6.283), stretch = DA.rand(0.7, 1.6);
+    var verts = [];
     for (var i = 0; i < n; i++) {
-      verts.push({ a: (i / n) * 6.283 + DA.rand(-0.3, 0.3), r: big ? DA.rand(12, 20) : DA.rand(3, 6) });
+      var a = (i / n) * 6.283 + DA.rand(-0.35, 0.35);
+      var r = baseR * DA.rand(0.6, 1.15) * (1 + (stretch - 1) * Math.abs(Math.cos(a - stretchA)));
+      verts.push({ a: a, r: r });
     }
-    DA.fx.scorch.push({ x: x, y: y, verts: verts, big: !!big });
+    // faint soot speckles scattered around the main burn — a splash zone,
+    // not just a clean-edged blob
+    var splashN = (big ? 6 : 3) + Math.floor(DA.rand(0, 5));
+    var splashReach = baseR * (big ? 2.6 : 3.2);
+    var splash = [];
+    for (var s = 0; s < splashN; s++) {
+      var sa = DA.rand(0, 6.283), sd = DA.rand(baseR * 0.8, splashReach);
+      splash.push({ dx: Math.cos(sa) * sd, dy: Math.sin(sa) * sd, r: DA.rand(big ? 3 : 1.5, big ? 8 : 3.5) });
+    }
+    DA.fx.scorch.push({ x: x, y: y, verts: verts, splash: splash, big: !!big });
     if (DA.fx.scorch.length > 160) DA.fx.scorch.shift();
+    if (DA.fx.particles) {                    // a brief puff of smoke off the fresh mark
+      var puffN = big ? 5 : 3;
+      for (var p = 0; p < puffN; p++) {
+        var life = DA.rand(1.2, 2.2);
+        DA.fx.particles.push({ x: x + DA.rand(-6, 6), y: y + DA.rand(-6, 6),
+          vx: DA.rand(-8, 8), vy: -DA.rand(12, 26),
+          r: DA.rand(big ? 5 : 3, big ? 11 : 6), color: 'rgba(80, 78, 82, 0.32)', life: life, maxLife: life });
+      }
+    }
   };
 
   // dx/dy optional: when the killing shot's direction is known, the stain
@@ -419,9 +445,16 @@
         ctx.beginPath(); ctx.arc(s.x + blob.dx, s.y + blob.dy, blob.r, 0, 7); ctx.fill();
       }
     }
-    var scorch = DA.fx.scorch;                        // permanent bullet-hole burns on the walls
+    var scorch = DA.fx.scorch;                        // permanent burn marks: explosions + wall hits
     for (var sc = 0; sc < scorch.length; sc++) {
       var mark = scorch[sc];
+      if (mark.splash) {                              // faint soot speckles, behind the main burn
+        ctx.fillStyle = 'rgba(8, 6, 5, 0.22)';
+        for (var sp = 0; sp < mark.splash.length; sp++) {
+          var spk = mark.splash[sp];
+          ctx.beginPath(); ctx.arc(mark.x + spk.dx, mark.y + spk.dy, spk.r, 0, 7); ctx.fill();
+        }
+      }
       ctx.fillStyle = mark.big ? 'rgba(15, 10, 8, 0.55)' : 'rgba(10, 8, 6, 0.45)';
       ctx.beginPath();
       for (var vi = 0; vi < mark.verts.length; vi++) {

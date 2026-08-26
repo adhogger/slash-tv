@@ -19,8 +19,12 @@
     // lobbed, not aimed like the rocket: slower, a lighter direct hit, but a
     // bigger/harder-hitting splash — and it detonates on a fuse even if it
     // never touches anything, so it's an area-denial tool, not a sniper shot
+    // hop: how long it's airborne (arcing) before it lands and rolls the
+    // rest of the way to fuse-out; friction: how fast it decelerates, both
+    // in the air and rolling — by ~0.9s it's ground to a near-stop right
+    // as it goes off. A direct hit still detonates it instantly regardless.
     grenade: { label: 'GRENADE LAUNCHER', color: '#7ee081', rate: 0.75, pellets: 1, fan: 0, jitter: 0,
-               speed: 420, dmg: 3, splash: 5, splashR: 130, fuse: 0.9, shake: 7 }
+               speed: 420, dmg: 3, splash: 5, splashR: 130, fuse: 0.9, hop: 0.45, friction: 480, shake: 7 }
   };
 
   // applies a player's picked mods to a gun's base stats — a fresh object,
@@ -46,6 +50,8 @@
                dmg: g.dmg, pierce: !!g.pierce, hit: g.pierce ? [] : null,
                range: g.range || 0, splash: g.splash || 0, splashR: g.splashR || 0,
                fuse: g.fuse || 0, fuseMax: g.fuse || 0,   // fuseMax: original value, for the arc's 0-1 progress
+               hopT: g.hop || 0, hopMax: g.hop || 0,      // airborne window; 0 once landed = rolling
+               friction: g.friction || 0, rollAngle: 0,
                color: g.color, gunLabel: g.label, bot: !!(gun && gun.botOwned) });
   };
   // st is optional (older/test call sites omit it) — only needed to apply
@@ -55,11 +61,16 @@
       var b = arr[i];
       if (b.fuse) {                        // grenades: lands and detonates on a timer,
         b.fuse -= dt;                       // even if it never touches anything
+        if (b.hopT > 0) b.hopT -= dt;        // airborne window closes; then it's rolling on the ground
         if (b.fuse <= 0) {
           if (st && b.splash) DA.explodeSplash(st, b.x, b.y, b.splash, b.splashR, null);
           arr.splice(i, 1);
           continue;
         }
+      }
+      if (b.friction) {                     // decelerates the whole flight, air and ground alike
+        b.speed = Math.max(0, b.speed - b.friction * dt);
+        if (b.hopT <= 0) b.rollAngle += (b.speed * dt) / (b.r || 5);   // rolls without slipping once grounded
       }
       b.x += b.dx * b.speed * dt; b.y += b.dy * b.speed * dt;
       if (b.x < DA.ARENA.x0 || b.x > DA.ARENA.x1 || b.y < DA.ARENA.y0 || b.y > DA.ARENA.y1) {
@@ -155,21 +166,32 @@
         ctx.beginPath(); ctx.arc(c.x, c.y, 1.6, 0, 7); ctx.fill();
         continue;
       }
-      if (c.fuseMax > 0) {   // grenade: a lobbed, looping arc — flies UP off the
-                              // ground track and back down, unlike the rocket's
-                              // flat line-of-sight flight. c.x/c.y (and hit
-                              // detection) still travel the flat ground path;
+      if (c.fuseMax > 0) {   // grenade: a lobbed arc that LANDS, then rolls the
+                              // rest of the way — unlike the rocket's flat
+                              // line-of-sight flight. c.x/c.y (and hit
+                              // detection) always travel the flat ground path;
                               // only this draw is offset, so nothing about
                               // physics/collision changes, just the read
-        var arcT = DA.clamp(1 - c.fuse / c.fuseMax, 0, 1);
-        var hop = Math.sin(arcT * Math.PI) * 34;
-        var pop = 1 + (hop / 34) * 0.5;          // grows as it nears the peak — reads as "closer"
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';    // ground shadow, stays on the real track
+        var hop = 0, pop = 1;
+        if (c.hopMax > 0 && c.hopT > 0) {
+          var arcT = DA.clamp(1 - c.hopT / c.hopMax, 0, 1);
+          hop = Math.sin(arcT * Math.PI) * 34;
+          pop = 1 + (hop / 34) * 0.5;              // grows as it nears the peak — reads as "closer"
+        }
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';      // ground shadow, stays on the real track
         ctx.beginPath(); ctx.ellipse(c.x, c.y, c.r * 0.9, c.r * 0.4, 0, 0, 7); ctx.fill();
+        ctx.save();
+        ctx.translate(c.x, c.y - hop);
+        if (hop <= 0) ctx.rotate(c.rollAngle || 0);   // spins only once it's landed and rolling
         ctx.fillStyle = c.color || '#7ee081';
-        ctx.beginPath(); ctx.arc(c.x, c.y - hop, c.r * pop, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 0, c.r * pop, 0, 7); ctx.fill();
         ctx.fillStyle = 'rgba(255,255,255,0.8)';
-        ctx.beginPath(); ctx.arc(c.x, c.y - hop, c.r * pop * 0.45, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 0, c.r * pop * 0.45, 0, 7); ctx.fill();
+        if (hop <= 0) {                              // a seam that visibly turns with the roll
+          ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(-c.r * pop * 0.7, 0); ctx.lineTo(c.r * pop * 0.7, 0); ctx.stroke();
+        }
+        ctx.restore();
         continue;
       }
       ctx.fillStyle = c.color || '#ffd94a';
