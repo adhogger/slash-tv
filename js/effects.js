@@ -165,11 +165,10 @@
   DA.corpse = function (x, y, r, color, dx, dy) {
     var big = r >= 16;
     var n = big ? 8 + Math.floor(r / 3.5) : 10 + Math.floor(r / 2);
-    // shards fly for a beat, then SETTLE (flightT runs out, physics stops)
-    // and just lie there for the rest of a much longer life — actual
-    // persistent debris littering the floor, not a burst that's gone in
-    // under a second
-    var life = (big ? 0.95 : 0.75) * 4;
+    // reverted — the longer-lingering shards read as distracting clutter.
+    // Back to a quick burst-and-gone; the permanent blood splat underneath
+    // (DA.splat, a separate system) is what's meant to stick around.
+    var life = big ? 0.95 : 0.75;
     for (var i = 0; i < n; i++) {
       var a = DA.rand(0, 6.283), speed = DA.rand(100, big ? 260 : 340);
       DA.fx.corpses.push({
