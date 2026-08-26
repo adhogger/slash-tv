@@ -2,7 +2,7 @@
   // Audience drops: the crowd throws sponsor gifts into the arena mid-combat.
   // Gun crates ('gun_smg' etc.) swap the player's weapon for 30 combat-seconds.
   var GUN_TYPES = ['triple', 'smg', 'shotgun', 'minigun', 'railgun', 'flamer', 'rocket', 'grenade'];
-  var COLORS = { boots: '#4cc9f0', heart: '#d43a4b', shield: '#9ad7ff', bomb: '#ffb020', mail: '#f0d9a0',
+  var COLORS = { boots: '#4cc9f0', heart: '#d43a4b', shield: '#9ad7ff', bomb: '#ffb020',
                  turret: '#5bc8d6', drone: '#7ee081' };
   var DURATION = 30;       // seconds of gun/boots effect (only ticks during combat)
   DA.GUN_DURATION = DURATION;   // Stockpile (main.js) refreshes a running timer to this on room entry
@@ -15,37 +15,8 @@
   }
   function labelOf(type) {
     if (type.indexOf('gun_') === 0) return DA.GUNS[type.slice(4)].label;
-    if (type === 'mail') return 'FAN MAIL';
     return type.toUpperCase();
   }
-
-  // Fan mail: a purely optional collectible, never part of the combat drop
-  // pool — DA.spawnMail (called on room entry, see main.js) is the only
-  // thing that creates one. No gameplay effect beyond score, so skipping it
-  // never costs a run, only a line in the end-of-show tally.
-  var MAIL_FLAVOR = [
-    "FAN MAIL: \"PLEASE DON'T DIE, I HAVE MONEY ON YOU.\"",
-    'FAN MAIL: A CRAYON DRAWING OF YOU, MOSTLY ACCURATE.',
-    "FAN MAIL: \"CAN YOU SIGN THIS? IT'S FOR MY WILL.\"",
-    'FAN MAIL: A COMPLAINT ABOUT THE LIGHTING, SOMEHOW.',
-    "FAN MAIL: \"MY THERAPIST SAYS I SHOULDN'T WATCH THIS.\"",
-    'FAN MAIL: A COUPON FOR A SPONSOR THAT NO LONGER EXISTS.'
-  ];
-  DA.collectMail = function (st) {
-    st.mailFound = (st.mailFound || 0) + 1;
-    st.score += 250;
-    if (DA.announce) DA.announce(MAIL_FLAVOR[Math.floor(Math.random() * MAIL_FLAVOR.length)]);
-  };
-  // ~35% of non-boss rooms, never in Endless (no discrete "rooms" to tuck
-  // one into there) — tucked at a random point, same as combat drops
-  DA.spawnMail = function (st) {
-    if (st.room.boss || st.room.endless) return;
-    var guaranteed = st.mods && st.mods.guaranteedMail;             // Fan Favorite
-    if (!guaranteed && Math.random() >= 0.35) return;
-    st.powerups.push({ id: DA.newId(), type: 'mail', t: 999,
-                       x: DA.rand(DA.ARENA.x0 + 120, DA.ARENA.x1 - 120),
-                       y: DA.rand(DA.ARENA.y0 + 120, DA.ARENA.y1 - 120) });
-  };
 
   // hearts never drop when the meter is full; the same gun never drops twice
   // in a row, and never the one the player is already holding
@@ -127,7 +98,6 @@
         var pickR = 22 * (1 + (st.mods && st.mods.pickupRadiusBonus || 0));   // Magnetic
         if (!DA.circleHit(pu.x, pu.y, pickR, pl.x, pl.y, pl.r)) continue;
         if (pu.type === 'bomb') DA.detonateBomb(st);
-        else if (pu.type === 'mail') DA.collectMail(st);
         else if ((pu.type === 'turret' || pu.type === 'drone') && DA.spawnCompanion) {
           DA.spawnCompanion(st, pu.type, pu.x, pu.y);
         } else DA.applyPowerup(pl, pu.type);
@@ -153,40 +123,89 @@
       ctx.translate(pu.x, pu.y);
       ctx.scale(pulse, pulse);
       ctx.fillStyle = colorOf(pu.type);
-      if (pu.type === 'boots') {                      // boot-ish block
-        ctx.fillRect(-9, -11, 10, 16); ctx.fillRect(-9, 5, 18, 7);
-      } else if (pu.type === 'shield') {              // ring
-        ctx.lineWidth = 4; ctx.strokeStyle = COLORS.shield;
+      if (pu.type === 'boots') {                      // boot: shaft + sole, outlined, with a highlight streak
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-9, -11); ctx.lineTo(1, -11); ctx.lineTo(1, 5); ctx.lineTo(9, 5); ctx.lineTo(9, 12); ctx.lineTo(-9, 12);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(-6, -9); ctx.lineTo(-6, 3); ctx.stroke();      // shine streak
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-9, 8.5); ctx.lineTo(9, 8.5); ctx.stroke();     // sole seam
+      } else if (pu.type === 'shield') {              // double ring + cross emblem, glowing rim
+        ctx.strokeStyle = COLORS.shield; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.arc(0, 0, 10, 0, 7); ctx.stroke();
-      } else if (pu.type === 'bomb') {                // round bomb + fuse spark
+        ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+        ctx.beginPath(); ctx.arc(0, 0, 13, -2.5, -0.6); ctx.stroke();               // rim highlight arc
+        ctx.strokeStyle = COLORS.shield; ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(0, -5); ctx.lineTo(0, 5); ctx.moveTo(-5, 0); ctx.lineTo(5, 0);
+        ctx.stroke();
+      } else if (pu.type === 'bomb') {                // round bomb, rim highlight, curved lit fuse
         ctx.fillStyle = '#22222c';
         ctx.beginPath(); ctx.arc(0, 2, 10, 0, 7); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, 2, 8.5, -2.4, -0.7); ctx.stroke();              // metal rim highlight
+        ctx.strokeStyle = '#8a5a1a'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(0, -8); ctx.quadraticCurveTo(4, -13, 1, -16); ctx.stroke();
+        ctx.lineCap = 'butt';
+        var sparkPulse = 0.5 + Math.sin(performance.now() / 90) * 0.5;
         ctx.fillStyle = COLORS.bomb;
-        ctx.fillRect(-1.5, -13, 3, 6);
-      } else if (pu.type === 'heart') {               // heart
+        ctx.beginPath(); ctx.arc(1, -16, 2 + sparkPulse * 1.3, 0, 7); ctx.fill();
+        ctx.globalAlpha *= 0.5;
+        ctx.beginPath(); ctx.arc(1, -16, 4.5 + sparkPulse * 1.6, 0, 7); ctx.fill();
+        ctx.globalAlpha /= 0.5;
+      } else if (pu.type === 'heart') {               // heart, outlined, small glint
         ctx.beginPath();
         ctx.arc(-5, -3, 6.5, 0, 7); ctx.arc(5, -3, 6.5, 0, 7);
         ctx.moveTo(-11, 0); ctx.lineTo(0, 13); ctx.lineTo(11, 0); ctx.closePath();
         ctx.fill();
-      } else if (pu.type === 'mail') {                // envelope: body + peaked flap
-        ctx.fillRect(-11, -8, 22, 16);
-        ctx.strokeStyle = '#22222c'; ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(-11, -8); ctx.lineTo(0, 2); ctx.lineTo(11, -8);
-        ctx.stroke();
-      } else if (pu.type === 'turret') {              // squat base + barrel stub
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1.2; ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.beginPath(); ctx.arc(-4.5, -5, 1.8, 0, 7); ctx.fill();                  // glint
+      } else if (pu.type === 'turret') {              // squat base + barrel, rivets, glow ring
+        ctx.globalAlpha *= 0.3;
+        ctx.beginPath(); ctx.arc(0, 3, 12, 0, 7); ctx.fill();                       // glow-underneath
+        ctx.globalAlpha /= 0.3;
+        ctx.fillStyle = colorOf(pu.type);
         ctx.beginPath(); DA.polyPath(ctx, 0, 1, 9, 9, 6, 0.39); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); DA.polyPath(ctx, 0, 1, 9, 9, 6, 0.39); ctx.stroke();
+        ctx.fillStyle = '#0e0e14';
+        ctx.beginPath(); ctx.arc(0, 1, 2.4, 0, 7); ctx.fill();                      // sensor hub
+        ctx.fillStyle = colorOf(pu.type);
         ctx.fillRect(-2, -11, 4, 9);
-      } else if (pu.type === 'drone') {                // quad rotor housing
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fillRect(-1.6, -11, 1, 9);                                             // barrel highlight
+      } else if (pu.type === 'drone') {                // quad rotor housing, blurred blades, camera lens
+        ctx.fillStyle = colorOf(pu.type);
         ctx.beginPath(); DA.polyPath(ctx, 0, 0, 7, 5, 6, 0); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); DA.polyPath(ctx, 0, 0, 7, 5, 6, 0); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        var armTips = [[-9, -6], [9, -6], [-9, 6], [9, 6]];
+        for (var ai = 0; ai < armTips.length; ai++) {
+          ctx.beginPath(); ctx.ellipse(armTips[ai][0], armTips[ai][1], 3.4, 1.4, ai % 2 ? -0.5 : 0.5, 0, 7); ctx.fill();
+        }
         ctx.strokeStyle = '#14141c'; ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(-9, -6); ctx.lineTo(-3, -2); ctx.moveTo(9, -6); ctx.lineTo(3, -2);
         ctx.moveTo(-9, 6); ctx.lineTo(-3, 2); ctx.moveTo(9, 6); ctx.lineTo(3, 2);
         ctx.stroke();
+        ctx.fillStyle = '#0e0e14';
+        ctx.beginPath(); ctx.arc(0, 0, 2, 0, 7); ctx.fill();                        // camera lens
+        ctx.fillStyle = 'rgba(150,220,255,0.8)';
+        ctx.beginPath(); ctx.arc(-0.6, -0.6, 0.8, 0, 7); ctx.fill();                // lens glint
       } else {                                        // gun crate
         if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(-11, -11, 22, 22, 5); ctx.fill(); }
         else ctx.fillRect(-11, -11, 22, 22);
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1.4;
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(-11, -11, 22, 22, 5); ctx.stroke(); }
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';                                   // corner rivets
+        var rivets = [[-8, -8], [8, -8], [-8, 8], [8, 8]];
+        for (var ri = 0; ri < rivets.length; ri++) {
+          ctx.beginPath(); ctx.arc(rivets[ri][0], rivets[ri][1], 1, 0, 7); ctx.fill();
+        }
         ctx.fillStyle = '#14141c';
         var gunType = pu.type.slice(4);
         if (gunType === 'flamer') {                   // teardrop flame silhouette

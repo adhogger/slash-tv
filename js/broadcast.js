@@ -98,6 +98,18 @@
   // all four sides, clear of the doors and the on-air bug. The HUD (drawn
   // after this layer) covers any dots that would otherwise sit under it.
   var crowd = [];
+  var seatN = 0;
+  function seat(x, y, r) {
+    seatN++;
+    var glower = seatN % 11 === 0;                     // rare phone/glow-stick held up
+    crowd.push({
+      x: x, y: y, r: r, ph: DA.rand(0, 6.28), sp: DA.rand(1.6, 2.6),
+      tone: DA.rand(-10, 8),                            // per-member silhouette shade variance
+      rim: seatN % 2 ? '150,220,255' : '255,150,220',   // alternating cool/warm rim light
+      armPh: DA.rand(0, 6.28), armSp: DA.rand(0.5, 1.1),
+      glower: glower, glowHue: seatN % 22 === 0 ? '255,209,120' : '150,220,255'
+    });
+  }
   (function seatTheAudience() {
     var x, y;
     // door exclusion zones are wider than the door gap itself (555-725, not
@@ -105,20 +117,16 @@
     // (lamps sit at center +/-70; this clears them with margin to spare)
     for (x = 205; x < 1235; x += 26) {
       if (x > 555 && x < 725) continue;                // the south door + its sirens
-      crowd.push({ x: x + DA.rand(-5, 5), y: 703 + DA.rand(-4, 4),
-                   r: DA.rand(8, 13), ph: DA.rand(0, 6.28), sp: DA.rand(1.6, 2.6) });
+      seat(x + DA.rand(-5, 5), 703 + DA.rand(-4, 4), DA.rand(8, 13));
     }
     for (x = 205; x < 1235; x += 26) {
       if (x > 555 && x < 725) continue;                // the north door + its sirens
-      crowd.push({ x: x + DA.rand(-5, 5), y: 15 + DA.rand(-3, 3),
-                   r: DA.rand(7, 11), ph: DA.rand(0, 6.28), sp: DA.rand(1.6, 2.6) });
+      seat(x + DA.rand(-5, 5), 15 + DA.rand(-3, 3), DA.rand(7, 11));
     }
     for (y = 58; y < 665; y += 30) {
       if (y > 275 && y < 445) continue;                // the side doors + their sirens
-      crowd.push({ x: 20 + DA.rand(-3, 3), y: y, r: DA.rand(7, 11),
-                   ph: DA.rand(0, 6.28), sp: DA.rand(1.6, 2.6) });
-      crowd.push({ x: DA.W - 20 + DA.rand(-3, 3), y: y, r: DA.rand(7, 11),
-                   ph: DA.rand(0, 6.28), sp: DA.rand(1.6, 2.6) });
+      seat(20 + DA.rand(-3, 3), y, DA.rand(7, 11));
+      seat(DA.W - 20 + DA.rand(-3, 3), y, DA.rand(7, 11));
     }
   })();
   function popFlash() {                                // a camera goes off in the crowd
@@ -144,14 +152,32 @@
     ctx.save();
     // the audience NEVER stops cheering — not for a multiplier, not for a
     // death. That's the joke: the show doesn't care what it's cheering for.
-    ctx.fillStyle = 'rgba(14, 14, 22, 0.96)';
     for (var i = 0; i < crowd.length; i++) {
       var m = crowd[i];
       var bob = Math.sin(B.t * m.sp * 2.2 + m.ph) * 3;
-      ctx.beginPath(); ctx.arc(m.x, m.y + bob, m.r, 0, 7); ctx.fill();
-      if (i % 3 === 0) {                               // arms up, always
+      var shade = 14 + m.tone;
+      ctx.fillStyle = 'rgba(' + shade + ', ' + shade + ', ' + (shade + 8) + ', 0.96)';
+      // shoulders (wide low ellipse) + head (small circle on top) reads as a
+      // silhouette instead of a flat dot, still cheap — two fills, no path math
+      ctx.beginPath(); ctx.ellipse(m.x, m.y + bob + m.r * 0.35, m.r * 1.05, m.r * 0.8, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(m.x, m.y + bob - m.r * 0.35, m.r * 0.55, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(' + m.rim + ', ' + (0.1 + Math.max(0, Math.sin(B.t * 0.6 + m.ph)) * 0.12).toFixed(3) + ')';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(m.x, m.y + bob - m.r * 0.35, m.r * 0.55, -2.4, -0.6); ctx.stroke();  // rim-lit head edge
+      // arms up: a rolling wave through the crowd, not a fixed every-3rd set
+      var armUp = Math.sin(B.t * m.armSp + m.armPh) > 0.55;
+      if (armUp) {
+        ctx.fillStyle = 'rgba(' + shade + ', ' + shade + ', ' + (shade + 8) + ', 0.96)';
         ctx.beginPath(); ctx.arc(m.x - m.r * 0.8, m.y + bob - m.r - 3, 3.5, 0, 7); ctx.fill();
         ctx.beginPath(); ctx.arc(m.x + m.r * 0.8, m.y + bob - m.r - 4, 3.5, 0, 7); ctx.fill();
+      }
+      if (m.glower) {                                  // rare held-up phone/glow-stick light
+        var gp = 0.5 + Math.sin(B.t * 2.4 + m.ph) * 0.5;
+        ctx.fillStyle = 'rgba(' + m.glowHue + ', ' + (0.5 + gp * 0.4).toFixed(2) + ')';
+        ctx.beginPath(); ctx.arc(m.x + m.r * 0.9, m.y + bob - m.r - (armUp ? 9 : 4), 1.6 + gp * 0.8, 0, 7); ctx.fill();
+        ctx.globalAlpha *= 0.4;
+        ctx.beginPath(); ctx.arc(m.x + m.r * 0.9, m.y + bob - m.r - (armUp ? 9 : 4), 4 + gp * 2, 0, 7); ctx.fill();
+        ctx.globalAlpha /= 0.4;
       }
     }
     for (i = 0; i < B.flashes.length; i++) {           // camera flashes

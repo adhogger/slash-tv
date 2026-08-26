@@ -405,8 +405,7 @@
       ca.rot += ca.rotV * dt;
     }
     if (fx.host) {
-      // hold the host's entrance while a room title card owns that corner
-      if (!(DA.state && DA.state.introCardT > 0)) fx.host.t -= dt;
+      fx.host.t -= dt;
       if (fx.host.t <= 0) { fx.host = null; fx.hostClearedAt = performance.now(); }
     }
   };

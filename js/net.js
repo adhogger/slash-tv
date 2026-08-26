@@ -192,7 +192,6 @@
     if (!pingTimer) pingTimer = setInterval(function () {
       pingSent = performance.now(); send({ t: 'p' });
     }, 2000);
-    baseAnn(ghost.room.name);
   }
   function guestEvent(m) {
     if (!ghost) return;

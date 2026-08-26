@@ -141,7 +141,6 @@
       st.powerups.push({ id: DA.newId(), type: 'gun_' + GUNS[Math.floor(Math.random() * GUNS.length)],
                          t: 60, x: DA.W / 2 + 60, y: DA.H / 2 });
     }
-    if (!isFirstRoom && DA.spawnMail) DA.spawnMail(st);      // optional collectible, never required
     if (st.room.boss) {
       var boss = st.room.boss === 'executive' ? DA.makeExecutive() :
                  (st.room.boss === 'algorithm' ? DA.makeAlgorithm() : DA.makeBoss());
@@ -159,7 +158,6 @@
       }
       if (DA.audio) (DA.audio.bossSting || DA.audio.roar)();
     } else {
-      st.introCardT = 1.7;   // lower-third title card instead of an announcer line
       st.countdownT = entryDir ? 3.0 : 0;   // 3-2-1 (fresh episodes walk in first)
       if (entryDir && DA.audio && DA.audio.cheer) DA.audio.cheer();   // the crowd revs up for the countdown
       if (DA.primeWave) DA.primeWave(st.waveManager);   // sirens burn through the countdown
@@ -202,7 +200,6 @@
       st.stats = carry.stats;                 // shots/hits/gun tallies keep accumulating
       st.saidLines = carry.saidLines;         // the host never repeats himself all run
       st.everDowned = carry.everDowned;       // the flawless-run finale spans the whole campaign
-      st.mailFound = carry.mailFound;         // fan mail tally spans the whole campaign
       st.mods = carry.mods || {};             // picked mods/perks carry into the next episode too
     }
     st.player.mods = st.mods;                 // every player shares one mods bag — a run-wide build, not per-seat
@@ -849,7 +846,6 @@
         st.countdownT = 3.0;
         if (DA.audio && DA.audio.cheer) DA.audio.cheer();   // the crowd revs up for the countdown
       }
-      if (st.introCardT > 0) st.introCardT -= dt;
       DA.updateFx(dt);
       return;
     }
@@ -933,8 +929,8 @@
         // stream rather than visible pulses
         st.smokeT = (st.smokeT == null ? 0 : st.smokeT) - dt;
         if (st.smokeT <= 0) {
-          st.smokeT = 0.025;
-          smokeDoors.forEach(function (d) { DA.doorSmoke(d.x, d.y, d.dir, 5); });
+          st.smokeT = 0.02;
+          smokeDoors.forEach(function (d) { DA.doorSmoke(d.x, d.y, d.dir, 9); });
         }
       }
     }
@@ -1006,7 +1002,6 @@
     if (DA.updateMines) DA.updateMines(st, dt);
     if (DA.updateCompanions) DA.updateCompanions(st, dt);
     DA.updateCombo(st, dt);
-    if (st.introCardT > 0) st.introCardT -= dt;
     if (st.combo > st.stats.maxCombo) st.stats.maxCombo = st.combo;
     DA.updatePowerups(st, dt);
     DA.updateFx(dt);
@@ -1311,10 +1306,10 @@
     ctx.stroke();
     var sweep = performance.now() / 4000;
     var followed = st.players || (st.player ? [st.player] : null);
-    for (var tp = 0; tp < 4; tp++) {                   // camera tripods, one per corner —
-      var tc = [[A.x0 + 62, A.y0 + 58], [A.x1 - 62, A.y0 + 58],           // ACTIVELY FILMING:
-                [A.x0 + 62, A.y1 - 58], [A.x1 - 62, A.y1 - 58]][tp];      // they track the cast
-      var camAng;
+    for (var tp = 0; tp < 4; tp++) {                   // camera tripods, tucked right into each
+      var tc = [[A.x0 + 26, A.y0 + 24], [A.x1 - 26, A.y0 + 24],           // corner (was 62/58 in from
+                [A.x0 + 26, A.y1 - 24], [A.x1 - 26, A.y1 - 24]][tp];      // the corner) — ACTIVELY
+      var camAng;                                                        // FILMING: they track the cast
       if (followed) {
         var camStar = followed[tp % followed.length];
         camAng = Math.atan2(camStar.y - tc[1], camStar.x - tc[0]) +
@@ -1323,8 +1318,14 @@
         camAng = Math.atan2(DA.H / 2 - tc[1], DA.W / 2 - tc[0]);
       }
       drawTripodCam(ctx, tc[0], tc[1], camAng);
-      ctx.fillStyle = 'rgba(150, 200, 255, 0.05)';    // ON-CAMERA LIGHT: cool blue-white,
-      ctx.beginPath();                                 // distinct from the warm followspots
+      // ON-CAMERA LIGHT: cool blue-white, distinct from the warm followspots —
+      // a soft radial taper at the far reach instead of a hard-edged cutoff
+      var camGrad = ctx.createRadialGradient(tc[0], tc[1], 0, tc[0], tc[1], 520);
+      camGrad.addColorStop(0, 'rgba(150, 200, 255, 0.05)');
+      camGrad.addColorStop(0.7, 'rgba(150, 200, 255, 0.05)');
+      camGrad.addColorStop(1, 'rgba(150, 200, 255, 0)');
+      ctx.fillStyle = camGrad;
+      ctx.beginPath();
       ctx.moveTo(tc[0], tc[1]);
       ctx.arc(tc[0], tc[1], 520, camAng - 0.075, camAng + 0.075);
       ctx.closePath(); ctx.fill();
@@ -1377,17 +1378,17 @@
     var seamX = 0;
     for (var wx = A.x0 + 80; wx < A.x1; wx += 80, seamX++) {
       var seamColor = seamX % 2 ? '47, 215, 196' : '255, 45, 209';
-      ctx.strokeStyle = 'rgba(' + seamColor + ', ' + (0.14 + breathe * 0.1 + excite * 0.55).toFixed(2) + ')'; ctx.lineWidth = 4 + excite * 4;
+      ctx.strokeStyle = 'rgba(' + seamColor + ', ' + (0.06 + breathe * 0.26 + excite * 0.55).toFixed(2) + ')'; ctx.lineWidth = 3 + breathe * 4 + excite * 4;
       ctx.beginPath(); ctx.moveTo(wx, 0); ctx.lineTo(wx, A.y0); ctx.moveTo(wx, A.y1); ctx.lineTo(wx, DA.H); ctx.stroke();
-      ctx.strokeStyle = 'rgba(' + seamColor + ', ' + (0.4 + breathe * 0.2 + excite * 0.5).toFixed(2) + ')'; ctx.lineWidth = 1 + excite * 1.5;
+      ctx.strokeStyle = 'rgba(' + seamColor + ', ' + (0.28 + breathe * 0.5 + excite * 0.5).toFixed(2) + ')'; ctx.lineWidth = 0.6 + breathe * 1.4 + excite * 1.5;
       ctx.beginPath(); ctx.moveTo(wx, 0); ctx.lineTo(wx, A.y0); ctx.moveTo(wx, A.y1); ctx.lineTo(wx, DA.H); ctx.stroke();
     }
     var seamY = 0;
     for (var wy = A.y0 + 80; wy < A.y1; wy += 80, seamY++) {
       var seamColorY = seamY % 2 ? '255, 45, 209' : '47, 215, 196';
-      ctx.strokeStyle = 'rgba(' + seamColorY + ', ' + (0.14 + breathe * 0.1 + excite * 0.55).toFixed(2) + ')'; ctx.lineWidth = 4 + excite * 4;
+      ctx.strokeStyle = 'rgba(' + seamColorY + ', ' + (0.06 + breathe * 0.26 + excite * 0.55).toFixed(2) + ')'; ctx.lineWidth = 3 + breathe * 4 + excite * 4;
       ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(A.x0, wy); ctx.moveTo(A.x1, wy); ctx.lineTo(DA.W, wy); ctx.stroke();
-      ctx.strokeStyle = 'rgba(' + seamColorY + ', ' + (0.4 + breathe * 0.2 + excite * 0.5).toFixed(2) + ')'; ctx.lineWidth = 1 + excite * 1.5;
+      ctx.strokeStyle = 'rgba(' + seamColorY + ', ' + (0.28 + breathe * 0.5 + excite * 0.5).toFixed(2) + ')'; ctx.lineWidth = 0.6 + breathe * 1.4 + excite * 1.5;
       ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(A.x0, wy); ctx.moveTo(A.x1, wy); ctx.lineTo(DA.W, wy); ctx.stroke();
     }
     ctx.stroke();
@@ -1672,11 +1673,7 @@
           st.mods.refreshGunOnRoom = true;
           st.mods.gunDurationBonus = (st.mods.gunDurationBonus || 0) + 0.1;   // still worth picking even if the timing never lines up
         } },
-      { name: 'FAN FAVORITE', desc: 'guarantees fan mail, +5% score from kills',
-        apply: function (st) {
-          st.mods.guaranteedMail = true;
-          st.mods.scoreBonus = (st.mods.scoreBonus || 0) + 0.05;   // still worth something in boss rooms, where mail never spawns
-        } },
+      { name: 'FAN FAVORITE', desc: '+15% score from kills', apply: add('scoreBonus', 0.15) },
       { name: 'QUARTERMASTER', desc: 'gun-crate timers last 25% longer', apply: add('gunDurationBonus', 0.25) }
     ];
   })();
@@ -1975,36 +1972,11 @@
     if (helpPage === 0) drawHowToPlay(ctx); else drawCast(ctx);
   }
 
-  // TV lower-third: the room's title card slides up when the show cuts to a
-  // new set, exactly like a broadcast caption — then gets out of the way
-  function drawIntroCard(ctx, st) {
-    var t = st.introCardT;
-    var a = Math.max(0, Math.min(1, (1.7 - t) / 0.22, t / 0.4));
-    ctx.globalAlpha = a;
-    ctx.fillStyle = 'rgba(10, 10, 15, 0.85)';
-    ctx.fillRect(0, 552, DA.W * 0.52, 86);
-    ctx.fillStyle = '#d43a4b';
-    ctx.fillRect(0, 552, 9, 86);
-    ctx.textAlign = 'left';
-    ctx.font = 'bold 38px monospace';
-    ctx.fillStyle = '#f2f2e9';
-    ctx.fillText(st.room.name, 34, 596);
-    ctx.font = 'bold 14px monospace';
-    ctx.fillStyle = '#d43a4b';
-    if (Math.floor(t * 4) % 2 === 0) { ctx.beginPath(); ctx.arc(41, 618, 5, 0, 7); ctx.fill(); }
-    ctx.fillText('LIVE', 54, 623);
-    ctx.fillStyle = '#8888a0';
-    ctx.fillText('— ' + (st.room.ep === 'syn' ? "TONIGHT'S SYNDICATED EPISODE" :
-                         (st.room.endless ? 'ENDLESS ARENA' : 'EPISODE ' + (st.room.ep || 1))), 100, 623);
-    ctx.globalAlpha = 1;
-  }
-
   // HOST CAM: the presenter pops up in a corner window, talking head + caption,
   // whenever he has something to say — like a real broadcast's commentary box
   function drawHostCam(ctx) {
     var hst = DA.fx.host;
     if (!hst) return;
-    if (DA.state && DA.state.introCardT > 0) return;   // the title card owns this corner
     var a = Math.max(0, Math.min(1, (hst.max - hst.t) / 0.25, hst.t / 0.4));
     // signal quality: full static as the feed cuts in, and again as it cuts out
     var glitch = Math.max(0, 1 - (hst.max - hst.t) / 0.3, 1 - hst.t / 0.38);
@@ -2064,9 +2036,9 @@
       ctx.fillStyle = eg;
       ctx.beginPath(); ctx.ellipse(bx + bs / 2, by + bs + 8, bs * 0.58, bs * 0.46, 0, 3.14, 6.29); ctx.fill();
       ctx.fillStyle = '#f2f2e9';
-      ctx.fillRect(bx + bs / 2 - 8, by + bs - 18, 16, 18);
+      ctx.fillRect(bx + bs / 2 - 8, by + bs - 12, 16, 12);
       ctx.fillStyle = '#d4a017';                        // gold tie
-      ctx.fillRect(bx + bs / 2 - 3.5, by + bs - 18, 7, 18);
+      ctx.fillRect(bx + bs / 2 - 3.5, by + bs - 12, 7, 12);
       var ex = bx + bs / 2, ey = by + bs * 0.42, er = bs * 0.29;
       ctx.fillStyle = '#d8a988';
       ctx.beginPath(); DA.polyPath(ctx, ex, ey, er, er, 7, 0.4); ctx.fill();
@@ -2120,7 +2092,7 @@
       ctx.fillStyle = pg;                                // the boss's own gold, not the host's brighter sequined gradient
       ctx.beginPath(); ctx.ellipse(bx + bs / 2, by + bs + 8, bs * 0.56, bs * 0.44, 0, 3.14, 6.29); ctx.fill();
       ctx.fillStyle = '#8c1c2c';                         // dark red tie — the boss's, not the exec's gold or host's magenta
-      ctx.fillRect(bx + bs / 2 - 3.5, by + bs - 18, 7, 18);
+      ctx.fillRect(bx + bs / 2 - 3.5, by + bs - 12, 7, 12);
       var px = bx + bs / 2, py = by + bs * 0.42, pr = bs * 0.29;
       ctx.fillStyle = '#e0b08c';
       ctx.beginPath(); DA.polyPath(ctx, px, py, pr, pr, 7, 0.4); ctx.fill();
@@ -2174,11 +2146,11 @@
     }
     ctx.fillStyle = '#f8e8f0';                          // wide 80s collar
     ctx.beginPath();
-    ctx.moveTo(bx + bs / 2 - 12, by + bs - 18); ctx.lineTo(bx + bs / 2, by + bs - 4);
-    ctx.lineTo(bx + bs / 2 + 12, by + bs - 18); ctx.lineTo(bx + bs / 2 + 8, by + bs);
+    ctx.moveTo(bx + bs / 2 - 12, by + bs - 12); ctx.lineTo(bx + bs / 2, by + bs - 4);
+    ctx.lineTo(bx + bs / 2 + 12, by + bs - 12); ctx.lineTo(bx + bs / 2 + 8, by + bs);
     ctx.lineTo(bx + bs / 2 - 8, by + bs); ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#c2185b';                          // power tie, louder decade
-    ctx.fillRect(bx + bs / 2 - 3.5, by + bs - 16, 7, 16);
+    ctx.fillRect(bx + bs / 2 - 3.5, by + bs - 10, 7, 10);
     var hx = bx + bs / 2, hy = by + bs * 0.42, hr = bs * 0.29;
     ctx.fillStyle = '#e08a4e';                          // industrial fake tan — faceted, not round
     ctx.beginPath(); DA.polyPath(ctx, hx, hy, hr, hr, 7, 0.4); ctx.fill();
@@ -2406,12 +2378,15 @@
 
   function drawHud(ctx, st) {
     var wm = st.waveManager;
-    ctx.textAlign = 'center';
-    ctx.font = '22px monospace';
-    ctx.fillStyle = '#e8d44d';
-    var label = st.room.name;
-    if (st.room.endless) label += ' — WAVE ' + (wm.wave + 1);  // Endless is genuinely wave-by-wave; keep it
-    ctx.fillText(label, DA.W / 2, 28);
+    // room names dropped from the HUD — they read as a distraction, not
+    // useful info. Endless keeps its wave counter: that's real progress,
+    // not a room label.
+    if (st.room.endless) {
+      ctx.textAlign = 'center';
+      ctx.font = '22px monospace';
+      ctx.fillStyle = '#e8d44d';
+      ctx.fillText('WAVE ' + (wm.wave + 1), DA.W / 2, 28);
+    }
     var heartPulse = DA.audio && DA.audio.heartPulse ? DA.audio.heartPulse() : 0;
     for (var i = 0; i < DA.MAX_HEARTS; i++) drawHeart(ctx, 16 + i * 30, 12, 22, i < st.player.hearts, heartPulse);
     var gun = DA.GUNS[st.player.gun] || DA.GUNS.pistol;
@@ -2721,7 +2696,6 @@
     if (DA.broadcast) DA.broadcast.drawFrame(ctx, st);
     drawScreenFx(ctx);
     drawHud(ctx, st);
-    if (st.mode === 'playing' && st.introCardT > 0) drawIntroCard(ctx, st);
     if (st.mode === 'playing' && st.countdownT > 0) {   // 3-2-1, centre stage
       var cdDigit = Math.ceil(st.countdownT / 1.0);
       var cdSeg = st.countdownT - (cdDigit - 1) * 1.0;  // 1s per digit
@@ -2813,10 +2787,6 @@
       ];
       if (goHi) go.push({ text: goHi.label + ': ' + goHi.text, font: 'bold 20px monospace', color: '#e8d44d', y: 250 });
       go = go.concat(statsLines(st, goHi ? 282 : 266)).concat(topFiveLines(st, goHi ? 362 : 346));
-      if (st.mailFound) {
-        go.push({ text: '📬 ' + st.mailFound + ' piece' + (st.mailFound === 1 ? '' : 's') + ' of fan mail collected',
-                  font: '17px monospace', color: '#f0d9a0', y: goHi ? 460 : 446 });
-      }
       if (st.room.ep === 'syn') {
         go.push({ text: "TONIGHT'S SEED: #" + st.room.seed + '  ·  challenge a friend: ?seed=' + st.room.seed,
                   font: '16px monospace', color: '#b78bff', y: 538 });
@@ -2860,10 +2830,6 @@
       ];
       if (winHi) w.push({ text: winHi.label + ': ' + winHi.text, font: 'bold 20px monospace', color: '#e8d44d', y: 316 });
       w = w.concat(statsLines(st, winHi ? 348 : 334)).concat(topFiveLines(st, winHi ? 418 : 404));
-      if (st.mailFound) {
-        w.push({ text: '📬 ' + st.mailFound + ' piece' + (st.mailFound === 1 ? '' : 's') + ' of fan mail collected',
-                 font: '17px monospace', color: '#f0d9a0', y: winHi ? 460 : 446 });
-      }
       if (st.room.ep === 'syn' && st.globalRank && st.globalRank !== 'sending') {
         w.push({ text: '🌍 GLOBAL RANK #' + st.globalRank + " on tonight's episode (#" + st.room.seed + ')',
                  font: 'bold 22px monospace', color: '#b78bff', y: 534 });
