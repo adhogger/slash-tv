@@ -5,13 +5,19 @@
   // nearest live enemy and fire real DA.bullets entries — same pipeline
   // as the player and CAM-BOT, so hits/kills/combo all just work.
   var TURRET_TIME = 14, DRONE_TIME = 16, FIRE_RATE = 0.32, RANGE = 380;
+  var ENTER_TIME = { turret: 0.5, drone: 0.7 };   // turret rises out of the floor; drone flies down in
+  var LEAVE_TIME = { turret: 0.45, drone: 0.7 };  // turret sinks back down; drone climbs off the top
+  var DRONE_FLY_DIST = 320;   // how far above the arena the drone starts/ends its flight
   var COMPANION_GUN = { color: '#5bc8d6', dmg: 1, speed: 640, botOwned: true, label: 'TURRET' };
 
   DA.spawnCompanion = function (st, kind, x, y) {
     st.companions = st.companions || [];
-    st.companions.push({ id: DA.newId(), kind: kind, x: x, y: y,
-                          t: kind === 'turret' ? TURRET_TIME : DRONE_TIME,
-                          fireT: 0, aimA: -1.57, wobble: Math.random() * 6.28 });
+    var c = { id: DA.newId(), kind: kind, x: x, y: y,
+              t: kind === 'turret' ? TURRET_TIME : DRONE_TIME,
+              fireT: 0, aimA: -1.57, wobble: Math.random() * 6.28,
+              enterT: ENTER_TIME[kind], leaving: false, leaveT: 0, leaveStartY: 0 };
+    if (kind === 'drone') c.y -= DRONE_FLY_DIST;   // starts well above the arena, flies down into place
+    st.companions.push(c);
   };
 
   function nearestTarget(st, x, y) {
@@ -30,14 +36,25 @@
     var human = (st.players || [st.player])[0];
     for (var i = st.companions.length - 1; i >= 0; i--) {
       var c = st.companions[i];
-      c.t -= dt;
-      if (c.t <= 0) { st.companions.splice(i, 1); continue; }
       c.wobble += dt;
+      if (c.enterT > 0) c.enterT = Math.max(0, c.enterT - dt);   // still touching down / flying in
+      if (!c.leaving) {
+        c.t -= dt;
+        if (c.t <= 0) { c.leaving = true; c.leaveT = LEAVE_TIME[c.kind]; c.leaveStartY = c.y; }
+      } else {
+        c.leaveT -= dt;
+        if (c.leaveT <= 0) { st.companions.splice(i, 1); continue; }
+      }
       if (c.kind === 'drone') {                       // hovers just off whoever it's escorting
         var tx = human.x + Math.cos(c.wobble * 0.6) * 46, ty = human.y - 56 + Math.sin(c.wobble * 0.9) * 10;
+        if (c.leaving) {                                // climbs straight up and off the top instead
+          var leaveP = 1 - c.leaveT / LEAVE_TIME.drone;
+          tx = c.x; ty = c.leaveStartY - DRONE_FLY_DIST * leaveP;
+        }
         c.x += (tx - c.x) * Math.min(1, 3 * dt);
         c.y += (ty - c.y) * Math.min(1, 3 * dt);
       }
+      if (c.enterT > 0 || c.leaving) continue;   // don't fire mid-entrance or mid-exit
       c.fireT -= dt;
       var target = nearestTarget(st, c.x, c.y);
       if (target) {
@@ -71,6 +88,11 @@
       ctx.save();
       ctx.translate(c.x, c.y);
       if (c.kind === 'turret') {
+        // rises out of the floor on spawn, sinks back into it on despawn —
+        // the underglow/shadow above stay put (still "on the ground"),
+        // only the physical turret body squashes/drops through them
+        var liftP = c.leaving ? (1 - c.leaveT / LEAVE_TIME.turret) : c.enterT / ENTER_TIME.turret;
+        if (liftP > 0) { ctx.translate(0, liftP * 20); ctx.scale(1, Math.max(0.06, 1 - liftP)); ctx.globalAlpha *= 1 - liftP * 0.7; }
         // tripod legs — dull metal, planted into the glow
         ctx.strokeStyle = '#2c333c'; ctx.lineWidth = 3; ctx.lineCap = 'round';
         for (var lg = 0; lg < 3; lg++) {
@@ -112,6 +134,10 @@
         ctx.fillStyle = blink ? '#ff3b3b' : 'rgba(' + neon + ', ' + (0.7 + pulse * 0.3).toFixed(2) + ')';
         ctx.beginPath(); ctx.arc(0, 4, 2.2, 0, 7); ctx.fill();
       } else {                                          // drone: angular gunmetal core, glowing lens, spinning rotors
+        // fades in/out over its flight in/off screen, on top of the actual
+        // x/y movement already happening in DA.updateCompanions
+        var flyP = c.leaving ? c.leaveT / LEAVE_TIME.drone : (1 - c.enterT / ENTER_TIME.drone);
+        ctx.globalAlpha *= Math.max(0, Math.min(1, flyP * 2));
         // 4 metal arms, each ending in a spinning rotor disc (motion-blur ring)
         var rotorSpin = now / 40;
         var arms = [[-14, -9], [14, -9], [-14, 9], [14, 9]];

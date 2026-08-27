@@ -192,7 +192,7 @@
       score: 0, combo: 1, comboTimer: 0, kills: 0,
       roomsCleared: 0, groanT: 3, visited: {}, cleared: {}, seenTypes: {},
       stats: { shots: 0, hits: 0, killsByGun: {}, maxCombo: 1, start: performance.now() },
-      mods: {}      // picks from the between-rooms choice screen — spans the whole campaign
+      mods: {}, modFamilyCount: {}   // picks from the between-rooms choice screen — spans the whole campaign
     };
     if (carry) {                              // the run rolls on: bank the last episode
       st.score = carry.score;
@@ -201,6 +201,7 @@
       st.saidLines = carry.saidLines;         // the host never repeats himself all run
       st.everDowned = carry.everDowned;       // the flawless-run finale spans the whole campaign
       st.mods = carry.mods || {};             // picked mods/perks carry into the next episode too
+      st.modFamilyCount = carry.modFamilyCount || {};
     }
     st.player.mods = st.mods;                 // every player shares one mods bag — a run-wide build, not per-seat
     st.players = [st.player];                 // st.player stays the human, always
@@ -1330,8 +1331,13 @@
       ctx.arc(tc[0], tc[1], 520, camAng - 0.075, camAng + 0.075);
       ctx.closePath(); ctx.fill();
     }
-    ctx.strokeStyle = 'rgba(232, 212, 77, 0.07)';     // game-show floor rings
-    ctx.lineWidth = 3;
+    // a slow ambient breathe, shared with the wall-seam neon below so the
+    // whole rig pulses in sync; a bomb/rocket explosion (DA.fx.neonFlash)
+    // spikes both far brighter on top of this
+    var breathe = 0.5 + Math.sin(performance.now() / 900) * 0.5;
+    var excite = DA.fx.neonFlash || 0;
+    ctx.strokeStyle = 'rgba(232, 212, 77, ' + (0.05 + breathe * 0.14 + excite * 0.4).toFixed(2) + ')';   // game-show floor rings, breathing neon
+    ctx.lineWidth = 2 + breathe * 2 + excite * 3;
     for (var r = 80; r <= 320; r += 80) {
       ctx.beginPath(); ctx.arc(DA.W / 2, DA.H / 2, r, 0, 7); ctx.stroke();
     }
@@ -1369,12 +1375,9 @@
     ctx.strokeRect(A.x0 + 1, A.y0 + 1, A.x1 - A.x0 - 2, A.y1 - A.y0 - 2);
     // wall panel seams: alternating cyan/magenta neon trim strips, each with
     // a soft wide glow pass behind a bright thin core — the classic
-    // backlit-panel-line look. A slow ambient breathe keeps the rig from
-    // reading as flat/dead at rest; a bomb or rocket-launcher explosion
-    // (DA.fx.neonFlash) still spikes it far brighter on top of that, so the
-    // effect stays a genuine "big moment" beat, not just louder idle noise.
-    var breathe = 0.5 + Math.sin(performance.now() / 900) * 0.5;
-    var excite = DA.fx.neonFlash || 0;
+    // backlit-panel-line look. breathe/excite (declared above, shared with
+    // the floor rings) keep the rig from reading as flat/dead at rest; a
+    // bomb or rocket-launcher explosion spikes both far brighter on top.
     var seamX = 0;
     for (var wx = A.x0 + 80; wx < A.x1; wx += 80, seamX++) {
       var seamColor = seamX % 2 ? '47, 215, 196' : '255, 45, 209';
@@ -1625,56 +1628,98 @@
   // player.js/powerups.js), so co-op players both benefit — it's the run's
   // build, not a per-seat loadout. The same upgrade can come up again later
   // and stacks (see the clamps at each consuming site).
+  // families: same-family picks compound (see familyMultiplier) instead of
+  // just flatly stacking — commit to a theme, get more than the sum of parts
+  var SYNERGY_STEP = 0.15;    // +15% per prior same-family pick banked this run
+  var SYNERGY_CAP = 1.0;      // the bonus itself caps at +100% — a pick is never worth more than 2x its base
+  var EMPOWER_EXTRA = 2;      // the 5 family mods below bump the family counter 2 EXTRA on top of the usual +1
+  var FAMILY_INFO = {
+    ordnance:          { label: 'ORDNANCE',           color: '#ff5a3c' },
+    triggerDiscipline: { label: 'TRIGGER DISCIPLINE', color: '#4dd2ff' },
+    bloodlust:         { label: 'BLOODLUST',          color: '#ff4fa3' },
+    lastStand:         { label: 'LAST STAND',         color: '#38d9a9' },
+    scavenger:         { label: 'SCAVENGER',          color: '#b985ff' }
+  };
   var MOD_POOL = (function () {
-    function add(key, amt) { return function (st) { st.mods[key] = (st.mods[key] || 0) + amt; }; }
-    function flag(key) { return function (st) { st.mods[key] = true; }; }
+    function familyMultiplier(st, family) {
+      if (!family) return 1;
+      var n = (st.modFamilyCount && st.modFamilyCount[family]) || 0;
+      return 1 + Math.min(SYNERGY_CAP, SYNERGY_STEP * n);
+    }
+    function bumpFamily(st, family, n) {
+      if (!family) return;
+      st.modFamilyCount = st.modFamilyCount || {};
+      st.modFamilyCount[family] = (st.modFamilyCount[family] || 0) + (n || 1);
+    }
+    function add(key, amt) {
+      return function (st, family) {
+        st.mods[key] = (st.mods[key] || 0) + amt * familyMultiplier(st, family);
+        bumpFamily(st, family, 1);
+      };
+    }
+    function flag(key) { return function (st, family) { st.mods[key] = true; bumpFamily(st, family, 1); }; }
     // some mods only touch a stat certain guns don't have (e.g. splash, or
     // a pellet count > 1) — a small secondary bonus on a stat EVERY gun
     // has means the pick is never a flat zero regardless of what's
     // currently equipped, while the named stat stays the real headline
     function add2(key1, amt1, key2, amt2) {
-      return function (st) { st.mods[key1] = (st.mods[key1] || 0) + amt1; st.mods[key2] = (st.mods[key2] || 0) + amt2; };
+      return function (st, family) {
+        var mult = familyMultiplier(st, family);
+        st.mods[key1] = (st.mods[key1] || 0) + amt1 * mult;
+        st.mods[key2] = (st.mods[key2] || 0) + amt2 * mult;
+        bumpFamily(st, family, 1);
+      };
     }
     return [
-      { name: 'HOLLOW POINTS', desc: '+1 damage, every gun', apply: add('dmgBonus', 1) },
-      { name: 'STEADY HANDS', desc: '-40% aim jitter, every gun (+6% fire rate, every gun)',
+      { name: 'HOLLOW POINTS', desc: '+1 damage, every gun', family: 'ordnance', apply: add('dmgBonus', 1) },
+      { name: 'STEADY HANDS', desc: '-40% aim jitter, every gun (+6% fire rate, every gun)', family: 'triggerDiscipline',
         apply: add2('jitterCut', 0.4, 'rateCut', 0.06) },
-      { name: 'QUICKDRAW', desc: '-15% time between shots', apply: add('rateCut', 0.15) },
-      { name: 'FULL METAL JACKET', desc: 'bullets pierce everything', apply: flag('pierceAll') },
-      { name: 'OVERPRESSURE', desc: '+30% splash radius (+8% bullet speed, every gun)',
+      { name: 'QUICKDRAW', desc: '-15% time between shots', family: 'triggerDiscipline', apply: add('rateCut', 0.15) },
+      { name: 'FULL METAL JACKET', desc: 'bullets pierce everything', family: 'ordnance', apply: flag('pierceAll') },
+      { name: 'OVERPRESSURE', desc: '+30% splash radius (+8% bullet speed, every gun)', family: 'ordnance',
         apply: add2('splashRBonus', 0.3, 'bulletSpeedBonus', 0.08) },
-      { name: 'HOT LOADS', desc: '+20% bullet speed', apply: add('bulletSpeedBonus', 0.2) },
-      { name: 'BIG SPENDER', desc: '+10% score from kills', apply: add('scoreBonus', 0.1) },
-      { name: 'TWIN LINK', desc: '+1 pellet, multi-pellet guns (-15% aim jitter, every gun)',
+      { name: 'HOT LOADS', desc: '+20% bullet speed', family: 'triggerDiscipline', apply: add('bulletSpeedBonus', 0.2) },
+      { name: 'BIG SPENDER', desc: '+10% score from kills', family: 'bloodlust', apply: add('scoreBonus', 0.1) },
+      { name: 'TWIN LINK', desc: '+1 pellet, multi-pellet guns (-15% aim jitter, every gun)', family: 'triggerDiscipline',
         apply: add2('pelletBonus', 1, 'jitterCut', 0.15) },
-      { name: 'CHAIN REACTION', desc: 'a kill refunds 15% of your cooldown', apply: add('cooldownRefund', 0.15) },
-      { name: 'EXTENDED BARREL', desc: '+25% bullet range (+0.25 damage, every gun)',
+      { name: 'CHAIN REACTION', desc: 'a kill refunds 15% of your cooldown', family: 'bloodlust', apply: add('cooldownRefund', 0.15) },
+      { name: 'EXTENDED BARREL', desc: '+25% bullet range (+0.25 damage, every gun)', family: 'ordnance',
         apply: add2('rangeBonus', 0.25, 'dmgBonus', 0.25) },
-      { name: 'PHOTOGENIC', desc: 'combo climbs 20% faster', apply: add('comboSpeedCut', 0.2) },
-      { name: 'EXECUTIONER', desc: '+50% damage on called shots', apply: add('weakPointDmgBonus', 0.5) },
-      { name: 'COMBAT MEDIC', desc: 'full heal, right now, +0.25s invulnerable after a hit',
-        apply: function (st) {
+      { name: 'PHOTOGENIC', desc: 'combo climbs 20% faster', family: 'bloodlust', apply: add('comboSpeedCut', 0.2) },
+      { name: 'EXECUTIONER', desc: '+50% damage on called shots', family: 'ordnance', apply: add('weakPointDmgBonus', 0.5) },
+      { name: 'COMBAT MEDIC', desc: 'full heal, right now, +0.25s invulnerable after a hit', family: 'lastStand',
+        apply: function (st, family) {
           st.players.forEach(function (p) { if (!p.downed) p.hearts = DA.MAX_HEARTS; });
-          st.mods.invulnBonus = (st.mods.invulnBonus || 0) + 0.25;   // never a total whiff, even at full hearts
+          add('invulnBonus', 0.25)(st, family);   // never a total whiff, even at full hearts
         } },
-      { name: 'THICK SKIN', desc: '+0.5s invulnerable after a hit', apply: add('invulnBonus', 0.5) },
-      { name: 'VENGEANCE', desc: 'a hit only costs 25% of your combo',
-        apply: function (st) { st.mods.comboHitFrac = 0.25; } },
-      { name: 'IRON WILL', desc: 'auto-heal 1 heart every 45s',
-        apply: function (st) { st.mods.autoHealInterval = 45; } },
-      { name: 'ADRENALINE', desc: '+10% move speed', apply: add('speedBonus', 0.1) },
-      { name: 'GUARDIAN ANGEL', desc: 'shields last 50% longer (+0.15s invulnerable after a hit)',
+      { name: 'THICK SKIN', desc: '+0.5s invulnerable after a hit', family: 'lastStand', apply: add('invulnBonus', 0.5) },
+      { name: 'VENGEANCE', desc: 'a hit only costs 25% of your combo', family: 'bloodlust',
+        apply: function (st, family) { st.mods.comboHitFrac = 0.25; bumpFamily(st, family, 1); } },
+      { name: 'IRON WILL', desc: 'auto-heal 1 heart every 45s', family: 'lastStand',
+        apply: function (st, family) { st.mods.autoHealInterval = 45; bumpFamily(st, family, 1); } },
+      { name: 'ADRENALINE', desc: '+10% move speed', family: 'scavenger', apply: add('speedBonus', 0.1) },
+      { name: 'GUARDIAN ANGEL', desc: 'shields last 50% longer (+0.15s invulnerable after a hit)', family: 'lastStand',
         apply: add2('shieldDurationBonus', 0.5, 'invulnBonus', 0.15) },
-      { name: 'LUCKY BREAK', desc: 'drops arrive ~20% more often', apply: add('dropRateBonus', 0.2) },
-      { name: 'MAGNETIC', desc: '+50% pickup radius', apply: add('pickupRadiusBonus', 0.5) },
-      { name: 'BARGAIN HUNTER', desc: 'hearts always heal to full', apply: flag('fullHealHearts') },
-      { name: 'STOCKPILE', desc: 'room transitions refresh your gun timer (+10% gun-crate duration)',
-        apply: function (st) {
+      { name: 'LUCKY BREAK', desc: 'drops arrive ~20% more often', family: 'scavenger', apply: add('dropRateBonus', 0.2) },
+      { name: 'MAGNETIC', desc: '+50% pickup radius', family: 'scavenger', apply: add('pickupRadiusBonus', 0.5) },
+      { name: 'BARGAIN HUNTER', desc: 'hearts always heal to full', family: 'lastStand', apply: flag('fullHealHearts') },
+      { name: 'STOCKPILE', desc: 'room transitions refresh your gun timer (+10% gun-crate duration)', family: 'scavenger',
+        apply: function (st, family) {
           st.mods.refreshGunOnRoom = true;
-          st.mods.gunDurationBonus = (st.mods.gunDurationBonus || 0) + 0.1;   // still worth picking even if the timing never lines up
+          add('gunDurationBonus', 0.1)(st, family);   // still worth picking even if the timing never lines up
         } },
-      { name: 'FAN FAVORITE', desc: '+15% score from kills', apply: add('scoreBonus', 0.15) },
-      { name: 'QUARTERMASTER', desc: 'gun-crate timers last 25% longer', apply: add('gunDurationBonus', 0.25) }
+      { name: 'FAN FAVORITE', desc: '+15% score from kills', family: 'bloodlust', apply: add('scoreBonus', 0.15) },
+      { name: 'QUARTERMASTER', desc: 'gun-crate timers last 25% longer', family: 'scavenger', apply: add('gunDurationBonus', 0.25) },
+      { name: 'ARMORY UPGRADE', desc: '+0.5 damage, every gun', family: 'ordnance', empower: true,
+        apply: function (st, family) { add('dmgBonus', 0.5)(st, family); bumpFamily(st, family, EMPOWER_EXTRA); } },
+      { name: 'MUSCLE MEMORY', desc: '-8% time between shots, every gun', family: 'triggerDiscipline', empower: true,
+        apply: function (st, family) { add('rateCut', 0.08)(st, family); bumpFamily(st, family, EMPOWER_EXTRA); } },
+      { name: 'SHOWSTOPPER', desc: '+10% score from kills', family: 'bloodlust', empower: true,
+        apply: function (st, family) { add('scoreBonus', 0.1)(st, family); bumpFamily(st, family, EMPOWER_EXTRA); } },
+      { name: 'FIELD MEDIC TRAINING', desc: '+0.25s invulnerable after a hit', family: 'lastStand', empower: true,
+        apply: function (st, family) { add('invulnBonus', 0.25)(st, family); bumpFamily(st, family, EMPOWER_EXTRA); } },
+      { name: 'SUPPLY LINE', desc: '+15% pickup radius', family: 'scavenger', empower: true,
+        apply: function (st, family) { add('pickupRadiusBonus', 0.15)(st, family); bumpFamily(st, family, EMPOWER_EXTRA); } }
     ];
   })();
   var choiceSel = 0;
@@ -1690,7 +1735,7 @@
     choiceSel = 0;
   }
   function pickModChoice(st, entry) {
-    entry.apply(st);
+    entry.apply(st, entry.family);
     if (DA.audio && DA.audio.comboUp) DA.audio.comboUp(3);
     var roomId = st.pendingRoom, entryDir = st.pendingEntryDir;
     st.mode = 'playing';
@@ -1700,8 +1745,12 @@
     var touch = DA.input.touchActive();
     var BW = 620, X = (DA.W - BW) / 2, Y0 = 270, G = touch ? 92 : 80, BH = touch ? 78 : 66;
     return (st.choiceOptions || []).map(function (entry, i) {
-      return { x: X, y: Y0 + G * i, w: BW, h: BH, color: '#7ee081', primary: true,
-               label: entry.name, state: entry.desc,
+      var fam = FAMILY_INFO[entry.family];
+      var n = (st.modFamilyCount && st.modFamilyCount[entry.family]) || 0;
+      var willBe = n + (entry.empower ? EMPOWER_EXTRA + 1 : 1);
+      var hint = fam ? fam.label + (n > 0 ? ' ×' + willBe : '') + (entry.empower ? ' ⚡' : '') : '';
+      return { x: X, y: Y0 + G * i, w: BW, h: BH, color: fam ? fam.color : '#7ee081', primary: true,
+               label: entry.name, state: entry.desc, hint: hint, hintColor: fam ? fam.color : undefined,
                act: function () { pickModChoice(st, entry); } };
     });
   }
@@ -1846,7 +1895,7 @@
       if (b.hint) {
         ctx.textAlign = 'right';
         ctx.font = (touch ? 14 : 12) + 'px monospace';
-        ctx.fillStyle = '#55556a';
+        ctx.fillStyle = b.hintColor || '#55556a';
         ctx.fillText(b.hint, b.x + b.w - 14, b.y + b.h - 8);
       }
       if (on) {                                     // selection chevron

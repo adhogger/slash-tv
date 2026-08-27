@@ -80,9 +80,17 @@
           type = DA.pickDropType(st.player, st.lastGunDrop);
         }
         if (type.indexOf('gun_') === 0) st.lastGunDrop = type;
-        st.powerups.push({ id: DA.newId(), type: type, t: LIFETIME,
-                           x: DA.rand(DA.ARENA.x0 + 120, DA.ARENA.x1 - 120),
-                           y: DA.rand(DA.ARENA.y0 + 120, DA.ARENA.y1 - 120) });
+        var dropX, dropY;
+        for (var pr = 0; pr < 8; pr++) {       // don't land on top of a gift already on the floor
+          dropX = DA.rand(DA.ARENA.x0 + 120, DA.ARENA.x1 - 120);
+          dropY = DA.rand(DA.ARENA.y0 + 120, DA.ARENA.y1 - 120);
+          var clear = true;
+          for (var pd = 0; pd < st.powerups.length; pd++) {
+            if (DA.dist2(dropX, dropY, st.powerups[pd].x, st.powerups[pd].y) < 70 * 70) { clear = false; break; }
+          }
+          if (clear) break;
+        }
+        st.powerups.push({ id: DA.newId(), type: type, t: LIFETIME, x: dropX, y: dropY });
         if (DA.burst) DA.burst(st.powerups[st.powerups.length - 1].x,
                                st.powerups[st.powerups.length - 1].y, colorOf(type), 10);
       }

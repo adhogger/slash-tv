@@ -238,6 +238,10 @@
         r: DA.rand(6, 16), color: 'rgba(130, 128, 138, 0.28)', life: life, maxLife: life });
     }
   };
+  // an immediate, stronger puff right as a pack starts pouring — the ambient
+  // per-frame trickle (main.js) alone can get outrun by a fast type (a
+  // sprinter clears the doorway before it reads as "smoke happened")
+  DA.onBurstStart = function (door) { DA.doorSmoke(door.x, door.y, door.dir, 20); };
   // permanent (per-room) burn mark left by an EXPLOSION — rocket, grenade,
   // mine, bomb, or a zombie (boomer) going off. Deliberately NOT used for
   // ordinary bullets missing and hitting a wall — that read as too much

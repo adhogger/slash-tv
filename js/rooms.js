@@ -10,7 +10,8 @@
       exits: { E: 'greenroom', S: 'makeup' },
       waves: [
         { doors: 1, groups: [{ type: 'shambler', count: 85, interval: 1.1, burst: 7 }] },
-        { doors: 2, groups: [{ type: 'shambler', count: 115, interval: 1.1, burst: 7 }] }
+        { doors: 2, groups: [{ type: 'shambler', count: 115, interval: 1.1, burst: 7 },
+                             { type: 'boomer',   count: 2,   interval: 9 }] }
       ]
     },
     greenroom: {
@@ -54,10 +55,8 @@
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 105, interval: 1.1, burst: 7 },
                              { type: 'brute',    count: 4,  interval: 8 }] },
-        { doors: 3, groups: [{ type: 'shambler', count: 110, interval: 1.1, burst: 7 },
-                             { type: 'brute',    count: 6,  interval: 7 },
-                             { type: 'boomer',   count: 2,  interval: 8 },
-                             { type: 'sprinter', count: 16, interval: 1.5, speed: 145 }] }
+        { doors: 3, groups: [{ type: 'shambler', count: 115, interval: 1.1, burst: 7 },
+                             { type: 'brute',    count: 7,  interval: 6 }] }
       ]
     },
     editing: {
@@ -66,13 +65,11 @@
       exits: { S: 'stage' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 100, interval: 1.1, burst: 7 },
-                             { type: 'swarmer',  count: 50, interval: 1.3, burst: 5 },
-                             { type: 'boomer',   count: 2,  interval: 7 },
-                             { type: 'sprinter', count: 20, interval: 1.4, speed: 155 }] },
+                             { type: 'swarmer',  count: 55, interval: 1.3, burst: 5 },
+                             { type: 'sprinter', count: 22, interval: 1.4, speed: 155 }] },
         { doors: 3, groups: [{ type: 'shambler', count: 120, interval: 1.1, burst: 7 },
-                             { type: 'brute',    count: 6,  interval: 6 },
-                             { type: 'boomer',   count: 3,  interval: 6 },
-                             { type: 'sprinter', count: 24, interval: 1.2, speed: 155 }] }
+                             { type: 'brute',    count: 7,  interval: 6 },
+                             { type: 'sprinter', count: 26, interval: 1.2, speed: 155 }] }
       ]
     },
     controlroom: {
@@ -81,13 +78,11 @@
       exits: { E: 'stage' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 85, interval: 1.1, burst: 7 },
-                             { type: 'swarmer',  count: 30, interval: 1.3, burst: 5 },
-                             { type: 'boomer',   count: 3,  interval: 6 },
-                             { type: 'sprinter', count: 20, interval: 1.3, speed: 165 }] },
+                             { type: 'swarmer',  count: 34, interval: 1.3, burst: 5 },
+                             { type: 'sprinter', count: 22, interval: 1.3, speed: 165 }] },
         { doors: 3, groups: [{ type: 'shambler', count: 105, interval: 1.1, burst: 7 },
-                             { type: 'brute',    count: 5,  interval: 5 },
-                             { type: 'boomer',   count: 4,  interval: 5 },
-                             { type: 'sprinter', count: 24, interval: 1.1, speed: 170 }] }
+                             { type: 'brute',    count: 6,  interval: 5 },
+                             { type: 'sprinter', count: 26, interval: 1.1, speed: 170 }] }
       ]
     },
     stage: {
@@ -310,7 +305,7 @@
     if (n >= 4) groups.push({ type: 'brute', count: Math.floor(n / 2), interval: 7 });
     if (n >= 5) groups.push({ type: 'spitter', count: 1 + Math.floor(n / 4), interval: 6 });
     if (n >= 8) groups.push({ type: 'gusher', count: 1 + Math.floor(n / 8), interval: 9 });
-    return { doors: Math.min(1 + Math.floor(n / 3), 3), groups: groups };
+    return { doors: Math.min(1 + Math.floor(n / 3), 4), groups: groups };
   };
 
   DA.oppositeDir = function (dir) {
@@ -339,6 +334,7 @@
   function waveFor(wm) {
     return wm.room.endless ? DA.endlessWave(wm.wave) : wm.room.waves[wm.wave];
   }
+  var SIREN_LEAD = 2.2;   // a door's lamp lights this long before its own next pack — 2s ask + a hair of buffer
   DA.makeWaveManager = function (room) {
     return { room: room, wave: 0, spawners: null, activeDoors: null, currentSpawnDoors: [],
              sirens: {}, nextDoors: null, betweenTimer: 2,
@@ -352,7 +348,7 @@
     if (!wave) return;
     wm.nextDoors = shuffled(DA.DOORS).slice(0, DA.clamp(wave.doors || 4, 1, 4));
     wm.sirens = {};
-    wm.nextDoors.forEach(function (d) { wm.sirens[d.dir] = 3.2; });
+    wm.nextDoors.forEach(function (d) { wm.sirens[d.dir] = SIREN_LEAD; });
     wm.betweenTimer = 0.05;
     wm.primed = true;
   };
@@ -393,39 +389,52 @@
     if (!wm.spawners) {                   // between waves: nothing is coming through any door
       wm.currentSpawnDoors = [];
       wm.betweenTimer -= dt;
-      if (wm.betweenTimer <= 3 && !wm.nextDoors) {   // warn: light next wave's doors early
+      if (wm.betweenTimer <= SIREN_LEAD && !wm.nextDoors) {   // warn: light next wave's doors early
         var nw = waveFor(wm);
         if (nw) {
           wm.nextDoors = shuffled(DA.DOORS).slice(0, DA.clamp(nw.doors || 4, 1, 4));
         }
       }
       if (wm.nextDoors) {
-        wm.nextDoors.forEach(function (d) { wm.sirens[d.dir] = Math.max(wm.sirens[d.dir] || 0, 3.2); });
+        wm.nextDoors.forEach(function (d) { wm.sirens[d.dir] = Math.max(wm.sirens[d.dir] || 0, SIREN_LEAD); });
       }
       if (wm.betweenTimer <= 0) startWave(wm);
       return;
     }
     var pending = 0;
+    function pickDoor() {
+      var doors = wm.activeDoors || DA.DOORS;
+      // never open a pack in the player's face if any other door is live
+      var p = DA.state && DA.state.player;
+      if (p) {
+        var far = doors.filter(function (dd) {
+          return DA.dist2(dd.x, dd.y, p.x, p.y) > 240 * 240;
+        });
+        if (far.length > 0) doors = far;
+      }
+      return doors[Math.floor(Math.random() * doors.length)];
+    }
     wm.spawners.forEach(function (s) {
       pending += s.left;
       if (s.left <= 0) return;
       s.timer -= dt;
+      // a door lights up SIREN_LEAD seconds before its own next pack, so the
+      // warning always tracks a real, specific upcoming spawn instead of
+      // blazing for the whole wave regardless of what's actually due
+      if (s.burstLeft <= 0 && !s.nextDoor && s.timer <= SIREN_LEAD) s.nextDoor = pickDoor();
+      if (s.nextDoor) wm.sirens[s.nextDoor.dir] = Math.max(wm.sirens[s.nextDoor.dir] || 0, Math.max(s.timer, 0));
       if (s.timer <= 0) {
         // zombies arrive in PACKS: a burst pours from one door, then that
         // group goes quiet before the next pack picks a (maybe different)
         // door — no steady conveyor feeding one big blob
         if (s.burstLeft <= 0) {
           s.burstLeft = Math.min(s.burst, s.left);
-          var doors = wm.activeDoors || DA.DOORS;
-          // never open a pack in the player's face if any other door is live
-          var p = DA.state && DA.state.player;
-          if (p) {
-            var far = doors.filter(function (dd) {
-              return DA.dist2(dd.x, dd.y, p.x, p.y) > 240 * 240;
-            });
-            if (far.length > 0) doors = far;
-          }
-          s.burstDoor = doors[Math.floor(Math.random() * doors.length)];
+          s.burstDoor = s.nextDoor || pickDoor();
+          s.nextDoor = null;
+          // an immediate, stronger puff right as a pack starts — the ambient
+          // trickle (main.js) alone can get outrun by a fast type (a
+          // sprinter clears it before it reads as "smoke happened")
+          if (DA.onBurstStart) DA.onBurstStart(s.burstDoor);
         }
         s.burstLeft--; s.left--;
         DA.spawnAtDoor(enemies, s.type, s.speed, [s.burstDoor]);
@@ -434,22 +443,22 @@
         // more relentless waves instead of a slow trickle
         s.timer = s.burstLeft > 0 ? 0.08 : s.interval * DA.rand(0.55, 0.85);
       }
+      // keep the lamp lit exactly while this door is still actively pouring;
+      // it decays on its own (top of this function) the instant that stops
+      if (s.burstLeft > 0) wm.sirens[s.burstDoor.dir] = Math.max(wm.sirens[s.burstDoor.dir] || 0, 0.3);
     });
     // doors currently mid-pack — used to flash ONLY the doors zombies are
     // actually coming through right now, not the whole wave's door pool
     wm.currentSpawnDoors = wm.spawners.filter(function (s) { return s.burstLeft > 0; })
                                        .map(function (s) { return s.burstDoor; });
-    if (pending > 0) {                             // doors stay hot while anything's still due
-      wm.activeDoors.forEach(function (d) { wm.sirens[d.dir] = Math.max(wm.sirens[d.dir] || 0, 3); });
-    }
     if (pending === 0 && enemies.length === 0) {   // wave cleared
       wm.wave++;
       wm.spawners = null;
       wm.activeDoors = null;
-      // was 3.4 (room for a full 3s siren warn) — cut way down so the next
-      // wave picks up almost immediately instead of a visible dead-air gap.
-      // Still nonzero: the siren-warn check below fires as soon as this is
-      // <= 3, so a short beat still telegraphs "more incoming" before it hits.
+      // cut way down so the next wave picks up almost immediately instead of
+      // a visible dead-air gap. Still nonzero: the siren-warn check above
+      // fires as soon as this is <= SIREN_LEAD, so a short beat still
+      // telegraphs "more incoming" before it hits.
       wm.betweenTimer = 0.5;
       if (!wm.room.endless && wm.wave >= wm.room.waves.length) wm.done = true;
       // the crowd pops for every wave, not just the last one — the
