@@ -117,9 +117,8 @@
     st.bossDead = false;
     st.lastWave = 0;
     st.introducedThisRoom = false;   // one first-encounter CAST SPOTLIGHT per room, max
-    DA.fx.splats.length = 0;   // fresh floor for a fresh studio
+    DA.clearStains();          // fresh floor for a fresh studio
     DA.fx.corpses.length = 0;
-    DA.fx.scorch.length = 0;
     for (var pi = 0; pi < st.players.length; pi++) {
       var p = st.players[pi];
       var off = (pi === 0 ? -1 : 1) * 26;    // shoulder to shoulder, not stacked
@@ -181,11 +180,10 @@
   function newGame(startRoom, carry) {
     DA._id = 1;                                 // fresh run, fresh entity ids
     DA.fx.particles.length = 0;
-    DA.fx.splats.length = 0;
+    DA.clearStains();
     DA.fx.popups.length = 0;
     DA.fx.queue.length = 0;
     DA.fx.corpses.length = 0;
-    DA.fx.scorch.length = 0;
     var st = {
       mode: 'playing',
       player: DA.makePlayer(),

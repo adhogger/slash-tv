@@ -217,7 +217,7 @@
       ghost.powerups.length = 0; ghost.bullets.length = 0;
       ghost.entMap = {};
       ghost.roomCleared = false;
-      DA.fx.splats.length = 0; DA.fx.corpses.length = 0;
+      DA.clearStains(); DA.fx.corpses.length = 0;
       if (m.dir) {
         var d = DA.doorByDir(m.dir);
         ghost.players.forEach(function (p, i) {

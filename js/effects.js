@@ -128,8 +128,18 @@
     return 1;                       // Syndication/Endless: the show at its confident best
   };
 
-  DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], dust: [], rings: [], casings: [], scorch: [], host: null,
+  DA.fx = { particles: [], popups: [], queue: [], corpses: [], dust: [], rings: [], casings: [], host: null,
             shake: 0, shakeDirX: 0, shakeDirY: 0, aberration: 0, neonFlash: 0 };
+  // Floor stains (blood splats + explosion scorch) never change once placed,
+  // so each is stamped ONCE onto this offscreen canvas at creation time and
+  // the per-frame cost is a single drawImage — instead of re-drawing every
+  // arc and polygon of every stain every frame (2000+ ops late in a room).
+  // Side effect worth having: no more caps, the floor keeps the whole
+  // fight's history until the room changes.
+  var stainCanvas = document.createElement('canvas');
+  stainCanvas.width = DA.W; stainCanvas.height = DA.H;
+  var stainCtx = stainCanvas.getContext('2d');
+  DA.clearStains = function () { stainCtx.clearRect(0, 0, DA.W, DA.H); };
   // the wall's neon trim strips stay dim except for this — set to 1 by a
   // bomb or rocket-launcher explosion specifically, decays over ~1.6s
   DA.addNeonFlash = function () { DA.fx.neonFlash = 1; };
@@ -270,8 +280,21 @@
       var sa = DA.rand(0, 6.283), sd = DA.rand(baseR * 0.8, splashReach);
       splash.push({ dx: Math.cos(sa) * sd, dy: Math.sin(sa) * sd, r: DA.rand(big ? 3 : 1.5, big ? 8 : 3.5) });
     }
-    DA.fx.scorch.push({ x: x, y: y, verts: verts, splash: splash, big: !!big });
-    if (DA.fx.scorch.length > 160) DA.fx.scorch.shift();
+    if (splash.length) {                               // faint soot speckles, behind the main burn
+      stainCtx.fillStyle = 'rgba(8, 6, 5, 0.22)';
+      for (var sk = 0; sk < splash.length; sk++) {
+        var spk = splash[sk];
+        stainCtx.beginPath(); stainCtx.arc(x + spk.dx, y + spk.dy, spk.r, 0, 7); stainCtx.fill();
+      }
+    }
+    stainCtx.fillStyle = big ? 'rgba(15, 10, 8, 0.55)' : 'rgba(10, 8, 6, 0.45)';
+    stainCtx.beginPath();
+    for (var vi = 0; vi < verts.length; vi++) {
+      var vv = verts[vi];
+      var px = x + Math.cos(vv.a) * vv.r, py = y + Math.sin(vv.a) * vv.r;
+      if (vi === 0) stainCtx.moveTo(px, py); else stainCtx.lineTo(px, py);
+    }
+    stainCtx.closePath(); stainCtx.fill();
     if (DA.fx.particles) {                    // a brief puff of smoke off the fresh mark
       var puffN = big ? 5 : 3;
       for (var p = 0; p < puffN; p++) {
@@ -297,8 +320,11 @@
                      r: DA.rand(3, 9 - d) });
       }
     }
-    DA.fx.splats.push({ x: x, y: y, blobs: blobs });
-    if (DA.fx.splats.length > 200) DA.fx.splats.shift();
+    stainCtx.fillStyle = 'rgba(110, 20, 30, 0.55)';
+    for (var bi = 0; bi < blobs.length; bi++) {
+      var blob = blobs[bi];
+      stainCtx.beginPath(); stainCtx.arc(x + blob.dx, y + blob.dy, blob.r, 0, 7); stainCtx.fill();
+    }
   };
 
   // announcements queue up and show ONE at a time; when the booth is backed up
@@ -435,34 +461,7 @@
       ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 7); ctx.fill();
     }
     ctx.globalAlpha = 1;
-    ctx.fillStyle = 'rgba(110, 20, 30, 0.55)';
-    var splats = DA.fx.splats;
-    for (var i = 0; i < splats.length; i++) {
-      var s = splats[i];
-      for (var b = 0; b < s.blobs.length; b++) {
-        var blob = s.blobs[b];
-        ctx.beginPath(); ctx.arc(s.x + blob.dx, s.y + blob.dy, blob.r, 0, 7); ctx.fill();
-      }
-    }
-    var scorch = DA.fx.scorch;                        // permanent burn marks: explosions only
-    for (var sc = 0; sc < scorch.length; sc++) {
-      var mark = scorch[sc];
-      if (mark.splash) {                              // faint soot speckles, behind the main burn
-        ctx.fillStyle = 'rgba(8, 6, 5, 0.22)';
-        for (var sp = 0; sp < mark.splash.length; sp++) {
-          var spk = mark.splash[sp];
-          ctx.beginPath(); ctx.arc(mark.x + spk.dx, mark.y + spk.dy, spk.r, 0, 7); ctx.fill();
-        }
-      }
-      ctx.fillStyle = mark.big ? 'rgba(15, 10, 8, 0.55)' : 'rgba(10, 8, 6, 0.45)';
-      ctx.beginPath();
-      for (var vi = 0; vi < mark.verts.length; vi++) {
-        var vv = mark.verts[vi];
-        var px = mark.x + Math.cos(vv.a) * vv.r, py = mark.y + Math.sin(vv.a) * vv.r;
-        if (vi === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-      }
-      ctx.closePath(); ctx.fill();
-    }
+    ctx.drawImage(stainCanvas, 0, 0);                 // every splat + scorch, pre-baked
     var corpses = DA.fx.corpses;                     // flying glass-shard fragments
     var CORPSE_FADE_TAIL = 0.6;                       // stays fully solid until near the very end
     for (var c = 0; c < corpses.length; c++) {
