@@ -1005,12 +1005,15 @@
     DA.updatePowerups(st, dt);
     DA.updateFx(dt);
 
-    // endless: the audience tosses a heart every 3rd wave survived
+    // endless: every 3rd wave survived is a reward beat — the audience
+    // tosses a heart AND the sponsors deal an upgrade pick, so the game's
+    // whole build-variety engine finally reaches the mode built for long runs
     if (st.room.endless && st.waveManager.wave > st.lastWave) {
       st.lastWave = st.waveManager.wave;
       if (st.lastWave % 3 === 0) {
         st.players.forEach(function (gp) { gp.hearts = Math.min(gp.hearts + 1, DA.MAX_HEARTS); });
         DA.announce('AUDIENCE GIFT: +1 HEART');
+        openModChoice(st, null, null);   // no next room — the pick resumes in place
       }
     }
 
@@ -1670,22 +1673,22 @@
     }
     return [
       { name: 'HOLLOW POINTS', desc: '+1 damage, every gun', family: 'ordnance', apply: add('dmgBonus', 1) },
-      { name: 'STEADY HANDS', desc: '-40% aim jitter, every gun (+6% fire rate, every gun)', family: 'triggerDiscipline',
+      { name: 'STEADY HANDS', desc: '-40% aim jitter (+6% fire rate)', family: 'triggerDiscipline',
         apply: add2('jitterCut', 0.4, 'rateCut', 0.06) },
       { name: 'QUICKDRAW', desc: '-15% time between shots', family: 'triggerDiscipline', apply: add('rateCut', 0.15) },
       { name: 'FULL METAL JACKET', desc: 'bullets pierce everything', family: 'ordnance', apply: flag('pierceAll') },
-      { name: 'OVERPRESSURE', desc: '+30% splash radius (+8% bullet speed, every gun)', family: 'ordnance',
+      { name: 'OVERPRESSURE', desc: '+30% splash radius (+8% bullet speed)', family: 'ordnance',
         apply: add2('splashRBonus', 0.3, 'bulletSpeedBonus', 0.08) },
       { name: 'HOT LOADS', desc: '+20% bullet speed', family: 'triggerDiscipline', apply: add('bulletSpeedBonus', 0.2) },
       { name: 'BIG SPENDER', desc: '+10% score from kills', family: 'bloodlust', apply: add('scoreBonus', 0.1) },
-      { name: 'TWIN LINK', desc: '+1 pellet, multi-pellet guns (-15% aim jitter, every gun)', family: 'triggerDiscipline',
+      { name: 'TWIN LINK', desc: '+1 pellet, multi-pellet guns (-15% jitter)', family: 'triggerDiscipline',
         apply: add2('pelletBonus', 1, 'jitterCut', 0.15) },
       { name: 'CHAIN REACTION', desc: 'a kill refunds 15% of your cooldown', family: 'bloodlust', apply: add('cooldownRefund', 0.15) },
-      { name: 'EXTENDED BARREL', desc: '+25% bullet range (+0.25 damage, every gun)', family: 'ordnance',
+      { name: 'EXTENDED BARREL', desc: '+25% bullet range (+0.25 damage)', family: 'ordnance',
         apply: add2('rangeBonus', 0.25, 'dmgBonus', 0.25) },
       { name: 'PHOTOGENIC', desc: 'combo climbs 20% faster', family: 'bloodlust', apply: add('comboSpeedCut', 0.2) },
       { name: 'EXECUTIONER', desc: '+50% damage on called shots', family: 'ordnance', apply: add('weakPointDmgBonus', 0.5) },
-      { name: 'COMBAT MEDIC', desc: 'full heal, right now, +0.25s invulnerable after a hit', family: 'lastStand',
+      { name: 'COMBAT MEDIC', desc: 'full heal now, +0.25s invuln after a hit', family: 'lastStand',
         apply: function (st, family) {
           st.players.forEach(function (p) { if (!p.downed) p.hearts = DA.MAX_HEARTS; });
           add('invulnBonus', 0.25)(st, family);   // never a total whiff, even at full hearts
@@ -1696,12 +1699,12 @@
       { name: 'IRON WILL', desc: 'auto-heal 1 heart every 45s', family: 'lastStand',
         apply: function (st, family) { st.mods.autoHealInterval = 45; bumpFamily(st, family, 1); } },
       { name: 'ADRENALINE', desc: '+10% move speed', family: 'scavenger', apply: add('speedBonus', 0.1) },
-      { name: 'GUARDIAN ANGEL', desc: 'shields last 50% longer (+0.15s invulnerable after a hit)', family: 'lastStand',
+      { name: 'GUARDIAN ANGEL', desc: 'shields last 50% longer (+0.15s invuln)', family: 'lastStand',
         apply: add2('shieldDurationBonus', 0.5, 'invulnBonus', 0.15) },
       { name: 'LUCKY BREAK', desc: 'drops arrive ~20% more often', family: 'scavenger', apply: add('dropRateBonus', 0.2) },
       { name: 'MAGNETIC', desc: '+50% pickup radius', family: 'scavenger', apply: add('pickupRadiusBonus', 0.5) },
       { name: 'BARGAIN HUNTER', desc: 'hearts always heal to full', family: 'lastStand', apply: flag('fullHealHearts') },
-      { name: 'STOCKPILE', desc: 'room transitions refresh your gun timer (+10% gun-crate duration)', family: 'scavenger',
+      { name: 'STOCKPILE', desc: 'room changes refresh your gun (+10% duration)', family: 'scavenger',
         apply: function (st, family) {
           st.mods.refreshGunOnRoom = true;
           add('gunDurationBonus', 0.1)(st, family);   // still worth picking even if the timing never lines up
@@ -1737,7 +1740,7 @@
     if (DA.audio && DA.audio.comboUp) DA.audio.comboUp(3);
     var roomId = st.pendingRoom, entryDir = st.pendingEntryDir;
     st.mode = 'playing';
-    enterRoom(st, roomId, entryDir);
+    if (roomId) enterRoom(st, roomId, entryDir);   // endless picks resume in place — there's no next room
   }
   function buildChoiceMenu(st) {
     var touch = DA.input.touchActive();
