@@ -9,7 +9,7 @@
 
   function hazardState(st) {
     if (st.hazards && st.hazards.roomId === st.roomId) return st.hazards;
-    var kind = st.room && st.room.hazard;
+    var kind = (st.segment && st.segment.hazard) || (st.room && st.room.hazard);   // PYRO NIGHT deals rigs onto any set
     var hz = { roomId: st.roomId, cranes: [], pyros: [] };
     if (!kind) { st.hazards = hz; return hz; }
     var rng = DA.makeRng(DA.hashSeed(st.roomId + ':hazard'));
@@ -74,7 +74,7 @@
   }
 
   DA.updateHazards = function (st, dt) {
-    if (!st.room || !st.room.hazard) return;
+    if (!st.room || !((st.segment && st.segment.hazard) || st.room.hazard)) return;
     var hz = hazardState(st);
     var i, c, p;
     for (i = 0; i < hz.cranes.length; i++) {
@@ -120,7 +120,7 @@
   };
 
   DA.drawHazards = function (ctx, st) {
-    if (!st.room || !st.room.hazard) return;
+    if (!st.room || !((st.segment && st.segment.hazard) || st.room.hazard)) return;
     var hz = hazardState(st);
     var i, c, p;
     for (i = 0; i < hz.cranes.length; i++) {

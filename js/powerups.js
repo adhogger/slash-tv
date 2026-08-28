@@ -71,7 +71,8 @@
     if (st.enemies.length > 0 && st.powerups.length < 2) {
       st.powerupT -= dt;
       if (st.powerupT <= 0) {
-        st.powerupT = DA.rand(18, 26) * (1 - Math.min(0.85, (st.mods && st.mods.dropRateBonus) || 0));   // Lucky Break, stacks but always leaves a real gap
+        st.powerupT = DA.rand(18, 26) * (1 - Math.min(0.85, (st.mods && st.mods.dropRateBonus) || 0)) /
+                      (st.segmentDropMult || 1);   // Lucky Break stacks (never to zero); SPONSOR HOUR doubles the cadence
         var type = DA.pickDropType(st.player, st.lastGunDrop);
         for (var rr = 0; rr < 3; rr++) {       // don't drop a type already on the floor
           var taken = false;

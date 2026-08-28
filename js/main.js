@@ -170,7 +170,31 @@
     st.enemyBullets = [];
     st.powerups = [];
     st.powerupT = undefined;
+    // TONIGHT'S SEGMENT: one broadcast-flavored twist per room, dealt from
+    // the room id + the daily seed — the same studio runs a different show
+    // tomorrow night. Never on openers or boss floors, never in Endless
+    // (its format breaks already carry the variety), ~45% of other rooms.
+    st.segment = null;
+    st.segmentDropMult = 0; st.segmentScoreBonus = 0; st.segmentEliteBudget = 0;
     var isFirstRoom = !entryDir;              // a fresh episode opener, not a connecting-door room
+    if (!isFirstRoom && !st.room.boss && !st.room.endless && DA.dailySeed) {
+      var segRng = DA.makeRng(DA.hashSeed(roomId + ':' + DA.dailySeed() + ':segment'));
+      if (segRng() < 0.45) {
+        var SEGMENTS = [
+          { id: 'lights_out',   name: 'LIGHTS OUT',   blurb: 'the rig runs dark' },
+          { id: 'pyro_night',   name: 'PYRO NIGHT',   blurb: 'the floor fights back', hazard: 'pyro' },
+          { id: 'sponsor_hour', name: 'SPONSOR HOUR', blurb: 'gifts rain down' },
+          { id: 'closing_time', name: 'CLOSING TIME', blurb: '+25% score in this room' },
+          { id: 'casting_call', name: 'CASTING CALL', blurb: 'champions in every wave' }
+        ];
+        st.segment = SEGMENTS[Math.floor(segRng() * SEGMENTS.length)];
+        if (st.segment.id === 'sponsor_hour') st.segmentDropMult = 2;
+        if (st.segment.id === 'closing_time') st.segmentScoreBonus = 0.25;
+        if (st.segment.id === 'casting_call') st.segmentEliteBudget = 2;
+        if (st.segment.hazard) st.hazards = null;   // rebuild the hazard rig for the dealt kind
+        DA.announce("TONIGHT'S SEGMENT: " + st.segment.name);
+      }
+    }
     if (!isFirstRoom && DA.spawnMines) DA.spawnMines(st);   // give the first room a clean look, no hazards yet
     st.waveManager = DA.makeWaveManager(st.room);
     st.roomCleared = false;
@@ -1526,6 +1550,10 @@
   function drawArena(ctx, st) {
     var A = DA.ARENA;
     ctx.drawImage(arenaBase(st), 0, 0);
+    if (st.segment && st.segment.id === 'lights_out') {   // the rig runs dark tonight
+      ctx.fillStyle = 'rgba(3, 2, 8, 0.3)';
+      ctx.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0);
+    }
     var sweep = performance.now() / 4000;
     var followed = st.players || (st.player ? [st.player] : null);
     for (var tp = 0; tp < 4; tp++) {                   // camera tripods, tucked right into each
@@ -1590,7 +1618,7 @@
       } else {
         a = CORNER_BASE[li] + Math.sin(sweep * (li % 2 ? -1.3 : 1) + li * 1.7) * 0.6;
       }
-      var beamAlpha = 0.06;
+      var beamAlpha = st.segment && st.segment.id === 'lights_out' ? 0.025 : 0.06;
       if (rig.flicker) {                               // fire-adjacent light is never steady
         beamAlpha *= 0.6 + 0.4 * Math.abs(Math.sin(performance.now() / 90 + li * 2.3) * Math.sin(performance.now() / 47));
       }
@@ -2753,6 +2781,12 @@
       ctx.font = '22px monospace';
       ctx.fillStyle = '#e8d44d';
       ctx.fillText('WAVE ' + (wm.wave + 1), DA.W / 2, 28);
+    }
+    if (st.segment) {
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 12px monospace';
+      ctx.fillStyle = '#e8843c';
+      ctx.fillText("SEGMENT: " + st.segment.name, DA.W / 2, st.room.endless ? 44 : 28);
     }
     var heartPulse = DA.audio && DA.audio.heartPulse ? DA.audio.heartPulse() : 0;
     for (var i = 0; i < DA.MAX_HEARTS; i++) drawHeart(ctx, 16 + i * 30, 12, 22, i < st.player.hearts, heartPulse);

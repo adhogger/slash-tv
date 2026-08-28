@@ -410,7 +410,7 @@
     // directed elites: a wave can guarantee champions (wave.elite budget)
     // on top of a base chance that RAMPS with endless depth instead of
     // staying a flat 2% forever
-    wm.eliteBudget = wave.elite || 0;
+    wm.eliteBudget = (wave.elite || 0) + ((DA.state && DA.state.segmentEliteBudget) || 0);   // CASTING CALL
     wm.eliteChance = (wm.room.endless ? Math.min(0.08, 0.02 + wm.wave * 0.002) : 0.02) *
                      ((DA.state && DA.state.mods && DA.state.mods.eliteChanceMult) || 1);   // PRIME TIME
     if (wave.announce && DA.announce) DA.announce(wave.announce);

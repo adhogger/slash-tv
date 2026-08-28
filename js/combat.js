@@ -144,7 +144,7 @@
       }
       if (killed) {
         st.enemies.splice(i, 1);
-        st.score += e.score * st.combo * (1 + (st.mods && st.mods.scoreBonus || 0));   // Big Spender
+        st.score += e.score * st.combo * (1 + (st.mods && st.mods.scoreBonus || 0) + (st.segmentScoreBonus || 0));   // Big Spender + CLOSING TIME
         if (DA.bumpCombo) DA.bumpCombo(st);
         if (DA.onKill) DA.onKill(st, e, b);
         if (e.type === 'boomer') DA.boomerBlast(st, e.x, e.y); // shot boomers still detonate
