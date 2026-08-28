@@ -23,17 +23,37 @@
     b.wobble += dt;
     b.x += Math.sin(b.wobble * 0.9) * 40 * dt;
     b.faceA = Math.atan2(tp.y - b.y, tp.x - b.x);
-    b.teleportT -= dt;
-    if (b.teleportT <= 0) {
-      b.teleportT = phase === 2 ? 2.8 : 4;
-      if (DA.burst) DA.burst(b.x, b.y, b.color, 18);   // vanish puff
-      b.x = DA.rand(220, DA.W - 220);
-      b.y = DA.rand(140, 320);
-      if (DA.burst) DA.burst(b.x, b.y, b.color, 18);   // arrival puff
-      if (DA.audio) DA.audio.roar();
-      for (var i = 0; i < 10; i++) {                   // arrival ring
-        var a = (i / 10) * 6.283;
-        DA.fireEnemyBullet(st.enemyBullets, b.x, b.y, Math.cos(a), Math.sin(a));
+    // the teleport telegraphs: the destination shows as a flickering ghost
+    // outline 0.5s before he arrives, and never lands within 150px of a
+    // player — no more materializing on top of someone with a bullet ring
+    if (b.tpGhost > 0) {
+      b.tpGhost -= dt;
+      if (b.tpGhost <= 0) {
+        if (DA.burst) DA.burst(b.x, b.y, b.color, 18); // vanish puff
+        b.x = b.tpX; b.y = b.tpY;
+        if (DA.burst) DA.burst(b.x, b.y, b.color, 18); // arrival puff
+        if (DA.audio) DA.audio.roar();
+        for (var i = 0; i < 10; i++) {                 // arrival ring
+          var a = (i / 10) * 6.283;
+          DA.fireEnemyBullet(st.enemyBullets, b.x, b.y, Math.cos(a), Math.sin(a));
+        }
+      }
+    } else {
+      b.teleportT -= dt;
+      if (b.teleportT <= 0) {
+        b.teleportT = phase === 2 ? 2.8 : 4;
+        var pls = st.players || [st.player], gx, gy, ok = false, tries = 0;
+        while (!ok && tries++ < 12) {
+          gx = DA.rand(220, DA.W - 220);
+          gy = DA.rand(140, 320);
+          ok = true;
+          for (var pi = 0; pi < pls.length; pi++) {
+            var pp = pls[pi];
+            if (pp && !pp.downed && DA.dist2(gx, gy, pp.x, pp.y) < 150 * 150) { ok = false; break; }
+          }
+        }
+        b.tpX = gx; b.tpY = gy;
+        b.tpGhost = 0.5;
       }
     }
     b.fanT -= dt;
@@ -198,15 +218,25 @@
     b.faceA = Math.atan2(tp.y - b.y, tp.x - b.x);     // the renderer turns him toward camera 1
     DA.clampToArena(b);
 
-    b.burstT -= dt;
-    if (b.burstT <= 0) {
-      b.burstT = phase === 2 ? 1.9 : 3.0;
-      var n = phase === 2 ? 16 : 10;
-      for (var i = 0; i < n; i++) {
-        var a = (i / n) * 6.283 + DA.rand(0, 0.3);
-        DA.fireEnemyBullet(st.enemyBullets, b.x, b.y, Math.cos(a), Math.sin(a));
+    // the radial burst telegraphs: the roar and a contracting ring come
+    // 0.4s BEFORE the bullets, so the spray is dodgeable on reaction
+    // instead of appearing from nowhere (same idea as the spitter's windup)
+    if (b.burstWindup > 0) {
+      b.burstWindup -= dt;
+      if (b.burstWindup <= 0) {
+        var n = phase === 2 ? 16 : 10;
+        for (var i = 0; i < n; i++) {
+          var a = (i / n) * 6.283 + DA.rand(0, 0.3);
+          DA.fireEnemyBullet(st.enemyBullets, b.x, b.y, Math.cos(a), Math.sin(a));
+        }
       }
-      if (DA.audio) DA.audio.roar();
+    } else {
+      b.burstT -= dt;
+      if (b.burstT <= 0) {
+        b.burstT = phase === 2 ? 1.9 : 3.0;
+        b.burstWindup = 0.4;
+        if (DA.audio) DA.audio.roar();   // the roar IS the warning now
+      }
     }
     if (phase === 2) {
       b.aimedT -= dt;
@@ -230,6 +260,24 @@
   // costume — lapels, tie, props — turns with him as he tracks the contestant.
   DA.drawBoss = function (ctx, b) {
     var r = b.r;
+    if (b.burstWindup > 0) {                          // radial burst incoming: a contracting ring
+      var wk = 1 - b.burstWindup / 0.4;
+      ctx.strokeStyle = 'rgba(255, 214, 96, ' + (0.25 + wk * 0.55).toFixed(2) + ')';
+      ctx.lineWidth = 2 + wk * 3;
+      ctx.beginPath(); ctx.arc(b.x, b.y, r + 26 - wk * 20, 0, 7); ctx.stroke();
+    }
+    if (b.tpGhost > 0) {                              // teleport destination: flickering ghost outline
+      if (Math.floor(performance.now() / 70) % 2 === 0) {
+        var gk = 1 - b.tpGhost / 0.5;
+        ctx.strokeStyle = 'rgba(122, 138, 255, ' + (0.3 + gk * 0.5).toFixed(2) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(b.tpX, b.tpY, r * 0.9, 0, 7); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(b.tpX - 8, b.tpY); ctx.lineTo(b.tpX + 8, b.tpY);
+        ctx.moveTo(b.tpX, b.tpY - 8); ctx.lineTo(b.tpX, b.tpY + 8);
+        ctx.stroke();
+      }
+    }
     ctx.fillStyle = 'rgba(0,0,0,0.32)';               // grounding shadow
     ctx.beginPath(); ctx.ellipse(b.x, b.y + r * 0.85, r * 0.95, r * 0.36, 0, 0, 7); ctx.fill();
     ctx.save();

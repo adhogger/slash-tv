@@ -449,7 +449,10 @@ test('The Executive teleports, fires fans, and spirals in phase 2', function () 
   var ox = b.x, oy = b.y;
   b.teleportT = 0.01; b.fanT = 999; b.minionT = 999;
   DA.updateExecutive(b, st, 0.02);
-  assert(st.enemyBullets.length >= 10, 'arrival ring fired');
+  assert(b.tpGhost > 0 && st.enemyBullets.length === 0, 'teleport telegraphs a ghost first, no instant ring');
+  assert(Math.abs(b.x - ox) < 5 && Math.abs(b.y - oy) < 5, 'still near the old spot during the ghost (sway aside)');
+  for (var tg = 0; tg < 30 && b.tpGhost > 0; tg++) DA.updateExecutive(b, st, 0.02);
+  assert(st.enemyBullets.length >= 10, 'arrival ring fired after the ghost');
   st.enemyBullets.length = 0;
   b.fanT = 0.01; b.teleportT = 999;
   DA.updateExecutive(b, st, 0.02);
@@ -534,7 +537,9 @@ test('boss fires radial bursts and has phases', function () {
   var st = { player: DA.makePlayer(), enemies: [b], enemyBullets: [], bullets: [] };
   b.burstT = 0.01; b.minionT = 999; b.aimedT = 999;
   DA.updateBoss(b, st, 0.02);
-  assert(st.enemyBullets.length >= 10, 'burst should spray bullets, got ' + st.enemyBullets.length);
+  assert(b.burstWindup > 0 && st.enemyBullets.length === 0, 'burst telegraphs a windup first, no instant spray');
+  for (var bw = 0; bw < 30 && b.burstWindup > 0; bw++) DA.updateBoss(b, st, 0.02);
+  assert(st.enemyBullets.length >= 10, 'burst sprays after the windup, got ' + st.enemyBullets.length);
 });
 test('enemy bullets hurt the player once, respecting i-frames', function () {
   var p = DA.makePlayer();
