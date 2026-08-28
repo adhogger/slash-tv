@@ -51,6 +51,9 @@
       }
     }
     if (p.readyGlintT > 0) p.readyGlintT -= dt;
+    // minigun barrel spin: builds while held, winds down fast when released
+    if (p.gun === 'minigun' && p.firing) p.spinT = Math.min(1.2, (p.spinT || 0) + dt);
+    else if (p.spinT > 0) p.spinT = Math.max(0, p.spinT - dt * 2.5);
     if (p.hurtFlashT > 0) p.hurtFlashT -= dt;
     p.walkT = (p.walkT || 0) + Math.sqrt(p.vx * p.vx + p.vy * p.vy) * dt * 0.06;
     var moving = Math.abs(p.vx) > 20 || Math.abs(p.vy) > 20;

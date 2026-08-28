@@ -592,8 +592,26 @@ test('guns fire their pellet counts and rates', function () {
   DA.tryPlayerFire(p, arr);
   assert(arr.length === 7, 'shotgun: 7 pellets, got ' + arr.length);
   p.gun = 'minigun'; p.fireCooldown = 0; arr.length = 0;
+  p.spinT = 0;                                     // cold barrel: spin-up starts it slow
   DA.tryPlayerFire(p, arr);
-  assert(p.fireCooldown < DA.GUNS.pistol.rate, 'minigun fires faster than pistol');
+  assert(p.fireCooldown > DA.GUNS.minigun.rate, 'cold minigun fires slower than its spun-up floor');
+  p.fireCooldown = 0; arr.length = 0;
+  p.spinT = 1.2;                                   // fully spun: the fast floor
+  DA.tryPlayerFire(p, arr);
+  assert(p.fireCooldown === DA.GUNS.minigun.rate, 'spun-up minigun reaches its full rate');
+});
+test('flamer hits ignite a burn that cooks and eventually kills', function () {
+  var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1 };
+  var z = DA.makeEnemy('shambler', 400, 360);
+  st.enemies.push(z);
+  DA.fireBullet(st.bullets, 400, 360, 1, 0, DA.GUNS.flamer);
+  DA.resolveCombat(st, 0.016);
+  assert(z.burnT > 0, 'flamer hit tags a burn');
+  var hp0 = z.hp;
+  DA.resolveCombat(st, 0.1);
+  assert(z.hp < hp0, 'the burn ticks damage over time');
+  for (var bt = 0; bt < 40 && st.enemies.length; bt++) DA.resolveCombat(st, 0.1);
+  assert(st.enemies.length === 0 && st.score > 0, 'sustained burn kills and pays out score');
 });
 test('railgun bullets pierce and deal triple damage', function () {
   var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1 };

@@ -88,6 +88,11 @@
   DA.tryPlayerFire = function (p, arr) {
     if (!p.firing || p.fireCooldown > 0) return 0;
     var g = modGun(DA.GUNS[p.gun] || DA.GUNS.pistol, p.mods);
+    if (p.gun === 'minigun') {                   // spin-up: slow and wild cold, fast and tight
+      var spin = Math.min(1, (p.spinT || 0) / 1.2);   // warm — a commit-and-hold siege gun,
+      g.rate *= 3 - 2 * spin;                    // not a jitterier SMG (p.spinT: player.js)
+      g.jitter *= 1.8 - 1.2 * spin;
+    }
     p.fireCooldown = g.rate;
     var base = Math.atan2(p.aimY, p.aimX);
     for (var i = 0; i < g.pellets; i++) {

@@ -87,6 +87,20 @@
   DA.resolveCombat = function (st, dt) {
     dt = dt || 0;
     var p = st.player;
+    // flamer burn: tagged enemies cook for 2s — small repeated damage, kills
+    // bookkeeped like splash kills (score + chains, no combo credit)
+    for (var bn = st.enemies.length - 1; bn >= 0; bn--) {
+      var be = st.enemies[bn];
+      if (!(be.burnT > 0)) continue;
+      be.burnT -= dt;
+      be.hp -= 1.6 * dt;
+      if (be.hp > 0) continue;
+      st.enemies.splice(bn, 1);
+      st.score += be.score;
+      if (DA.onKill) DA.onKill(st, be);
+      if (be.type === 'boomer') DA.boomerBlast(st, be.x, be.y);
+      if (be.type === 'brute' && DA.bruteGore) DA.bruteGore(st, be.x, be.y);
+    }
     for (var i = st.enemies.length - 1; i >= 0; i--) {
       var e = st.enemies[i];
       if (!e) continue; // a boomer chain-blast may have shrunk the list mid-loop
@@ -112,6 +126,7 @@
           }
           e.hitFlash = 0.12;
           e.hitDx = b.dx; e.hitDy = b.dy;   // draw-time flinch shoves along the shot's line
+          if (b.gunLabel === 'FLAMETHROWER' && !e.isBoss) e.burnT = 2;   // tag-and-retreat: the burn does the rest
           // a pained groan on impact — reuses the same low ambient-groan
           // voice, gated so a minigun spraying six zombies at once doesn't
           // stack into a wall of noise

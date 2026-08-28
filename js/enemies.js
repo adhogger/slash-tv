@@ -164,9 +164,11 @@
       e.wobble += dt * 5;
       // each zombie wants the player PLUS its own flanking angle, which fades
       // out as it closes in — so the horde converges from spread directions
+      if (e.burnT > 0) sp *= 1.2;             // on fire: panicked and fast
       var dist = Math.sqrt(DA.dist2(e.x, e.y, player.x, player.y));
       var want = Math.atan2(player.y - e.y, player.x - e.x) +
-                 e.flank * DA.clamp(dist / 420, 0, 1);
+                 e.flank * DA.clamp(dist / 420, 0, 1) +
+                 (e.burnT > 0 ? Math.sin(e.wobble * 13) * 1.1 : 0);   // burning: flailing, not steering
       if (e.heading == null) e.heading = want;
       e.heading = DA.turnToward(e.heading, want, (TURN[e.type] || 2) * dt);
       if (e.type === 'shambler' || e.type === 'boomer') {   // lurching gait
@@ -379,6 +381,11 @@
       if (lit) {                                      // fuse strobe washes over the body
         ctx.fillStyle = 'rgba(255, 243, 176, 0.6)';
         ctx.beginPath(); DA.polyPath(ctx, ex, ey, e.r * 1.05, e.r * 1.05, 8, 0.39); ctx.fill();
+      }
+      if (e.burnT > 0) {                              // on fire: a licking orange wash
+        var bfk = Math.sin(performance.now() / 55 + (e.id || 0)) > 0 ? 0.4 : 0.22;
+        ctx.fillStyle = 'rgba(255, 140, 40, ' + bfk + ')';
+        ctx.beginPath(); DA.polyPath(ctx, ex, ey - 2, e.r * 1.05, e.r * 1.18, 8, 0.39); ctx.fill();
       }
       if (wind > 0) {                                 // live jaw bulge while a glob winds up
         var hr = e.r * 0.55;
