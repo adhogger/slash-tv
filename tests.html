@@ -12,6 +12,7 @@
 <script src="js/enemies.js"></script>
 <script src="js/player.js"></script>
 <script src="js/rooms.js"></script>
+<script src="js/procgen.js"></script>
 <script src="js/hazards.js"></script>
 <script src="js/combat.js"></script>
 <script src="js/boss.js"></script>
@@ -375,6 +376,38 @@ test('run stats: shots and hits are counted for accuracy', function () {
   DA.resolveCombat(st);
   assert(st.stats.hits === 1, 'hit counted');
   assert(st.stats.killsByGun.PISTOL === 1, 'kill credited to the gun');
+});
+test('syndication: 120 seeds all generate valid, deterministic episodes', function () {
+  function snapshot(seed) {
+    DA.generateEpisode(seed);
+    var out = {};
+    for (var id in DA.ROOMS) if (DA.ROOMS[id].ep === 'syn') out[id] = DA.ROOMS[id];
+    return out;
+  }
+  for (var n = 0; n < 120; n++) {
+    var seed = 'invariant-' + n;
+    var rooms = snapshot(seed);
+    assert(rooms.syn_0_0, seed + ': has a start room');
+    var bossCount = 0, id, r;
+    for (id in rooms) {
+      r = rooms[id];
+      if (r.boss) bossCount++;
+      for (var dir in r.exits) assert(rooms[r.exits[dir]], seed + ': exit ' + id + '>' + r.exits[dir] + ' exists');
+      assert(r.boss || (r.waves && r.waves.length), seed + ': ' + id + ' has waves or a boss');
+    }
+    assert(bossCount === 1, seed + ': exactly one boss room, got ' + bossCount);
+    var seen = { syn_0_0: true }, queue = ['syn_0_0'];   // every room reachable from the start
+    while (queue.length) {
+      r = rooms[queue.shift()];
+      for (var d2 in r.exits) if (!seen[r.exits[d2]]) { seen[r.exits[d2]] = true; queue.push(r.exits[d2]); }
+    }
+    for (id in rooms) assert(seen[id], seed + ': ' + id + ' unreachable from the start');
+  }
+  // determinism: the same seed builds the identical studio, twice
+  var a = JSON.stringify(snapshot('determinism-check'));
+  var b = JSON.stringify(snapshot('determinism-check'));
+  assert(a === b, 'same seed regenerates byte-identical rooms');
+  DA.generateEpisode('cleanup');                     // leave a fresh graph, not the test's last one
 });
 test('room graphs: every exit is valid and both bosses are reachable', function () {
   for (var id in DA.ROOMS) {

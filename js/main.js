@@ -1788,7 +1788,11 @@
     var touch = DA.input.touchActive();
     // taller rows + more gap on touch, sized to still fit the 7-row worst
     // case (with the donate button) inside the fixed 720px canvas height
-    var BW = 560, X = (DA.W - BW) / 2, Y0 = 272, G = touch ? 56 : 52, BH = touch ? 54 : 48;   // Y0 272: 8 rows (with BACKSTAGE + donate) must clear 720px on touch
+    // 8 fixed rows now (9 with the optional donate row): row pitch is a flat
+    // 52 and Y0 backs off the bottom edge so the stack always fits 720px
+    var BW = 560, X = (DA.W - BW) / 2, G = 52, BH = touch ? 54 : 48;
+    var nRows = 8 + (window.SLASHTV_DONATE_URL ? 1 : 0);
+    var Y0 = Math.min(272, 700 - (G * (nRows - 1) + BH));
     var m = [], row = 0;
     function push(opts) {
       opts.x = X; opts.y = Y0 + G * row++; opts.w = BW; opts.h = BH;
@@ -1813,6 +1817,13 @@
     push({ color: '#5bc8d6', label: '♾  ENDLESS MODE',
            state: 'best: wave ' + (load('deadset_best_waves') || '0'),
            act: function () { DA.state = newGame('endless'); } });
+    push({ color: '#b78bff', label: '📡  TONIGHT\'S EPISODE',
+           state: '#' + synSeed() + ' · one world board',
+           act: function () {
+             seatFill = ['human', 'empty', 'empty', 'empty'];
+             DA.generateEpisode(synSeed());
+             DA.state = newGame('syn_0_0');
+           } });
     push({ color: '#e8843c', label: '🎬  BACKSTAGE',
            state: parseInt(load('deadset_rp') || '0', 10) + ' RP · ' + unlockedMandateCount() + '/' + MANDATE_DEFS.length + ' mandates',
            act: function () { showBackstage = true; bgSel = 0; } });
