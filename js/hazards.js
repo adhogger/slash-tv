@@ -46,7 +46,7 @@
       var p = ps[i];
       if (!p || p.hearts <= 0 || p.downed || p.invuln > 0) continue;
       if (test(p)) {
-        p.hearts--; p.invuln = 1.2;
+        p.hearts -= (DA.state && DA.state.mods && DA.state.mods.dmgTakenMult) || 1; p.invuln = 1.2;
         if (DA.resetCombo) DA.resetCombo(st);
         if (DA.onPlayerHurt) DA.onPlayerHurt(st, sx, sy);
         if (DA.addShake) DA.addShake(8);

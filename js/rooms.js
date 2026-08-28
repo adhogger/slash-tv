@@ -359,6 +359,11 @@
     return wm.room.endless ? DA.endlessWave(wm.wave) : wm.room.waves[wm.wave];
   }
   var SIREN_LEAD = 2.2;   // a door's lamp lights this long before its own next pack — 2s ask + a hair of buffer
+  // DEAD AIR mandate: an active run can shorten the warning
+  function sirenLead() {
+    var m = DA.state && DA.state.mods && DA.state.mods.sirenLeadOverride;
+    return m != null ? m : SIREN_LEAD;
+  }
   DA.makeWaveManager = function (room) {
     return { room: room, wave: 0, spawners: null, activeDoors: null, currentSpawnDoors: [],
              sirens: {}, nextDoors: null, betweenTimer: 2,
@@ -370,20 +375,21 @@
     if (wm.done) return;
     var wave = waveFor(wm);
     if (!wave) return;
-    wm.nextDoors = shuffled(DA.DOORS).slice(0, DA.clamp(wave.doors || 4, 1, 4));
+    wm.nextDoors = shuffled(DA.DOORS).slice(0, DA.clamp((wave.doors || 4) + ((DA.state && DA.state.mods && DA.state.mods.extraDoors) || 0), 1, 4));
     wm.sirens = {};
-    wm.nextDoors.forEach(function (d) { wm.sirens[d.dir] = SIREN_LEAD; });
+    wm.nextDoors.forEach(function (d) { wm.sirens[d.dir] = sirenLead(); });
     wm.betweenTimer = 0.05;
     wm.primed = true;
   };
   function startWave(wm) {
     var wave = waveFor(wm);
-    wm.activeDoors = wm.nextDoors || shuffled(DA.DOORS).slice(0, DA.clamp(wave.doors || 4, 1, 4));
+    wm.activeDoors = wm.nextDoors || shuffled(DA.DOORS).slice(0, DA.clamp((wave.doors || 4) + ((DA.state && DA.state.mods && DA.state.mods.extraDoors) || 0), 1, 4));
     wm.nextDoors = null;
     // co-op: two guns double the clear rate, so the show sends a bigger cast
     // AND feeds them through the doors faster
     var coop = DA.state && DA.state.players && DA.state.players.length > 1;
     var countMult = coop ? 3.6 : 1, paceMult = coop ? 0.8 : 1;
+    countMult *= (DA.state && DA.state.mods && DA.state.mods.spawnCountMult) || 1;   // SWEEPS WEEK
     var BURST_MULT = 1.2;   // bigger packs, in every mode — a wave should hit like a wave
     // a small, bounded ease for a room the player keeps failing THIS
     // session — pacing only, never count or burst size, so the fight
@@ -402,7 +408,8 @@
     // on top of a base chance that RAMPS with endless depth instead of
     // staying a flat 2% forever
     wm.eliteBudget = wave.elite || 0;
-    wm.eliteChance = wm.room.endless ? Math.min(0.08, 0.02 + wm.wave * 0.002) : 0.02;
+    wm.eliteChance = (wm.room.endless ? Math.min(0.08, 0.02 + wm.wave * 0.002) : 0.02) *
+                     ((DA.state && DA.state.mods && DA.state.mods.eliteChanceMult) || 1);   // PRIME TIME
     if (wave.announce && DA.announce) DA.announce(wave.announce);
     if (wave.boss && DA.spawnRerunBoss) DA.spawnRerunBoss(wave.boss);
     if (DA.onWaveStart) DA.onWaveStart(wm.wave + 1);
@@ -420,14 +427,14 @@
     if (!wm.spawners) {                   // between waves: nothing is coming through any door
       wm.currentSpawnDoors = [];
       wm.betweenTimer -= dt;
-      if (wm.betweenTimer <= SIREN_LEAD && !wm.nextDoors) {   // warn: light next wave's doors early
+      if (wm.betweenTimer <= sirenLead() && !wm.nextDoors) {   // warn: light next wave's doors early
         var nw = waveFor(wm);
         if (nw) {
-          wm.nextDoors = shuffled(DA.DOORS).slice(0, DA.clamp(nw.doors || 4, 1, 4));
+          wm.nextDoors = shuffled(DA.DOORS).slice(0, DA.clamp((nw.doors || 4) + ((DA.state && DA.state.mods && DA.state.mods.extraDoors) || 0), 1, 4));
         }
       }
       if (wm.nextDoors) {
-        wm.nextDoors.forEach(function (d) { wm.sirens[d.dir] = Math.max(wm.sirens[d.dir] || 0, SIREN_LEAD); });
+        wm.nextDoors.forEach(function (d) { wm.sirens[d.dir] = Math.max(wm.sirens[d.dir] || 0, sirenLead()); });
       }
       if (wm.betweenTimer <= 0) startWave(wm);
       return;
@@ -452,7 +459,7 @@
       // a door lights up SIREN_LEAD seconds before its own next pack, so the
       // warning always tracks a real, specific upcoming spawn instead of
       // blazing for the whole wave regardless of what's actually due
-      if (s.burstLeft <= 0 && !s.nextDoor && s.timer <= SIREN_LEAD) s.nextDoor = pickDoor();
+      if (s.burstLeft <= 0 && !s.nextDoor && s.timer <= sirenLead()) s.nextDoor = pickDoor();
       if (s.nextDoor) wm.sirens[s.nextDoor.dir] = Math.max(wm.sirens[s.nextDoor.dir] || 0, Math.max(s.timer, 0));
       if (s.timer <= 0) {
         // zombies arrive in PACKS: a burst pours from one door, then that

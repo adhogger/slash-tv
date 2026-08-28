@@ -243,7 +243,7 @@
         }
         if (pl.invuln <= 0) {
           arr.splice(i, 1);
-          pl.hearts--;
+          pl.hearts -= (DA.state && DA.state.mods && DA.state.mods.dmgTakenMult) || 1;
           pl.invuln = 1.5;
           if (st && !pl.bot && DA.comboHit) DA.comboHit(st);
           if (DA.onPlayerHurt) DA.onPlayerHurt({ player: pl }, b.x, b.y);

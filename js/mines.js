@@ -33,7 +33,7 @@
       var pl = ps[pc];
       if (pl.downed || pl.invuln > 0) continue;
       if (!DA.circleHit(m.x, m.y, 60, pl.x, pl.y, pl.r)) continue;
-      pl.hearts--; pl.invuln = 1.5;
+      pl.hearts -= (DA.state && DA.state.mods && DA.state.mods.dmgTakenMult) || 1; pl.invuln = 1.5;
       if (!pl.bot && DA.comboHit) DA.comboHit(st);
       if (DA.onPlayerHurt) DA.onPlayerHurt({ player: pl }, m.x, m.y);
     }

@@ -95,7 +95,8 @@
   };
   DA.makeEnemy = function (type, x, y, speed) {
     var t = TYPES[type];
-    return { id: DA.newId(), type: type, x: x, y: y, r: t.r, speed: speed || t.speed, hp: t.hp,
+    return { id: DA.newId(), type: type, x: x, y: y, r: t.r, speed: speed || t.speed,
+             hp: t.hp * ((DA.state && DA.state.mods && DA.state.mods.enemyHpMult) || 1),   // DIRECTOR'S CUT (bosses aren't made here)
              score: t.score, color: t.color, wobble: Math.random() * 6.28,
              heading: null, flank: DA.rand(-0.4, 0.4) };
   };
@@ -113,7 +114,7 @@
     var d = pool[Math.floor(Math.random() * pool.length)];
     var e = DA.makeEnemy(type, d.x + DA.rand(-30, 30), d.y + DA.rand(-30, 30), speed);
     e.grace = DA.SPAWN_GRACE;
-    if (elite == null ? Math.random() < ELITE_CHANCE : elite) {
+    if (elite == null ? Math.random() < ELITE_CHANCE * ((DA.state && DA.state.mods && DA.state.mods.eliteChanceMult) || 1) : elite) {
       e.elite = true;
       e.hp *= 3;
       e.score *= 3;
@@ -267,7 +268,7 @@
       if (p.downed) continue;
       if (DA.dist2(x, y, p.x, p.y) < BLAST_RADIUS * BLAST_RADIUS &&
           p.invuln <= 0 && !(p.shieldT > 0)) {
-        p.hearts--;
+        p.hearts -= (DA.state && DA.state.mods && DA.state.mods.dmgTakenMult) || 1;
         p.invuln = 1.5;
         if (!p.bot && DA.comboHit) DA.comboHit(st);   // the bot tanking doesn't cost the streak
         if (DA.onPlayerHurt) DA.onPlayerHurt({ player: p }, x, y);

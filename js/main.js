@@ -83,6 +83,61 @@
     executive: '"DO YOU KNOW WHAT YOU\'RE COSTING ME?!"',
     algorithm: '"RECALCULATING. YOU ARE A ROUNDING ERROR."'
   };
+  // NETWORK MANDATES — the executives' euphemism for turning the dial up
+  // (or, occasionally, admitting it can go down). Unlocked once with
+  // Ratings Points, then freely toggled before any run. Mandates NEVER
+  // gate whether a run counts: leaderboards and bests read the same
+  // fields regardless — these only change the run's inputs. Applied flat
+  // into st.mods (never through the MOD_POOL family-synergy helpers).
+  var MANDATE_DEFS = [
+    { id: 'studio_audience', name: 'STUDIO AUDIENCE', cost: 80, skew: 'easier',
+      desc: '+1 starting heart · -15% score',
+      apply: function (st) { st.mods.startingHeartBonus = 1; st.mods.scoreBonus = (st.mods.scoreBonus || 0) - 0.15; } },
+    { id: 'dead_air', name: 'DEAD AIR', cost: 110, skew: 'harder',
+      desc: 'sirens warn 0.6s, not 2.2s · +10% score',
+      apply: function (st) { st.mods.sirenLeadOverride = 0.6; st.mods.scoreBonus = (st.mods.scoreBonus || 0) + 0.1; } },
+    { id: 'safety_net', name: 'SAFETY NET', cost: 135, skew: 'easier',
+      desc: 'drops ~40% more often · -10% score',
+      apply: function (st) { st.mods.dropRateBonus = (st.mods.dropRateBonus || 0) + 0.4; st.mods.scoreBonus = (st.mods.scoreBonus || 0) - 0.1; } },
+    { id: 'no_retakes', name: 'NO RETAKES', cost: 165, skew: 'harder',
+      desc: 'a hit resets combo to x1 · +10% score',
+      // 0.001, not 0: comboHit's `frac || 0.5` default would swallow a 0
+      apply: function (st) { st.mods.comboHitFrac = 0.001; st.mods.scoreBonus = (st.mods.scoreBonus || 0) + 0.1; } },
+    { id: 'second_unit', name: 'SECOND UNIT', cost: 200, skew: 'easier',
+      desc: 'revive once per run at 2 hearts · -20% score',
+      apply: function (st) { st.mods.secondWind = true; st.mods.scoreBonus = (st.mods.scoreBonus || 0) - 0.2; } },
+    { id: 'extra_eyes', name: 'EXTRA EYES', cost: 235, skew: 'harder',
+      desc: '+1 active spawn door per wave · +10% score',
+      apply: function (st) { st.mods.extraDoors = 1; st.mods.scoreBonus = (st.mods.scoreBonus || 0) + 0.1; } },
+    { id: 'cue_cards', name: 'CUE CARDS', cost: 275, skew: 'easier',
+      desc: 'auto-heal 1 heart every 30s · -10% score',
+      apply: function (st) { st.mods.autoHealInterval = Math.min(st.mods.autoHealInterval || 30, 30); st.mods.scoreBonus = (st.mods.scoreBonus || 0) - 0.1; } },
+    { id: 'sweeps_week', name: 'SWEEPS WEEK', cost: 315, skew: 'harder',
+      desc: '+25% wave spawns · +15% score',
+      apply: function (st) { st.mods.spawnCountMult = 1.25; st.mods.scoreBonus = (st.mods.scoreBonus || 0) + 0.15; } },
+    { id: 'prime_time', name: 'PRIME TIME', cost: 360, skew: 'harder',
+      desc: '3x elite spawn chance · +15% score',
+      apply: function (st) { st.mods.eliteChanceMult = 3; st.mods.scoreBonus = (st.mods.scoreBonus || 0) + 0.15; } },
+    { id: 'understudy_cuts', name: 'UNDERSTUDY CUTS', cost: 410, skew: 'harder',
+      desc: 'upgrade picks offer 2, not 3 · +15% score',
+      apply: function (st) { st.mods.choiceCount = 2; st.mods.scoreBonus = (st.mods.scoreBonus || 0) + 0.15; } },
+    { id: 'directors_cut', name: "DIRECTOR'S CUT", cost: 465, skew: 'harder',
+      desc: '+30% enemy hp · +20% score',
+      apply: function (st) { st.mods.enemyHpMult = 1.3; st.mods.scoreBonus = (st.mods.scoreBonus || 0) + 0.2; } },
+    { id: 'no_stunt_doubles', name: 'NO STUNT DOUBLES', cost: 525, skew: 'harder',
+      desc: 'every hit costs 2 hearts · +30% score',
+      apply: function (st) { st.mods.dmgTakenMult = 2; st.mods.scoreBonus = (st.mods.scoreBonus || 0) + 0.3; } }
+  ];
+  function applyMandates(st) {
+    MANDATE_DEFS.forEach(function (m) {
+      if (load('deadset_mandate_' + m.id) === '1' && load('deadset_mandate_' + m.id + '_on') === '1') m.apply(st);
+    });
+  }
+  function unlockedMandateCount() {
+    var n = 0;
+    MANDATE_DEFS.forEach(function (m) { if (load('deadset_mandate_' + m.id) === '1') n++; });
+    return n;
+  }
   // "We'll be right back" — a fake in-universe commercial break before each
   // boss fight. No real video (this project draws/synthesizes everything,
   // no external assets), just the same satirical corporate-TV voice the
@@ -205,7 +260,11 @@
       st.everDowned = carry.everDowned;       // the flawless-run finale spans the whole campaign
       st.mods = carry.mods || {};             // picked mods/perks carry into the next episode too
       st.modFamilyCount = carry.modFamilyCount || {};
+      st.usedSecondWind = carry.usedSecondWind;   // a spent stunt double doesn't refill mid-campaign
     }
+    // mandates seed the fresh bag ONCE per campaign — a carry already has
+    // episode 1's effects baked in, so re-applying would double-stack them
+    if (!carry) applyMandates(st);
     st.player.mods = st.mods;                 // every player shares one mods bag — a run-wide build, not per-seat
     st.players = [st.player];                 // st.player stays the human, always
     if (localCoopOn) {
@@ -218,6 +277,9 @@
       buddy.bot = true;
       buddy.mods = st.mods;
       st.players.push(buddy);
+    }
+    if (!carry && st.mods.startingHeartBonus) {   // STUDIO AUDIENCE: the crowd feeds you
+      st.players.forEach(function (hp) { hp.hearts = Math.min(DA.MAX_HEARTS, hp.hearts + st.mods.startingHeartBonus); });
     }
     enterRoom(st, startRoom || DA.START_ROOM, null);
     if (st.room.ep === 2 || st.room.ep === 3) st.players.forEach(function (cp) { cp.hearts = DA.MAX_HEARTS; }); // champions start refreshed
@@ -326,6 +388,8 @@
   var helpPage = 0;           // modal: page 0 = HOW TO PLAY, page 1 = TONIGHT'S CAST
   var showSettings = false;   // title-screen settings panel
   var showCoopChoice = false; // title-screen "how are you playing?" submenu
+  var showBackstage = false;  // title-screen mandate shop/toggles
+  var backstageMenu = [], bgSel = 0;
   var menuSel = 0, setSel = 0, pauseSel = 0, coopSel = 0;   // keyboard/gamepad cursor per menu
   var titleMenu = [], settingsMenu = [], pauseMenu = [], coopMenu = [];   // rebuilt every frame
 
@@ -425,8 +489,8 @@
     // arrow/enter menu navigation on the title, pause and settings screens
     var inPauseMenu = DA.state.mode === 'playing' && paused;
     if ((DA.state.mode === 'title' || inPauseMenu) && !showBestiary) {
-      var baseMenu = inPauseMenu ? pauseMenu : (showCoopChoice ? coopMenu : titleMenu);
-      var baseSel = inPauseMenu ? pauseSel : (showCoopChoice ? coopSel : menuSel);
+      var baseMenu = inPauseMenu ? pauseMenu : (showBackstage ? backstageMenu : (showCoopChoice ? coopMenu : titleMenu));
+      var baseSel = inPauseMenu ? pauseSel : (showBackstage ? bgSel : (showCoopChoice ? coopSel : menuSel));
       var menu = showSettings ? settingsMenu : baseMenu;
       var moving = (e.code === 'ArrowDown' || e.code === 'KeyS') ? 1 :
                    ((e.code === 'ArrowUp' || e.code === 'KeyW') ? -1 : 0);
@@ -438,14 +502,16 @@
         }
         if (showSettings) setSel = sel;
         else if (inPauseMenu) pauseSel = sel;
+        else if (showBackstage) bgSel = sel;
         else if (showCoopChoice) coopSel = sel;
         else menuSel = sel;
       }
       if ((e.code === 'Enter' || e.code === 'Space') && menu.length) {
-        var pick = menu[showSettings ? setSel : (inPauseMenu ? pauseSel : (showCoopChoice ? coopSel : menuSel))];
+        var pick = menu[showSettings ? setSel : (inPauseMenu ? pauseSel : (showBackstage ? bgSel : (showCoopChoice ? coopSel : menuSel)))];
         if (pick && !pick.locked) pick.act();
       }
       if (e.code === 'Escape' && showSettings) showSettings = false;
+      else if (e.code === 'Escape' && showBackstage) showBackstage = false;
       else if (e.code === 'Escape' && showCoopChoice) showCoopChoice = false;
     }
     if (DA.state.mode === 'choice') {           // between-rooms upgrade pick — its own menu, not nested above
@@ -673,10 +739,28 @@
     DA.splat(st.player.x, st.player.y);
   }
 
+  // Ratings Points: the only currency the network ever pays out — a cut of
+  // tonight's overnights, syndicated to you whether you survived or not.
+  // Progress-driven (rooms/waves/won) with a CAPPED score bonus, because
+  // st.combo is unbounded and raw score can vary 10-50x for the same depth.
+  function ratingsEarned(st, won) {
+    var rp;
+    if (st.room.endless) {
+      var wave = (st.waveManager && st.waveManager.wave) || 0;
+      rp = wave * 6 + Math.min(30, Math.floor(st.score / 2500));
+    } else {
+      rp = (st.roomsCleared || 0) * 12 + (won ? 40 : 0) + Math.min(30, Math.floor(st.score / 1500));
+    }
+    return Math.max(5, Math.round(rp));
+  }
   function endRun(st, won) {
     st.mode = won ? 'winner' : 'gameover';
     if (!won && st.dead) st.goFade = 0.7;          // rise out of the death fade
     st.stats.seconds = Math.round((performance.now() - st.stats.start) / 1000);
+    // unconditional, before any win/loss branching: every broadcast pays out
+    var rpEarned = ratingsEarned(st, won);
+    store('deadset_rp', String(parseInt(load('deadset_rp') || '0', 10) + rpEarned));
+    st.rpEarned = rpEarned;                        // the end screens show "+N RATINGS POINTS"
     var best = parseInt(load('deadset_best') || '0', 10);
     st.newBest = st.score > best;
     if (st.newBest) store('deadset_best', String(st.score));
@@ -781,6 +865,7 @@
         titleMenu = buildTitleMenu();
         settingsMenu = buildSettingsMenu();
         coopMenu = buildCoopMenu();
+        backstageMenu = buildBackstageMenu();
         var click = DA.input.consumeClick ? DA.input.consumeClick() : null;
         var btnTap = DA.input.consumeBtnTap ? DA.input.consumeBtnTap() : -1;
         var tapAny = DA.input.consumeAnyTap ? DA.input.consumeAnyTap() : false;
@@ -790,11 +875,11 @@
           DA.updateFx(dt);
           return;
         }
-        var menu = showSettings ? settingsMenu : (showCoopChoice ? coopMenu : titleMenu);
+        var menu = showBackstage ? backstageMenu : (showSettings ? settingsMenu : (showCoopChoice ? coopMenu : titleMenu));
         if (click) {                               // mouse: click a button, nothing else starts
           var ci = hitMenu(menu, click.x, click.y);
           if (ci >= 0 && !menu[ci].locked) {
-            if (showSettings) setSel = ci; else if (showCoopChoice) coopSel = ci; else menuSel = ci;
+            if (showBackstage) bgSel = ci; else if (showSettings) setSel = ci; else if (showCoopChoice) coopSel = ci; else menuSel = ci;
             menu[ci].act();
           }
         }
@@ -803,15 +888,15 @@
         var padD = DA.input.padButton(13), padU = DA.input.padButton(12), padA = DA.input.padButton(0);
         if ((padD && !padNavWas.d) || (padU && !padNavWas.u)) {
           var dir = padD && !padNavWas.d ? 1 : -1;
-          var s2 = showSettings ? setSel : (showCoopChoice ? coopSel : menuSel);
+          var s2 = showBackstage ? bgSel : (showSettings ? setSel : (showCoopChoice ? coopSel : menuSel));
           for (var tr = 0; tr < menu.length; tr++) {
             s2 = (s2 + dir + menu.length) % menu.length;
             if (!menu[s2].locked) break;
           }
-          if (showSettings) setSel = s2; else if (showCoopChoice) coopSel = s2; else menuSel = s2;
+          if (showBackstage) bgSel = s2; else if (showSettings) setSel = s2; else if (showCoopChoice) coopSel = s2; else menuSel = s2;
         }
         if (padA && !padNavWas.a) {
-          var pk = menu[showSettings ? setSel : (showCoopChoice ? coopSel : menuSel)];
+          var pk = menu[showBackstage ? bgSel : (showSettings ? setSel : (showCoopChoice ? coopSel : menuSel))];
           if (pk && !pk.locked) pk.act();
         }
         padNavWas.d = padD; padNavWas.u = padU; padNavWas.a = padA;
@@ -1071,6 +1156,11 @@
         DA.addShake(10);
         DA.announce(pd.bot ? 'CAM-BOT IS DOWN!' : 'CONTESTANT DOWN!');
         if (DA.audio) DA.audio.hurt();
+      } else if (st.mods && st.mods.secondWind && !st.usedSecondWind) {
+        st.usedSecondWind = true;                    // SECOND UNIT: the stunt double takes the fall — once
+        pd.hearts = 2; pd.invuln = 1.5;
+        DA.announce('SECOND UNIT ON SET!');
+        if (DA.audio) DA.audio.pickup('heart');
       } else { startDying(st); return; }
     }
     updateRevive(st, dt);
@@ -1672,7 +1762,7 @@
     var touch = DA.input.touchActive();
     // taller rows + more gap on touch, sized to still fit the 7-row worst
     // case (with the donate button) inside the fixed 720px canvas height
-    var BW = 560, X = (DA.W - BW) / 2, Y0 = 308, G = touch ? 56 : 52, BH = touch ? 54 : 48;
+    var BW = 560, X = (DA.W - BW) / 2, Y0 = 272, G = touch ? 56 : 52, BH = touch ? 54 : 48;   // Y0 272: 8 rows (with BACKSTAGE + donate) must clear 720px on touch
     var m = [], row = 0;
     function push(opts) {
       opts.x = X; opts.y = Y0 + G * row++; opts.w = BW; opts.h = BH;
@@ -1697,6 +1787,9 @@
     push({ color: '#5bc8d6', label: '♾  ENDLESS MODE',
            state: 'best: wave ' + (load('deadset_best_waves') || '0'),
            act: function () { DA.state = newGame('endless'); } });
+    push({ color: '#e8843c', label: '🎬  BACKSTAGE',
+           state: parseInt(load('deadset_rp') || '0', 10) + ' RP · ' + unlockedMandateCount() + '/' + MANDATE_DEFS.length + ' mandates',
+           act: function () { showBackstage = true; bgSel = 0; } });
     push({ color: '#f2f2e9', label: '⚙  SETTINGS', state: 'sound · music · effects',
            act: function () { showSettings = true; setSel = 0; } });
     push({ color: '#e8d44d', label: '❓  HOW TO PLAY', state: 'controls & tonight\'s cast',
@@ -1743,6 +1836,38 @@
       { x: X, y: Y0 + G * 3 + 14, w: BW, h: backH, color: '#f2f2e9',
         label: '←  BACK', state: '', act: function () { showCoopChoice = false; } }
     ];
+  }
+  // BACKSTAGE: unlock Network Mandates with Ratings Points, then toggle them
+  // per run. locked here means "not unlocked AND can't afford it" — an
+  // affordable row stays clickable through all the generic dispatch paths,
+  // matching how ONLINE MULTIPLAYER's locked flag already behaves.
+  function buildBackstageMenu() {
+    var touch = DA.input.touchActive();
+    var BW = 640, X = (DA.W - BW) / 2, Y0 = 96, G = touch ? 46 : 42, BH = touch ? 40 : 36;
+    var rpBal = parseInt(load('deadset_rp') || '0', 10);
+    var rows = MANDATE_DEFS.map(function (m, i) {
+      var unlocked = load('deadset_mandate_' + m.id) === '1';
+      var on = load('deadset_mandate_' + m.id + '_on') === '1';
+      return { x: X, y: Y0 + G * i, w: BW, h: BH,
+               color: m.skew === 'easier' ? '#7ee081' : '#d43a4b',
+               label: (unlocked ? (on ? '☑ ' : '☐ ') : '🔒 ') + m.name,
+               state: unlocked ? (on ? 'ON — ' + m.desc : m.desc) : (m.cost + ' RP · ' + m.desc),
+               locked: !unlocked && rpBal < m.cost,
+               act: unlocked
+                 ? function () { store('deadset_mandate_' + m.id + '_on', on ? '0' : '1'); }
+                 : function () {
+                     var bal = parseInt(load('deadset_rp') || '0', 10);
+                     if (bal < m.cost) return;
+                     store('deadset_rp', String(bal - m.cost));
+                     store('deadset_mandate_' + m.id, '1');   // starts OFF — an unlock is never a silent buff
+                     if (DA.audio && DA.audio.comboUp) DA.audio.comboUp(3);
+                     DA.announce('MANDATE UNLOCKED: ' + m.name);
+                   } };
+    });
+    rows.push({ x: X, y: Y0 + G * MANDATE_DEFS.length + 10, w: BW, h: touch ? 50 : 44,
+                color: '#f2f2e9', label: '←  BACK', state: '',
+                act: function () { showBackstage = false; } });
+    return rows;
   }
   // Between-rooms choice: pick one of three run-wide upgrades before the next
   // room. mods is one shared bag on st (read by bullets.js/combat.js/
@@ -1817,7 +1942,7 @@
       { name: 'VENGEANCE', desc: 'a hit only costs 25% of your combo', family: 'bloodlust',
         apply: function (st, family) { st.mods.comboHitFrac = 0.25; bumpFamily(st, family, 1); } },
       { name: 'IRON WILL', desc: 'auto-heal 1 heart every 45s', family: 'lastStand',
-        apply: function (st, family) { st.mods.autoHealInterval = 45; bumpFamily(st, family, 1); } },
+        apply: function (st, family) { st.mods.autoHealInterval = Math.min(st.mods.autoHealInterval || 45, 45); bumpFamily(st, family, 1); } },   // min: never regress CUE CARDS' faster 30s
       { name: 'ADRENALINE', desc: '+10% move speed', family: 'scavenger', apply: add('speedBonus', 0.1) },
       { name: 'GUARDIAN ANGEL', desc: 'shields last 50% longer (+0.15s invuln)', family: 'lastStand',
         apply: add2('shieldDurationBonus', 0.5, 'invulnBonus', 0.15) },
@@ -1850,7 +1975,8 @@
     st.pendingEntryDir = nextEntryDir;
     var pool = MOD_POOL.slice();
     st.choiceOptions = [];
-    for (var i = 0; i < 3 && pool.length; i++) {
+    var nChoices = (st.mods && st.mods.choiceCount) || 3;   // UNDERSTUDY CUTS deals a short hand
+    for (var i = 0; i < nChoices && pool.length; i++) {
       st.choiceOptions.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
     }
     choiceSel = 0;
@@ -1921,7 +2047,7 @@
   }
   DA.titleHit = function (x, y) {   // touch taps route through input.js as 'btn:N'
     if (DA.state.mode !== 'title' || showBestiary) return -1;
-    return hitMenu(showSettings ? settingsMenu : (showCoopChoice ? coopMenu : titleMenu), x, y);
+    return hitMenu(showBackstage ? backstageMenu : (showSettings ? settingsMenu : (showCoopChoice ? coopMenu : titleMenu)), x, y);
   };
   // small canvas-drawn glyphs for the 2-player submenu: TVs + gamepads sketch
   // out HOW each mode plays before anyone has to read the label
@@ -2819,6 +2945,16 @@
         drawScreenFx(ctx);
         return;
       }
+      if (showBackstage) {
+        ctx.font = 'bold 26px monospace'; ctx.fillStyle = '#e8843c';
+        ctx.fillText('🎬 BACKSTAGE — ' + parseInt(load('deadset_rp') || '0', 10) + ' RATINGS POINTS', DA.W / 2, 64);
+        ctx.font = '14px monospace'; ctx.fillStyle = '#8888a0';
+        ctx.fillText('network mandates: unlock once, toggle any run · they change the show, never whether it counts', DA.W / 2, 86);
+        bgSel = drawMenu(ctx, backstageMenu, bgSel);
+        DA.drawFxOver(ctx);
+        drawScreenFx(ctx);
+        return;
+      }
       if (showCoopChoice) {
         ctx.font = 'bold 26px monospace'; ctx.fillStyle = '#7ee081';
         ctx.fillText('👥 HOW ARE YOU PLAYING?', DA.W / 2, 288);
@@ -2951,6 +3087,7 @@
       // commercial-break screen right after this one already says it
       var goHi = highlightStat(st);
       var go = [
+        { text: '+' + (st.rpEarned || 0) + ' RATINGS POINTS', font: 'bold 17px monospace', color: '#e8843c', y: 192 },
         { text: 'You leave with $' + st.score.toLocaleString('en-US') +
                 (st.newBest ? '  —  NEW BEST!' : ''),
           font: '26px monospace', color: st.newBest ? '#e8d44d' : '#f2f2e9', y: 218 }
@@ -2994,6 +3131,7 @@
       var w = [
         { text: headline, font: 'bold ' + (isSeasonFinale ? 60 : 84) + 'px monospace', color: '#e8d44d', y: 196 },
         { text: sub, font: '24px monospace', color: '#f2f2e9', y: 246 },
+        { text: '+' + (st.rpEarned || 0) + ' RATINGS POINTS', font: 'bold 17px monospace', color: '#e8843c', y: 268 },
         { text: 'You take home $' + st.score.toLocaleString('en-US') +
                 (st.newBest ? '  —  NEW BEST!' : ''),
           font: 'bold 28px monospace', color: '#7ee081', y: 288 }

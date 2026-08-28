@@ -163,7 +163,7 @@
         if (pl.downed) continue;                   // the horde ignores the fallen
         if (pl.invuln <= 0 && !(e.grace > 0) && !(pl.shieldT > 0) &&
             DA.circleHit(e.x, e.y, e.r, pl.x, pl.y, pl.r)) {
-          pl.hearts--;
+          pl.hearts -= (DA.state && DA.state.mods && DA.state.mods.dmgTakenMult) || 1;
           pl.invuln = 1.5 + (st.mods && st.mods.invulnBonus || 0);   // Thick Skin
           if (!pl.bot) DA.comboHit(st);            // only the human's hits cost the streak
           var v = DA.norm(e.x - pl.x, e.y - pl.y); // knock enemy back

@@ -136,7 +136,7 @@
           while (diff > Math.PI) diff -= 6.28318;
           while (diff < -Math.PI) diff += 6.28318;
           if (Math.abs(diff) < ALGO_LASER_HALF_WIDTH) {
-            pl.hearts--; pl.invuln = 1.2;
+            pl.hearts -= (DA.state && DA.state.mods && DA.state.mods.dmgTakenMult) || 1; pl.invuln = 1.2;
             if (DA.resetCombo) DA.resetCombo(st);
             if (DA.onPlayerHurt) DA.onPlayerHurt(st, b.x, b.y);
           }
