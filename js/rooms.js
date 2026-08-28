@@ -387,8 +387,11 @@
     wm.nextDoors = null;
     // co-op: two guns double the clear rate, so the show sends a bigger cast
     // AND feeds them through the doors faster
-    var coop = DA.state && DA.state.players && DA.state.players.length > 1;
-    var countMult = coop ? 3.6 : 1, paceMult = coop ? 0.8 : 1;
+    // more guns clear faster, so the show sends a bigger cast: ~1.8x count
+    // per player (2p keeps its long-tuned 3.6x exactly); the doors feed
+    // them through a touch faster in any co-op
+    var nPlayers = (DA.state && DA.state.players && DA.state.players.length) || 1;
+    var countMult = nPlayers > 1 ? 1.8 * nPlayers : 1, paceMult = nPlayers > 1 ? 0.8 : 1;
     countMult *= (DA.state && DA.state.mods && DA.state.mods.spawnCountMult) || 1;   // SWEEPS WEEK
     var BURST_MULT = 1.2;   // bigger packs, in every mode — a wave should hit like a wave
     // a small, bounded ease for a room the player keeps failing THIS
@@ -443,10 +446,13 @@
     function pickDoor() {
       var doors = wm.activeDoors || DA.DOORS;
       // never open a pack in the player's face if any other door is live
-      var p = DA.state && DA.state.player;
-      if (p) {
+      var pls2 = DA.state && (DA.state.players || (DA.state.player && [DA.state.player]));
+      if (pls2) {
         var far = doors.filter(function (dd) {
-          return DA.dist2(dd.x, dd.y, p.x, p.y) > 240 * 240;
+          for (var fp = 0; fp < pls2.length; fp++) {
+            if (!pls2[fp].downed && DA.dist2(dd.x, dd.y, pls2[fp].x, pls2[fp].y) <= 240 * 240) return false;
+          }
+          return true;
         });
         if (far.length > 0) doors = far;
       }

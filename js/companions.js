@@ -33,9 +33,11 @@
 
   DA.updateCompanions = function (st, dt) {
     if (!st.companions || !st.companions.length) return;
-    var human = (st.players || [st.player])[0];
+    var pls = st.players || [st.player];
     for (var i = st.companions.length - 1; i >= 0; i--) {
       var c = st.companions[i];
+      // escorts the NEAREST standing human — matters once seats 3/4 exist
+      var human = DA.nearestPlayer ? DA.nearestPlayer(pls, c.x, c.y) : pls[0];
       c.wobble += dt;
       if (c.enterT > 0) c.enterT = Math.max(0, c.enterT - dt);   // still touching down / flying in
       if (!c.leaving) {

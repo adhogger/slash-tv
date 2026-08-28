@@ -15,7 +15,16 @@
 
   DA.botInput = function (st, p, dt) {
     var m = p.botMem || (p.botMem = { retT: 0, target: null, wanderA: DA.rand(0, 6.28) });
+    // escort the NEAREST standing human — with seats 3/4 in play, three
+    // bots all glued to seat 1 read as broken; seat 1 is only the fallback
     var human = st.players[0];
+    var hBest = Infinity;
+    for (var hi = 0; hi < st.players.length; hi++) {
+      var hc = st.players[hi];
+      if (hc.bot || hc.downed) continue;
+      var hd = DA.dist2(hc.x, hc.y, p.x, p.y);
+      if (hd < hBest) { hBest = hd; human = hc; }
+    }
     var v = { x: 0, y: 0 };
     var i, e, d2, w;
 

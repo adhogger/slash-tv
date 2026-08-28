@@ -113,7 +113,11 @@
         ctx.beginPath(); DA.polyPath(ctx, 0, 0, p.r + 7, p.r + 7, 8, 0.39); ctx.stroke();
       }
     }
-    var seat2 = p.remote || p.localP2;    // seat 2 (human): local co-op partner OR online guest
+    // seat index picks the jumpsuit color (DA.SEAT_COLORS, main.js): white,
+    // purple, orange, cyan. An online guest carries no seat field — they're
+    // seat 2 by convention, keeping the classic purple.
+    var seatIdx = p.seat || (p.remote || p.localP2 ? 1 : 0);
+    var seat2 = seatIdx > 0;
     if (p.downed) {                                  // still and dead — frozen where he fell
       var deadA = p.downAim != null ? p.downAim : Math.atan2(p.aimY, p.aimX);
       ctx.rotate(deadA);
@@ -146,7 +150,7 @@
     }
     ctx.rotate(Math.atan2(p.aimY, p.aimX));
     ctx.fillStyle = p.bot ? '#a8c8d8' :              // CAM-BOT runs brushed steel
-                    (seat2 ? '#b78bff' : '#f2f2e9');  // seat 2 wears purple, seat 1 wears white
+                    ((DA.SEAT_COLORS && DA.SEAT_COLORS[seatIdx]) || (seat2 ? '#b78bff' : '#f2f2e9'));
     ctx.beginPath(); DA.polyPath(ctx, 0, 0, p.r, p.r, 8, 0.39); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.4)';             // outline
     ctx.lineWidth = 2; ctx.lineJoin = 'miter';
@@ -182,7 +186,7 @@
       var hr = p.r * 0.52;
       ctx.fillStyle = '#e0b08c';
       ctx.beginPath(); DA.polyPath(ctx, 0, 0, hr, hr, 7, 0.45); ctx.fill();
-      ctx.fillStyle = seat2 ? '#7a4f2a' : '#3a2c20';
+      ctx.fillStyle = seatIdx % 2 ? '#7a4f2a' : '#3a2c20';   // alternating hair tones down the cast
       ctx.beginPath();
       DA.polyPath(ctx, -hr * 0.15, 0, hr * 0.85, hr * 0.85, 5, 3.3);
       ctx.fill();

@@ -181,7 +181,7 @@
     DA.fx.corpses.length = 0;
     for (var pi = 0; pi < st.players.length; pi++) {
       var p = st.players[pi];
-      var off = (pi === 0 ? -1 : 1) * 26;    // shoulder to shoulder, not stacked
+      var off = (pi - (st.players.length - 1) / 2) * 30;   // shoulder to shoulder across the whole cast, not stacked
       if (entryDir) {                        // walk in through the door we came from
         var d = DA.doorByDir(entryDir);
         var horiz = entryDir === 'N' || entryDir === 'S';
@@ -225,7 +225,7 @@
         var sd = DA.doorByDir('S');
         for (var wi = 0; wi < st.players.length; wi++) {
           var wp = st.players[wi];
-          wp.x = sd.x + (wi === 0 ? -26 : 26);
+          wp.x = sd.x + (wi - (st.players.length - 1) / 2) * 30;
           wp.y = DA.ARENA.y1 - 24;
           wp.aimX = 0; wp.aimY = -1;
         }
@@ -267,16 +267,20 @@
     if (!carry) applyMandates(st);
     st.player.mods = st.mods;                 // every player shares one mods bag — a run-wide build, not per-seat
     st.players = [st.player];                 // st.player stays the human, always
-    if (localCoopOn) {
-      var mate = DA.makePlayer();
-      mate.localP2 = true;                    // seat 2 reads its OWN gamepad (slot 2), never seat 1's
-      mate.mods = st.mods;
-      st.players.push(mate);
-    } else if (botOn) {
-      var buddy = DA.makePlayer();
-      buddy.bot = true;
-      buddy.mods = st.mods;
-      st.players.push(buddy);
+    for (var si = 1; si < seatFill.length; si++) {
+      if (seatFill[si] === 'pad') {
+        var mate = DA.makePlayer();
+        mate.localPadSeat = si;               // this seat reads its OWN gamepad slot, never seat 1's
+        mate.seat = si;
+        mate.mods = st.mods;
+        st.players.push(mate);
+      } else if (seatFill[si] === 'bot') {
+        var buddy = DA.makePlayer();
+        buddy.bot = true;
+        buddy.seat = si;
+        buddy.mods = st.mods;
+        st.players.push(buddy);
+      }
     }
     if (!carry && st.mods.startingHeartBonus) {   // STUDIO AUDIENCE: the crowd feeds you
       st.players.forEach(function (hp) { hp.hearts = Math.min(DA.MAX_HEARTS, hp.hearts + st.mods.startingHeartBonus); });
@@ -472,8 +476,13 @@
     } catch (e) {}
     return DA.dailySeed();
   }
-  var botOn = load('deadset_bot') === '1';        // persisted: last "with a bot" choice
-  var localCoopOn = false;                        // set fresh each time 2P > LOCAL CO-OP is picked
+  // who fills each of the 4 seats: seat 0 is always the human at the
+  // keyboard/mouse/first pad; seats 1-3 are 'empty' | 'pad' (gamepad slot
+  // matching the seat index) | 'bot'. Replaces the old botOn/localCoopOn
+  // booleans, which could only describe seat 1.
+  var seatFill = ['human', load('deadset_bot') === '1' ? 'bot' : 'empty', 'empty', 'empty'];
+  var showCastCall = false;   // the 3-4 player seat-select screen
+  var castSel = 0, castMenu = [];
   var showDebug = false;      // G toggles a raw-gamepad readout for troubleshooting
   window.addEventListener('keydown', function (e) {
     if (e.code === 'KeyG') showDebug = !showDebug;
@@ -489,8 +498,8 @@
     // arrow/enter menu navigation on the title, pause and settings screens
     var inPauseMenu = DA.state.mode === 'playing' && paused;
     if ((DA.state.mode === 'title' || inPauseMenu) && !showBestiary) {
-      var baseMenu = inPauseMenu ? pauseMenu : (showBackstage ? backstageMenu : (showCoopChoice ? coopMenu : titleMenu));
-      var baseSel = inPauseMenu ? pauseSel : (showBackstage ? bgSel : (showCoopChoice ? coopSel : menuSel));
+      var baseMenu = inPauseMenu ? pauseMenu : (showBackstage ? backstageMenu : (showCastCall ? castMenu : (showCoopChoice ? coopMenu : titleMenu)));
+      var baseSel = inPauseMenu ? pauseSel : (showBackstage ? bgSel : (showCastCall ? castSel : (showCoopChoice ? coopSel : menuSel)));
       var menu = showSettings ? settingsMenu : baseMenu;
       var moving = (e.code === 'ArrowDown' || e.code === 'KeyS') ? 1 :
                    ((e.code === 'ArrowUp' || e.code === 'KeyW') ? -1 : 0);
@@ -503,15 +512,17 @@
         if (showSettings) setSel = sel;
         else if (inPauseMenu) pauseSel = sel;
         else if (showBackstage) bgSel = sel;
+        else if (showCastCall) castSel = sel;
         else if (showCoopChoice) coopSel = sel;
         else menuSel = sel;
       }
       if ((e.code === 'Enter' || e.code === 'Space') && menu.length) {
-        var pick = menu[showSettings ? setSel : (inPauseMenu ? pauseSel : (showBackstage ? bgSel : (showCoopChoice ? coopSel : menuSel)))];
+        var pick = menu[showSettings ? setSel : (inPauseMenu ? pauseSel : (showBackstage ? bgSel : (showCastCall ? castSel : (showCoopChoice ? coopSel : menuSel))))];
         if (pick && !pick.locked) pick.act();
       }
       if (e.code === 'Escape' && showSettings) showSettings = false;
       else if (e.code === 'Escape' && showBackstage) showBackstage = false;
+      else if (e.code === 'Escape' && showCastCall) { showCastCall = false; showCoopChoice = true; }
       else if (e.code === 'Escape' && showCoopChoice) showCoopChoice = false;
     }
     if (DA.state.mode === 'choice') {           // between-rooms upgrade pick — its own menu, not nested above
@@ -710,8 +721,17 @@
     for (var i = 0; i < st.players.length; i++) {
       var d = st.players[i];
       if (!d.downed) continue;
-      var o = st.players[1 - i];
-      if (!o.downed && o.hearts > 0 && DA.dist2(o.x, o.y, d.x, d.y) < 52 * 52) {
+      // ANY standing teammate in range revives — `players[1 - i]` only ever
+      // worked for exactly 2 seats (it indexes undefined for seat 3/4 and
+      // crashed the frame the first extra seat went down)
+      var o = null, od = Infinity;
+      for (var oi = 0; oi < st.players.length; oi++) {
+        var cand = st.players[oi];
+        if (oi === i || cand.downed || cand.hearts <= 0) continue;
+        var cd = DA.dist2(cand.x, cand.y, d.x, d.y);
+        if (cd < od) { od = cd; o = cand; }
+      }
+      if (o && DA.dist2(o.x, o.y, d.x, d.y) < 52 * 52) {
         d.reviveP = (d.reviveP || 0) + dt / 3;       // three seconds of helping hand
         if (d.reviveP >= 1) {
           d.downed = false; d.reviveP = 0; d.hearts = 2; d.invuln = 2;
@@ -866,6 +886,7 @@
         settingsMenu = buildSettingsMenu();
         coopMenu = buildCoopMenu();
         backstageMenu = buildBackstageMenu();
+        castMenu = buildCastMenu();
         var click = DA.input.consumeClick ? DA.input.consumeClick() : null;
         var btnTap = DA.input.consumeBtnTap ? DA.input.consumeBtnTap() : -1;
         var tapAny = DA.input.consumeAnyTap ? DA.input.consumeAnyTap() : false;
@@ -875,11 +896,11 @@
           DA.updateFx(dt);
           return;
         }
-        var menu = showBackstage ? backstageMenu : (showSettings ? settingsMenu : (showCoopChoice ? coopMenu : titleMenu));
+        var menu = showBackstage ? backstageMenu : (showCastCall ? castMenu : (showSettings ? settingsMenu : (showCoopChoice ? coopMenu : titleMenu)));
         if (click) {                               // mouse: click a button, nothing else starts
           var ci = hitMenu(menu, click.x, click.y);
           if (ci >= 0 && !menu[ci].locked) {
-            if (showBackstage) bgSel = ci; else if (showSettings) setSel = ci; else if (showCoopChoice) coopSel = ci; else menuSel = ci;
+            if (showBackstage) bgSel = ci; else if (showCastCall) castSel = ci; else if (showSettings) setSel = ci; else if (showCoopChoice) coopSel = ci; else menuSel = ci;
             menu[ci].act();
           }
         }
@@ -888,15 +909,15 @@
         var padD = DA.input.padButton(13), padU = DA.input.padButton(12), padA = DA.input.padButton(0);
         if ((padD && !padNavWas.d) || (padU && !padNavWas.u)) {
           var dir = padD && !padNavWas.d ? 1 : -1;
-          var s2 = showBackstage ? bgSel : (showSettings ? setSel : (showCoopChoice ? coopSel : menuSel));
+          var s2 = showBackstage ? bgSel : (showCastCall ? castSel : (showSettings ? setSel : (showCoopChoice ? coopSel : menuSel)));
           for (var tr = 0; tr < menu.length; tr++) {
             s2 = (s2 + dir + menu.length) % menu.length;
             if (!menu[s2].locked) break;
           }
-          if (showBackstage) bgSel = s2; else if (showSettings) setSel = s2; else if (showCoopChoice) coopSel = s2; else menuSel = s2;
+          if (showBackstage) bgSel = s2; else if (showCastCall) castSel = s2; else if (showSettings) setSel = s2; else if (showCoopChoice) coopSel = s2; else menuSel = s2;
         }
         if (padA && !padNavWas.a) {
-          var pk = menu[showBackstage ? bgSel : (showSettings ? setSel : (showCoopChoice ? coopSel : menuSel))];
+          var pk = menu[showBackstage ? bgSel : (showCastCall ? castSel : (showSettings ? setSel : (showCoopChoice ? coopSel : menuSel)))];
           if (pk && !pk.locked) pk.act();
         }
         padNavWas.d = padD; padNavWas.u = padU; padNavWas.a = padA;
@@ -1008,8 +1029,8 @@
       if (pl.remote) {           // seat 2 is a live guest: play their last packet
         inp = (DA.net && DA.net.freshGuestInput()) ||
               { moveX: 0, moveY: 0, aimX: pl.aimX, aimY: pl.aimY, firing: false };
-      } else if (pl.localP2) {   // local co-op: seat 2 reads gamepad slot 2 directly
-        inp = DA.input.padState(1, pl.x, pl.y);
+      } else if (pl.localPadSeat != null) {   // local co-op: each seat reads its own gamepad slot
+        inp = DA.input.padState(pl.localPadSeat, pl.x, pl.y);
       } else {
         inp = pl.bot ? DA.botInput(st, pl, dt) : DA.input.state(pl.x, pl.y);
       }
@@ -1175,7 +1196,12 @@
     if (st.room.boss) {
       if (st.bossDead && st.victoryExit) {     // walk into the glowing exit to wrap the episode
         var vd = DA.doorByDir(st.victoryExit);
-        if (vd && DA.dist2(st.player.x, st.player.y, vd.x, vd.y) < 60 * 60) endRun(st, true);
+        if (vd) {
+          for (var vp = 0; vp < st.players.length; vp++) {   // any standing seat can take it
+            var vpl = st.players[vp];
+            if (!vpl.downed && DA.dist2(vpl.x, vpl.y, vd.x, vd.y) < 60 * 60) { endRun(st, true); break; }
+          }
+        }
       }
     } else if (st.waveManager.done) {
       if (!st.roomCleared) {
@@ -1769,7 +1795,7 @@
       m.push(opts);
     }
     push({ color: '#7ee081', primary: true, label: '▶  1 PLAYER', state: 'PILOT SEASON',
-           act: function () { botOn = false; localCoopOn = false; startShow(); } });
+           act: function () { seatFill = ['human', 'empty', 'empty', 'empty']; startShow(); } });
     push({ color: '#9ad7ff', label: '👥  2 PLAYER', state: 'local, online, or with a bot',
            act: function () { showCoopChoice = true; coopSel = 0; } });
     var hosting = DA.net && DA.net.status === 'hosting';
@@ -1779,7 +1805,7 @@
                            : 'get a link to share',
            act: function () {
              if (hosting && DA.net.code) { copyInviteLink(); return; }
-             botOn = false; localCoopOn = false; if (DA.net) DA.net.host();
+             seatFill = ['human', 'empty', 'empty', 'empty']; if (DA.net) DA.net.host();
            } });
     // unlocked from the start (was gated behind beating Episode 1) — it's
     // the one place to warm up or grind combat skill without the campaign's
@@ -1806,14 +1832,14 @@
   // online hands seat 2 to a guest on their own device, cam-bot fills it with AI
   function buildCoopMenu() {
     var touch = DA.input.touchActive();
-    var BW = 620, X = (DA.W - BW) / 2, Y0 = 330, G = touch ? 102 : 96, BH = touch ? 88 : 82;
+    var BW = 620, X = (DA.W - BW) / 2, Y0 = 278, G = touch ? 92 : 88, BH = touch ? 80 : 76;
     var backH = touch ? 50 : 44;
     var hosting = DA.net && DA.net.status === 'hosting';
     return [
       { x: X, y: Y0, w: BW, h: BH, color: '#7ee081', icon: 'local',
         label: 'LOCAL CO-OP', state: 'one screen — plug in a 2nd controller',
         act: function () {
-          botOn = false; localCoopOn = true;
+          seatFill = ['human', 'pad', 'empty', 'empty'];
           startShow();
           showCoopChoice = false;
         } },
@@ -1821,21 +1847,55 @@
         label: 'ONLINE CO-OP',
         state: hosting ? 'ROOM ' + (DA.net.code || '····') : 'get a link to share',
         act: function () {
-          botOn = false; localCoopOn = false;
+          seatFill = ['human', 'empty', 'empty', 'empty'];
           if (DA.net) DA.net.host();
           showCoopChoice = false;
         } },
       { x: X, y: Y0 + G * 2, w: BW, h: BH, color: '#a8c8d8', icon: 'bot',
         label: 'CAM-BOT PARTNER', state: 'one screen, one controller — AI takes seat 2',
         act: function () {
-          localCoopOn = false; botOn = true;
+          seatFill = ['human', 'bot', 'empty', 'empty'];
           store('deadset_bot', '1');
           startShow();
           showCoopChoice = false;
         } },
-      { x: X, y: Y0 + G * 3 + 14, w: BW, h: backH, color: '#f2f2e9',
+      { x: X, y: Y0 + G * 3, w: BW, h: BH, color: '#e8d44d', icon: 'local',
+        label: 'FULL CAST (3-4 PLAYERS)', state: 'one screen — fill each seat with a gamepad or a CAM-BOT',
+        act: function () {
+          showCoopChoice = false; showCastCall = true; castSel = 0;
+          if (seatFill[1] === 'empty') seatFill[1] = 'pad';   // a sensible starting lineup
+        } },
+      { x: X, y: Y0 + G * 4 + 14, w: BW, h: backH, color: '#f2f2e9',
         label: '←  BACK', state: '', act: function () { showCoopChoice = false; } }
     ];
+  }
+  // CAST CALL: fill seats 2-4 independently — every combination of gamepads
+  // and CAM-BOTs is a valid cast, 3-player included
+  var SEAT_COLORS = ['#f2f2e9', '#b78bff', '#ff9f1c', '#5bc8d6'];
+  DA.SEAT_COLORS = SEAT_COLORS;             // player.js paints jumpsuits from this
+  function buildCastMenu() {
+    var touch = DA.input.touchActive();
+    var BW = 620, X = (DA.W - BW) / 2, Y0 = 300, G = touch ? 78 : 70, BH = touch ? 64 : 58;
+    var FILL_LABEL = { empty: 'EMPTY SEAT', pad: 'GAMEPAD', bot: 'CAM-BOT' };
+    var FILL_NEXT = { empty: 'pad', pad: 'bot', bot: 'empty' };
+    var rows = [];
+    for (var si = 1; si < 4; si++) {
+      (function (seat) {
+        var fill = seatFill[seat];
+        rows.push({ x: X, y: Y0 + G * (seat - 1), w: BW, h: BH,
+          color: fill === 'empty' ? '#8888a0' : (fill === 'bot' ? '#a8c8d8' : SEAT_COLORS[seat]),
+          label: 'SEAT ' + (seat + 1) + ':  ' + FILL_LABEL[fill],
+          state: fill === 'pad' ? 'reads gamepad ' + (seat + 1) : (fill === 'bot' ? 'AI contestant' : 'click to fill'),
+          act: function () { seatFill[seat] = FILL_NEXT[seatFill[seat]]; } });
+      })(si);
+    }
+    var cast = 1 + seatFill.filter(function (f) { return f === 'pad' || f === 'bot'; }).length;
+    rows.push({ x: X, y: Y0 + G * 3 + 8, w: BW, h: BH, color: '#7ee081', primary: true,
+      label: '▶  START THE SHOW', state: cast + (cast === 1 ? ' contestant' : ' contestants'),
+      act: function () { showCastCall = false; startShow(); } });
+    rows.push({ x: X, y: Y0 + G * 4 + 16, w: BW, h: touch ? 50 : 44, color: '#f2f2e9',
+      label: '←  BACK', state: '', act: function () { showCastCall = false; showCoopChoice = true; } });
+    return rows;
   }
   // BACKSTAGE: unlock Network Mandates with Ratings Points, then toggle them
   // per run. locked here means "not unlocked AND can't afford it" — an
@@ -2047,7 +2107,7 @@
   }
   DA.titleHit = function (x, y) {   // touch taps route through input.js as 'btn:N'
     if (DA.state.mode !== 'title' || showBestiary) return -1;
-    return hitMenu(showBackstage ? backstageMenu : (showSettings ? settingsMenu : (showCoopChoice ? coopMenu : titleMenu)), x, y);
+    return hitMenu(showBackstage ? backstageMenu : (showCastCall ? castMenu : (showSettings ? settingsMenu : (showCoopChoice ? coopMenu : titleMenu))), x, y);
   };
   // small canvas-drawn glyphs for the 2-player submenu: TVs + gamepads sketch
   // out HOW each mode plays before anyone has to read the label
@@ -2691,19 +2751,20 @@
     var expiring = st.player.gunT > 0 && st.player.gunT <= 1 && Math.floor(st.player.gunT * 8) % 2 === 0;
     ctx.fillStyle = expiring ? '#d43a4b' : gun.color;
     ctx.fillText(gun.label + (st.player.gunT > 0 ? ' ' + Math.ceil(st.player.gunT) + 's' : ''), 16, 60);
-    var buddy = st.players[1];
-    if (buddy) {
+    for (var bp = 1; bp < st.players.length; bp++) {   // one status row per extra seat
+      var buddy = st.players[bp];
+      var by2 = 84 + (bp - 1) * 24;
       ctx.font = 'bold 12px monospace';
-      ctx.fillStyle = buddy.bot ? '#a8c8d8' : '#b78bff';
-      ctx.fillText(buddy.bot ? 'CAM-BOT' : (buddy.remote ? 'CONTESTANT 2' : 'PLAYER 2'), 16, 84);
+      ctx.fillStyle = buddy.bot ? '#a8c8d8' : (DA.SEAT_COLORS[buddy.seat || 1] || '#b78bff');
+      ctx.fillText(buddy.bot ? 'CAM-BOT' : (buddy.remote ? 'CONTESTANT 2' : 'PLAYER ' + ((buddy.seat || 1) + 1)), 16, by2);
       if (buddy.downed) {
         if (Math.floor(performance.now() / 300) % 2 === 0) {
           ctx.fillStyle = '#d43a4b';
           ctx.font = 'bold 14px monospace';
-          ctx.fillText('DOWN! GO HELP', 92, 84);
+          ctx.fillText('DOWN! GO HELP', 92, by2);
         }
       } else {
-        for (var bh = 0; bh < DA.MAX_HEARTS; bh++) drawHeart(ctx, 92 + bh * 21, 72, 14, bh < buddy.hearts, heartPulse);
+        for (var bh = 0; bh < DA.MAX_HEARTS; bh++) drawHeart(ctx, 92 + bh * 21, by2 - 12, 14, bh < buddy.hearts, heartPulse);
       }
     }
     ctx.textAlign = 'right';
@@ -2955,9 +3016,19 @@
         drawScreenFx(ctx);
         return;
       }
+      if (showCastCall) {
+        ctx.font = 'bold 26px monospace'; ctx.fillStyle = '#e8d44d';
+        ctx.fillText('🎬 CAST CALL — FILL THE SEATS', DA.W / 2, 258);
+        ctx.font = '14px monospace'; ctx.fillStyle = '#8888a0';
+        ctx.fillText('click a seat to cycle: empty · gamepad · CAM-BOT', DA.W / 2, 282);
+        castSel = drawMenu(ctx, castMenu, castSel);
+        DA.drawFxOver(ctx);
+        drawScreenFx(ctx);
+        return;
+      }
       if (showCoopChoice) {
         ctx.font = 'bold 26px monospace'; ctx.fillStyle = '#7ee081';
-        ctx.fillText('👥 HOW ARE YOU PLAYING?', DA.W / 2, 288);
+        ctx.fillText('👥 HOW ARE YOU PLAYING?', DA.W / 2, 252);
         coopSel = drawMenu(ctx, coopMenu, coopSel);
         DA.drawFxOver(ctx);
         drawScreenFx(ctx);
