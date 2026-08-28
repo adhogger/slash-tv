@@ -146,6 +146,7 @@
   // with 400-1200Hz next (30%) — and critically, spectral flatness was
   // very low (~0.08 out of 1), meaning the sound is dominated by tonal/
   // harmonic content, not flat noise. That's the formantMin/Max range.
+  var lastCheerAt = -99;              // dedup: a fresh full cheer never stacks on a live one
   var cheerParams = {
     rumbleCount: 10, rumbleVol: 0.4, rumbleFreqBase: 300, rumbleFreqRange: 60, rumbleQ: 3, rumbleDur: 3.2,
     shoutCount: 320, shoutDurMin: 0.02, shoutDurMax: 0.02, shoutVolMin: 0.8, shoutVolMax: 0.8,
@@ -193,10 +194,52 @@
     groan: function () {
       blip(70 + DA.rand(0, 40), 0.6, 'sawtooth', 0.05, 50 + DA.rand(0, 20));
     },
+    pop: function () {                // a short crowd pop for routine blasts — the
+      if (muted || !ensure()) return; // full cheer is reserved for real moments
+      var t0 = ctx.currentTime;
+      var envelope = ctx.createGain();
+      envelope.gain.setValueAtTime(0.0001, t0);
+      envelope.gain.exponentialRampToValueAtTime(0.8, t0 + 0.12);
+      envelope.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.1);
+      envelope.connect(master);
+      crowdNoise(0.9, 0.35, 320 + Math.random() * 60, 3, envelope);
+      for (var i = 0; i < 28; i++) {
+        (function () {
+          setTimeout(function () {
+            crowdVoice(0.02, 0.8, 180 + Math.random() * 240, 1600 + Math.random() * 480,
+                       4 + Math.random() * 2, envelope, Math.random() * 1.8 - 0.9);
+          }, Math.random() * 700);
+        })();
+      }
+      if (DA.broadcast && DA.broadcast.flashBurst) DA.broadcast.flashBurst(3);
+    },
+    aww: function () {                // the crowd deflates: a streak just died on camera
+      if (muted || !ensure()) return;
+      var t0 = ctx.currentTime;
+      var envelope = ctx.createGain();
+      envelope.gain.setValueAtTime(0.0001, t0);
+      envelope.gain.exponentialRampToValueAtTime(0.7, t0 + 0.15);
+      envelope.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.4);
+      envelope.connect(master);
+      crowdNoise(1.2, 0.4, 240, 4, envelope);
+      for (var aw = 0; aw < 16; aw++) {
+        (function () {
+          setTimeout(function () {
+            // lower, longer voices than the cheer's shouts — a communal groan
+            crowdVoice(0.06, 0.6, 110 + Math.random() * 90, 900 + Math.random() * 300,
+                       5, envelope, Math.random() * 1.4 - 0.7);
+          }, Math.random() * 500);
+        })();
+      }
+    },
     cheer: function () {              // the crowd loses it — many short shouts, not a held hiss
       if (muted || !ensure()) return;
       var P = cheerParams;
       var t0 = ctx.currentTime;
+      // a cheer is already roaring: extending the moment beats stacking
+      // another 320 oscillators on top of the ones still playing
+      if (t0 - lastCheerAt < 5) return;
+      lastCheerAt = t0;
       // one shared envelope for the whole cheer: swells up like a real crowd
       // reacting, holds, then tails off gradually — instead of every layer
       // just being its own independent blip with no overall shape

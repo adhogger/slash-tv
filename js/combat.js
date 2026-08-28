@@ -16,6 +16,7 @@
     if (st.comboKills >= step) {
       st.comboKills = 0;
       st.combo++; st.comboPopT = 0.3;
+      if (DA.audio && DA.audio.comboUp) DA.audio.comboUp(st.combo);   // the run's core economy finally makes a sound
     }
   };
   DA.updateCombo = function (st, dt) {
@@ -29,10 +30,15 @@
     st.combo = 1; st.comboKills = 0; st.comboTimer = 0;
   };
   DA.comboHit = function (st) {        // a hit costs half the streak, not all of it (less with Vengeance)
+    var hadStreak = st.combo >= 3;     // losing a real streak gets a reaction; a trivial x2 doesn't
     var frac = (st.mods && st.mods.comboHitFrac) || 0.5;
     st.combo = Math.max(1, Math.ceil(st.combo * frac));
     st.comboKills = 0;
     st.comboTimer = st.combo > 1 ? COMBO_WINDOW : 0;
+    if (hadStreak) {                   // the crowd deflates, the signal stumbles — diegetic, not a popup
+      if (DA.audio && DA.audio.aww) DA.audio.aww();
+      if (DA.broadcast) DA.broadcast.glitch = Math.max(DA.broadcast.glitch || 0, 0.15);
+    }
   };
   // rocket splash: damages every OTHER non-boss enemy within radius of the
   // impact point. No combo credit for the freebies, same rule as boomerBlast.
@@ -46,7 +52,7 @@
     if (DA.haptic) DA.haptic(0.6, 90);
     if (DA.fx) DA.fx.hitStop = Math.max(DA.fx.hitStop || 0, 0.04);
     if (DA.addAberration) DA.addAberration(0.75);
-    if (DA.audio) { DA.audio.roar(); if (DA.audio.cheer) DA.audio.cheer(); }
+    if (DA.audio) { DA.audio.roar(); if (DA.audio.pop) DA.audio.pop(); }   // a pop, not the full cheer — explosions are routine
     for (var i = st.enemies.length - 1; i >= 0; i--) {
       var e = st.enemies[i];
       if (!e || e === exclude || e.isBoss) continue; // chain-blasts shrink the list mid-loop

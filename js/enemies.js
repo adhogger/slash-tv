@@ -254,7 +254,7 @@
     if (DA.burst) DA.burst(x, y, '#e8843c', 26);
     if (DA.splat) DA.splat(x, y);
     if (DA.addShake) DA.addShake(12);
-    if (DA.audio) { DA.audio.roar(); if (DA.audio.cheer) DA.audio.cheer(); }
+    if (DA.audio) { DA.audio.roar(); if (DA.audio.pop) DA.audio.pop(); }   // boomer pops are routine, not a full-cheer moment
     var ps = st.players || [st.player];
     for (var pb = 0; pb < ps.length; pb++) {
       var p = ps[pb];
