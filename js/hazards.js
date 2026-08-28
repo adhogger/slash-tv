@@ -53,6 +53,25 @@
       }
     }
   }
+  // the studio's weapons work on the cast too — hazards cook zombies at a
+  // damage-per-second rate (they have no i-frames, so a flat per-frame hit
+  // would vaporize the whole beam's worth instantly). Kill bookkeeping
+  // matches blowMine: score but no combo credit, chains and gore intact.
+  function hitEnemies(st, test, dps, dt) {
+    if (!st.enemies) return;
+    for (var i = st.enemies.length - 1; i >= 0; i--) {
+      var e = st.enemies[i];
+      if (e.isBoss || !test(e)) continue;
+      e.hp -= dps * dt;
+      e.hitFlash = 0.12;
+      if (e.hp > 0) continue;
+      st.enemies.splice(i, 1);
+      st.score += e.score;
+      if (DA.onKill) DA.onKill(st, e);
+      if (e.type === 'boomer') DA.boomerBlast(st, e.x, e.y);
+      if (e.type === 'brute' && DA.bruteGore) DA.bruteGore(st, e.x, e.y);
+    }
+  }
 
   DA.updateHazards = function (st, dt) {
     if (!st.room || !st.room.hazard) return;
@@ -68,15 +87,17 @@
         if (DA.audio) DA.audio.roar();
       } else if (c.phase === 'fire') {
         var ca = c.angle;                     // freeze the beam's angle while firing
-        hitPlayers(st, function (pl) {
-          var d = Math.sqrt(DA.dist2(c.x, c.y, pl.x, pl.y));
+        var inBeam = function (t) {
+          var d = Math.sqrt(DA.dist2(c.x, c.y, t.x, t.y));
           if (d > CRANE_BEAM_LEN) return false;
-          var a = Math.atan2(pl.y - c.y, pl.x - c.x);
+          var a = Math.atan2(t.y - c.y, t.x - c.x);
           var diff = a - ca;
           while (diff > Math.PI) diff -= 6.28318;
           while (diff < -Math.PI) diff += 6.28318;
           return Math.abs(diff) < CRANE_HALF_WIDTH;
-        }, c.x, c.y);
+        };
+        hitPlayers(st, inBeam, c.x, c.y);
+        hitEnemies(st, inBeam, 7, dt);
         if (c.phaseT <= 0) { c.phase = 'idle'; c.phaseT = c.flareT; }
       }
     }
@@ -88,9 +109,11 @@
         p.phase = 'burn'; p.phaseT = 0.6;
         if (DA.audio) DA.audio.roar();
       } else if (p.phase === 'burn') {
-        hitPlayers(st, (function (pp) {
-          return function (pl) { return DA.dist2(pl.x, pl.y, pp.x, pp.y) < pp.r * pp.r; };
-        })(p), p.x, p.y);
+        var inFlame = (function (pp) {
+          return function (t) { return DA.dist2(t.x, t.y, pp.x, pp.y) < pp.r * pp.r; };
+        })(p);
+        hitPlayers(st, inFlame, p.x, p.y);
+        hitEnemies(st, inFlame, 7, dt);
         if (p.phaseT <= 0) { p.phase = 'idle'; p.phaseT = p.cycle; }
       }
     }

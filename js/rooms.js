@@ -131,7 +131,7 @@
     },
     backlot: {
       ep: 2, map: { x: 2, y: 1 },
-      name: 'THE BACKLOT', floor: '#36342e', decor: 'crates',
+      name: 'THE BACKLOT', floor: '#36342e', decor: 'crates', hazard: 'pyro',
       exits: { S: 'suite' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 110, interval: 1.1, burst: 7 },
@@ -158,7 +158,7 @@
     },
     serverroom: {
       ep: 2, map: { x: 1, y: 2 },
-      name: 'SERVER ROOM', floor: '#2c323a', decor: 'servers',
+      name: 'SERVER ROOM', floor: '#2c323a', decor: 'servers', hazard: 'crane',
       exits: { E: 'suite' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 125, interval: 1.1, burst: 7 },

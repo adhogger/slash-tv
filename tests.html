@@ -528,6 +528,18 @@ test('room hazards: crane beam warns then damages, pyro warns then burns', funct
   assert(p.phase === 'burn', 'transitions to burn');
   DA.updateHazards(st2, 0.02);                     // next tick: it's actually alight now
   assert(st2.player.hearts === hearts1 - 1, 'standing on it while it burns hurts');
+
+  // the studio's weapons work on the cast too: a zombie in the flames cooks
+  st2.player.x = p.x + 500; st2.player.y = p.y;    // player well clear
+  var z = DA.makeEnemy('shambler', p.x, p.y);
+  st2.enemies = [z]; st2.score = 0;
+  var zh = z.hp;
+  p.phase = 'burn'; p.phaseT = 0.6;
+  DA.updateHazards(st2, 0.1);
+  assert(z.hp < zh, 'burn damages a zombie standing in it');
+  for (var bt = 0; bt < 80 && st2.enemies.length; bt++) { p.phase = 'burn'; p.phaseT = 0.6; DA.updateHazards(st2, 0.1); }
+  assert(st2.enemies.length === 0, 'sustained burn kills it');
+  assert(st2.score > 0, 'hazard kills still pay out score');
 });
 test('boss fires radial bursts and has phases', function () {
   var b = DA.makeBoss();
