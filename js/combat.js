@@ -53,6 +53,8 @@
       if (DA.dist2(x, y, e.x, e.y) >= radius * radius) continue;
       e.hp -= dmg;
       e.hitFlash = 0.12;
+      var fd = Math.max(1, Math.sqrt(DA.dist2(x, y, e.x, e.y)));
+      e.hitDx = (e.x - x) / fd; e.hitDy = (e.y - y) / fd;   // flinch away from the blast
       if (e.hp > 0) continue;
       st.enemies.splice(i, 1);
       st.score += e.score;                    // splash kills: no combo bump
@@ -103,6 +105,7 @@
             e.hp -= hitDmg;
           }
           e.hitFlash = 0.12;
+          e.hitDx = b.dx; e.hitDy = b.dy;   // draw-time flinch shoves along the shot's line
           // a pained groan on impact — reuses the same low ambient-groan
           // voice, gated so a minigun spraying six zombies at once doesn't
           // stack into a wall of noise

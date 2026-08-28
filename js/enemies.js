@@ -273,6 +273,8 @@
       if (DA.dist2(x, y, e.x, e.y) >= BLAST_RADIUS * BLAST_RADIUS) continue;
       e.hp -= BLAST_DMG;
       e.hitFlash = 0.12;
+      var bd = Math.max(1, Math.sqrt(DA.dist2(x, y, e.x, e.y)));
+      e.hitDx = (e.x - x) / bd; e.hitDy = (e.y - y) / bd;   // flinch away from the blast
       if (e.hp > 0) continue;
       st.enemies.splice(i, 1);
       st.score += e.score;                               // blast kills: no combo bump
@@ -321,6 +323,10 @@
       }
       var jx = wind > 0 ? DA.rand(-3, 3) * wind : 0, jy = wind > 0 ? DA.rand(-3, 3) * wind : 0;
       var ex = e.x + jx, ey = e.y + jy;
+      // hit flinch: a draw-time-only shove along the shot's line — the sim
+      // position never moves, so pathing/collision stay untouched
+      var fk = e.hitFlash > 0 && e.hitDx != null ? e.hitFlash / 0.12 : 0;
+      if (fk) { ex += e.hitDx * 3 * fk; ey += e.hitDy * 3 * fk; }
       if (wind > 0 && players) {
         var tgt = DA.nearestPlayer(players, e.x, e.y);
         var flash = Math.sin(performance.now() / 40) > 0 ? 1 : 0.4;   // fast strobe
@@ -353,6 +359,10 @@
         var wsz = sheet.world * (e.r / sheet.baseR);  // elites stamp bigger
         ctx.save();
         ctx.translate(ex, ey);
+        if (fk) {                                     // brief squash along the hit axis
+          var fha = Math.atan2(e.hitDy, e.hitDx);
+          ctx.rotate(fha); ctx.scale(1 + 0.18 * fk, 1 - 0.14 * fk); ctx.rotate(-fha);
+        }
         ctx.rotate(h);
         ctx.drawImage(img, -wsz / 2, -wsz / 2, wsz, wsz);
         ctx.restore();
