@@ -201,8 +201,9 @@
       for (var pw = 0; pw < players.length; pw++) {
         var pl = players[pw];
         var minD = pl.r + ez.r;
-        var out = DA.norm(ez.x - pl.x, ez.y - pl.y);
-        if (out.len >= minD) continue;
+        var pdx = ez.x - pl.x, pdy = ez.y - pl.y;
+        if (pdx * pdx + pdy * pdy >= minD * minD) continue;   // cheap squared check first —
+        var out = DA.norm(pdx, pdy);                          // norm allocates, so only touching pairs pay
         if (out.len === 0) { out.x = Math.cos(ez.wobble); out.y = Math.sin(ez.wobble); }
         ez.x = pl.x + out.x * minD;
         ez.y = pl.y + out.y * minD;
@@ -218,8 +219,9 @@
         var zz = arr[zi];
         if (zz === boss || zz.isBoss) continue;
         var bMinD = boss.r + zz.r;
-        var bOut = DA.norm(zz.x - boss.x, zz.y - boss.y);
-        if (bOut.len >= bMinD) continue;
+        var bdx = zz.x - boss.x, bdy = zz.y - boss.y;
+        if (bdx * bdx + bdy * bdy >= bMinD * bMinD) continue;   // same cheap gate as the player wall
+        var bOut = DA.norm(bdx, bdy);
         if (bOut.len === 0) { bOut.x = Math.cos(zz.wobble); bOut.y = Math.sin(zz.wobble); }
         zz.x = boss.x + bOut.x * bMinD;
         zz.y = boss.y + bOut.y * bMinD;

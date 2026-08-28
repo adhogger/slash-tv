@@ -199,8 +199,13 @@
     DA.fx.aberration = Math.max(DA.fx.aberration, amount);
   };
 
+  // hard ceiling on live particles — past this, new ones are dropped rather
+  // than letting a bomb-chain frame allocate without bound (GC-stutter
+  // insurance before co-op multiplies every burst by more players)
+  var PARTICLE_CAP = 1200;
   DA.burst = function (x, y, color, n, dx, dy) {
     for (var i = 0; i < n; i++) {
+      if (DA.fx.particles.length >= PARTICLE_CAP) return;
       var a = DA.rand(0, 6.28), s = DA.rand(60, 260);
       DA.fx.particles.push({ x: x, y: y,
                              vx: Math.cos(a) * s + (dx || 0) * 170,   // spray follows the shot
@@ -388,11 +393,15 @@
 
   DA.updateFx = function (dt) {
     var fx = DA.fx;
-    for (var i = fx.particles.length - 1; i >= 0; i--) {
+    // in-place compaction instead of splice-per-expiry: one O(n) pass with
+    // no mid-array shifting, the classic hot-loop array pattern
+    var alive = 0;
+    for (var i = 0; i < fx.particles.length; i++) {
       var p = fx.particles[i];
       p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
-      if (p.life <= 0) fx.particles.splice(i, 1);
+      if (p.life > 0) fx.particles[alive++] = p;
     }
+    fx.particles.length = alive;
     for (var j = fx.popups.length - 1; j >= 0; j--) {
       var pop = fx.popups[j];
       pop.y -= 25 * dt; pop.life -= dt;

@@ -1126,8 +1126,11 @@
     g.fillStyle = grad; g.fillRect(0, 0, DA.W, DA.H);
     return c;
   })();
+  // half resolution on purpose: the aberration ghost is blurry by nature,
+  // and full-res copies cost the most on exactly the busiest frames
+  var AB_W = DA.W / 2, AB_H = DA.H / 2;
   var abScratch = (function () {                    // scratch buffer for chromatic aberration
-    var c = document.createElement('canvas'); c.width = DA.W; c.height = DA.H;
+    var c = document.createElement('canvas'); c.width = AB_W; c.height = AB_H;
     return c;
   })();
   var abCtx = abScratch.getContext('2d');
@@ -1292,22 +1295,22 @@
     if (amount <= 0) return;
     var off = 2 + amount * 7;
     abCtx.globalCompositeOperation = 'source-over';
-    abCtx.clearRect(0, 0, DA.W, DA.H);
-    abCtx.drawImage(ctx.canvas, 0, 0);
+    abCtx.clearRect(0, 0, AB_W, AB_H);
+    abCtx.drawImage(ctx.canvas, 0, 0, AB_W, AB_H);
     abCtx.globalCompositeOperation = 'multiply';
     abCtx.fillStyle = '#ff2a40';
-    abCtx.fillRect(0, 0, DA.W, DA.H);
+    abCtx.fillRect(0, 0, AB_W, AB_H);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.4 * Math.min(1, amount);
-    ctx.drawImage(abScratch, off, 0);
+    ctx.drawImage(abScratch, off, 0, DA.W, DA.H);
     abCtx.globalCompositeOperation = 'source-over';
-    abCtx.clearRect(0, 0, DA.W, DA.H);
-    abCtx.drawImage(ctx.canvas, 0, 0);
+    abCtx.clearRect(0, 0, AB_W, AB_H);
+    abCtx.drawImage(ctx.canvas, 0, 0, AB_W, AB_H);
     abCtx.globalCompositeOperation = 'multiply';
     abCtx.fillStyle = '#20c8ff';
-    abCtx.fillRect(0, 0, DA.W, DA.H);
-    ctx.drawImage(abScratch, -off, 0);
+    abCtx.fillRect(0, 0, AB_W, AB_H);
+    ctx.drawImage(abScratch, -off, 0, DA.W, DA.H);
     ctx.restore();
   }
   // was the old-TV overlay: darkened corners, scanlines, and a curved-edge
@@ -1370,29 +1373,43 @@
     }
     ctx.restore();
   }
-  function drawArena(ctx, st) {
+  // walls + floor + decor + tint + wash + cables never change within a room,
+  // so they're baked once per room and drawn as a single image — drawArena
+  // stops repainting six full-canvas layers every frame
+  var arenaCache = {};
+  function arenaBase(st) {
+    var id = (st && st.roomId) || 'title';
+    if (arenaCache[id]) return arenaCache[id];
     var A = DA.ARENA;
-    ctx.fillStyle = '#201e29';                        // walls — darker now the CRT vignette is gone
-    ctx.fillRect(0, 0, DA.W, DA.H);
-    ctx.fillStyle = floorPattern((st.room && st.room.floor) || '#1c1c26'); // tiled floor
-    ctx.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0);
-    ctx.drawImage(decorCanvas(st), A.x0, A.y0);        // this room's set dressing
+    var c = document.createElement('canvas'); c.width = DA.W; c.height = DA.H;
+    var g = c.getContext('2d');
+    g.fillStyle = '#201e29';                          // walls — darker now the CRT vignette is gone
+    g.fillRect(0, 0, DA.W, DA.H);
+    g.fillStyle = floorPattern((st.room && st.room.floor) || '#1c1c26'); // tiled floor
+    g.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0);
+    g.drawImage(decorCanvas(st), A.x0, A.y0);          // this room's set dressing
     var tint = ROOM_TINT[st.room && st.room.decor];    // ambient colour per set
     if (tint) {
-      ctx.fillStyle = tint;
-      ctx.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0);
+      g.fillStyle = tint;
+      g.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0);
     }
-    ctx.fillStyle = 'rgba(4, 3, 8, 0.22)';             // a flat darkening wash — no vignette
-    ctx.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0); // to fake anymore, just less raw brightness
+    g.fillStyle = 'rgba(4, 3, 8, 0.22)';               // a flat darkening wash — no vignette
+    g.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0);  // to fake anymore, just less raw brightness
     // cable runs taped across the floor — a real set is never tidy
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)';
-    ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    ctx.moveTo(A.x0 + 60, A.y1 - 12);
-    ctx.bezierCurveTo(DA.W * 0.35, A.y1 - 26, DA.W * 0.6, A.y1 - 6, A.x1 - 60, A.y1 - 18);
-    ctx.moveTo(A.x1 - 14, A.y0 + 70);
-    ctx.bezierCurveTo(A.x1 - 30, DA.H * 0.4, A.x1 - 8, DA.H * 0.6, A.x1 - 22, A.y1 - 70);
-    ctx.stroke();
+    g.strokeStyle = 'rgba(0, 0, 0, 0.28)';
+    g.lineWidth = 3.5;
+    g.beginPath();
+    g.moveTo(A.x0 + 60, A.y1 - 12);
+    g.bezierCurveTo(DA.W * 0.35, A.y1 - 26, DA.W * 0.6, A.y1 - 6, A.x1 - 60, A.y1 - 18);
+    g.moveTo(A.x1 - 14, A.y0 + 70);
+    g.bezierCurveTo(A.x1 - 30, DA.H * 0.4, A.x1 - 8, DA.H * 0.6, A.x1 - 22, A.y1 - 70);
+    g.stroke();
+    arenaCache[id] = c;
+    return c;
+  }
+  function drawArena(ctx, st) {
+    var A = DA.ARENA;
+    ctx.drawImage(arenaBase(st), 0, 0);
     var sweep = performance.now() / 4000;
     var followed = st.players || (st.player ? [st.player] : null);
     for (var tp = 0; tp < 4; tp++) {                   // camera tripods, tucked right into each
