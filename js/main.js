@@ -1109,10 +1109,19 @@
     var c = document.createElement('canvas'); c.width = w; c.height = h;
     var g = c.getContext('2d');
     var type = (st && st.room && st.room.decor) || 'stage';
-    g.strokeStyle = 'rgba(255,255,255,0.055)';
-    g.fillStyle = 'rgba(255,255,255,0.045)';
+    // ~0.05 was invisible at gameplay speed under the darkening wash — the
+    // sets exist, so let them read. Emissive accents below go brighter still.
+    g.strokeStyle = 'rgba(255,255,255,0.11)';
+    g.fillStyle = 'rgba(255,255,255,0.09)';
     g.lineWidth = 3;
     var i, x, y;
+    function glowDot(cx, cy, r2, color) {              // a baked self-lit accent: soft halo + hot core
+      g.fillStyle = color.replace('%A', '0.10');
+      g.beginPath(); g.arc(cx, cy, r2 * 2.6, 0, 7); g.fill();
+      g.fillStyle = color.replace('%A', '0.42');
+      g.beginPath(); g.arc(cx, cy, r2, 0, 7); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.09)';
+    }
     function cross(cx, cy, s) {
       g.beginPath();
       g.moveTo(cx - s, cy - s); g.lineTo(cx + s, cy + s);
@@ -1123,10 +1132,12 @@
       for (i = 0; i < 6; i++) cross(120 + i * 195, (i % 2) ? 130 : h - 140, 16);
       g.beginPath(); g.moveTo(60, h / 2 - 14); g.lineTo(w - 60, h / 2 - 14);
       g.moveTo(60, h / 2 + 14); g.lineTo(w - 60, h / 2 + 14); g.stroke();
+      for (i = 0; i < 6; i++) glowDot(120 + i * 195, (i % 2) ? 130 : h - 140, 3, 'rgba(232,212,77,%A)');
     } else if (type === 'crates') {             // stacked prop crates
       for (i = 0; i < 9; i++) {
         x = 90 + (i * 233) % (w - 180); y = 80 + (i * 157) % (h - 160);
         g.strokeRect(x, y, 54, 54); g.strokeRect(x + 8, y + 8, 38, 38);
+        if (i % 3 === 0) { g.fillStyle = 'rgba(255,140,40,0.3)'; g.fillRect(x, y + 22, 54, 8); g.fillStyle = 'rgba(255,255,255,0.09)'; }
       }
     } else if (type === 'tables') {             // round tables, four chairs
       for (i = 0; i < 7; i++) {
@@ -1135,15 +1146,20 @@
         [[46, 0], [-46, 0], [0, 46], [0, -46]].forEach(function (o) {
           g.beginPath(); g.arc(x + o[0], y + o[1], 8, 0, 7); g.stroke();
         });
+        glowDot(x, y, 4, 'rgba(255,200,120,%A)');
       }
     } else if (type === 'monitors') {           // a monitor wall + floor cables
-      for (i = 0; i < 14; i++) g.strokeRect(40 + i * 80, 18, 62, 40);
+      for (i = 0; i < 14; i++) {
+        g.strokeRect(40 + i * 80, 18, 62, 40);
+        if (i % 2 === 0) { g.fillStyle = 'rgba(255,170,90,0.26)'; g.fillRect(44 + i * 80, 22, 54, 32); g.fillStyle = 'rgba(255,255,255,0.09)'; }
+      }
       g.beginPath(); g.moveTo(60, 80); g.bezierCurveTo(w / 3, h / 2, w / 2, h / 3, w - 80, h - 60); g.stroke();
     } else if (type === 'racks') {              // wardrobe rails with hangers
       for (i = 0; i < 4; i++) {
         y = 110 + i * 130;
         g.beginPath(); g.moveTo(120, y); g.lineTo(w - 120, y); g.stroke();
         for (x = 160; x < w - 140; x += 70) { g.beginPath(); g.arc(x, y + 12, 9, 0, 7); g.stroke(); }
+        glowDot(120, y, 3.5, 'rgba(255,180,150,%A)'); glowDot(w - 120, y, 3.5, 'rgba(255,180,150,%A)');
       }
     } else if (type === 'papers') {             // scattered scripts
       for (i = 0; i < 26; i++) {
@@ -1151,15 +1167,21 @@
         g.save(); g.translate(x, y); g.rotate((i * 0.83) % 6.28);
         g.strokeRect(-13, -17, 26, 34); g.restore();
       }
+      g.fillStyle = 'rgba(200,210,255,0.22)'; g.fillRect(w / 2 - 40, h / 2 - 28, 80, 56);
+      g.fillStyle = 'rgba(255,255,255,0.09)';
     } else if (type === 'desks') {              // edit bays in rows
       for (i = 0; i < 8; i++) {
         x = 110 + (i % 4) * 280; y = 120 + Math.floor(i / 4) * 300;
         g.strokeRect(x, y, 130, 60); g.strokeRect(x + 40, y - 26, 50, 26);
+        g.fillStyle = 'rgba(170,140,255,0.28)'; g.fillRect(x + 43, y - 23, 44, 20);
+        g.fillStyle = 'rgba(255,255,255,0.09)';
       }
     } else if (type === 'mirrors') {            // makeup bulbs along both walls
       for (i = 0; i < 16; i++) {
         g.beginPath(); g.arc(70 + i * 72, 26, 9, 0, 7); g.stroke();
         g.beginPath(); g.arc(70 + i * 72, h - 26, 9, 0, 7); g.stroke();
+        glowDot(70 + i * 72, 26, 5, 'rgba(255,220,160,%A)');
+        glowDot(70 + i * 72, h - 26, 5, 'rgba(255,220,160,%A)');
       }
     } else if (type === 'servers') {            // racks + status LEDs
       for (i = 0; i < 8; i++) {
@@ -1167,24 +1189,28 @@
         g.strokeRect(x, 30, 60, 110); g.strokeRect(x, h - 140, 60, 110);
         g.fillStyle = i % 2 ? 'rgba(126,224,129,0.35)' : 'rgba(212,58,75,0.35)';
         g.fillRect(x + 8, 42, 8, 8); g.fillRect(x + 8, h - 128, 8, 8);
-        g.fillStyle = 'rgba(255,255,255,0.045)';
+        g.fillRect(x + 24, 42, 8, 8); g.fillRect(x + 40, h - 128, 8, 8);
+        g.fillStyle = 'rgba(255,255,255,0.09)';
       }
     } else if (type === 'lounge') {             // green room sofas + rug
       g.strokeRect(w / 2 - 170, h / 2 - 110, 340, 220);
       [[w / 2 - 120, h / 2 - 170], [w / 2 + 40, h / 2 + 140]].forEach(function (s) {
         g.strokeRect(s[0], s[1], 130, 46); g.strokeRect(s[0] + 8, s[1] + 8, 114, 30);
+        glowDot(s[0] + 150, s[1] + 23, 5, 'rgba(255,210,140,%A)');
       });
     } else if (type === 'lighting') {           // a rigged lighting grid overhead
       for (i = 0; i < 10; i++) {
         x = 70 + (i * 121) % (w - 140);
         g.beginPath(); g.arc(x, 34, 12, 0, 7); g.stroke();
         g.beginPath(); g.moveTo(x, 46); g.lineTo(x, 20); g.moveTo(x - 14, 34); g.lineTo(x + 14, 34); g.stroke();
+        glowDot(x, 34, 6, 'rgba(255,220,130,%A)');
       }
     } else if (type === 'catwalk') {            // steel walkway grating
       for (y = 90; y < h - 60; y += 130) {
         g.beginPath(); g.moveTo(50, y); g.lineTo(w - 50, y);
         g.moveTo(50, y + 22); g.lineTo(w - 50, y + 22); g.stroke();
         for (x = 60; x < w - 60; x += 26) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 22); g.stroke(); }
+        glowDot(50, y + 11, 3.5, 'rgba(255,70,70,%A)'); glowDot(w - 50, y + 11, 3.5, 'rgba(255,70,70,%A)');
       }
     } else if (type === 'cranebay') {           // rigging track along the ceiling
       g.beginPath(); g.moveTo(40, 44); g.lineTo(w - 40, 44); g.stroke();
@@ -1192,11 +1218,15 @@
         x = 90 + i * ((w - 180) / 6);
         g.strokeRect(x - 10, 44, 20, 14);
         g.beginPath(); g.moveTo(x, 58); g.lineTo(x, 90); g.stroke();
+        if (i % 2 === 0) glowDot(x, 51, 3, 'rgba(255,190,80,%A)');
       }
     } else if (type === 'pyrobay') {            // fuel canisters + hazard stripes
       for (i = 0; i < 6; i++) {
         x = 90 + (i * 210) % (w - 180); y = 90 + (i * 173) % (h - 180);
         g.strokeRect(x - 16, y - 26, 32, 52);
+        g.fillStyle = 'rgba(255,120,40,0.32)'; g.fillRect(x - 16, y - 6, 32, 9);
+        g.fillStyle = 'rgba(255,255,255,0.09)';
+        glowDot(x, y - 32, 2.5, 'rgba(255,170,60,%A)');
       }
       g.save(); g.translate(w - 70, h - 40); g.rotate(-0.4);
       for (i = -3; i <= 3; i++) { g.beginPath(); g.moveTo(i * 14 - 60, -10); g.lineTo(i * 14 - 40, 10); g.stroke(); }
@@ -1206,12 +1236,16 @@
         x = 120 + i * ((w - 240) / 3); y = 70;
         g.beginPath(); g.arc(x, y, 26, 3.6, 5.9); g.stroke();
         g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 40); g.stroke();
+        glowDot(x, y, 3, 'rgba(90,220,255,%A)');
       }
       g.beginPath(); g.moveTo(60, h - 60); g.bezierCurveTo(w / 3, h - 100, w * 2 / 3, h - 20, w - 60, h - 70); g.stroke();
     } else if (type === 'bossfloor') {          // the star's mark
       g.save(); g.translate(w / 2, h / 2);
       for (i = 0; i < 5; i++) { g.rotate(6.28 / 5); g.beginPath(); g.moveTo(0, -58); g.lineTo(0, -110); g.stroke(); }
       g.restore();
+      g.strokeStyle = 'rgba(255,80,80,0.28)'; g.lineWidth = 5;
+      g.beginPath(); g.arc(w / 2, h / 2, 58, 0, 7); g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,0.11)'; g.lineWidth = 3;
       g.beginPath(); g.arc(w / 2, h / 2, 58, 0, 7); g.stroke();
       for (i = 0; i < 6; i++) cross(120 + i * 195, (i % 2) ? 100 : h - 110, 14);
     }
@@ -1249,6 +1283,27 @@
   // no-op since it's still called from several draw sites below.
   function drawScreenFx(ctx) {}
 
+  // per-set corner-spotlight rigs: [top pair, bottom pair] beam colors, plus
+  // an optional character flag — steady (no sweep), flicker (fire-light),
+  // follow (spots track the boss). Sets without an entry get the stage rig.
+  var LIGHT_RIGS = {
+    stage:     { rgb: ['47, 215, 196', '255, 45, 209'] },
+    mirrors:   { rgb: ['255, 190, 120', '255, 160, 190'] },
+    tables:    { rgb: ['150, 220, 170', '230, 210, 140'] },
+    monitors:  { rgb: ['255, 170, 90', '120, 180, 255'] },
+    servers:   { rgb: ['90, 150, 255', '90, 200, 255'], steady: true },
+    crates:    { rgb: ['210, 190, 120', '160, 160, 190'] },
+    desks:     { rgb: ['170, 140, 255', '110, 200, 220'] },
+    papers:    { rgb: ['200, 200, 230', '230, 220, 170'] },
+    lounge:    { rgb: ['140, 220, 140', '230, 200, 130'] },
+    racks:     { rgb: ['255, 140, 120', '230, 170, 210'] },
+    lighting:  { rgb: ['255, 220, 130', '255, 200, 100'] },
+    catwalk:   { rgb: ['160, 160, 190', '120, 130, 160'] },
+    cranebay:  { rgb: ['255, 190, 110', '255, 160, 80'] },
+    pyrobay:   { rgb: ['255, 110, 40', '255, 170, 60'], flicker: true },
+    corebay:   { rgb: ['90, 220, 255', '47, 215, 196'] },
+    bossfloor: { rgb: ['255, 60, 60', '255, 60, 60'], follow: true }
+  };
   // ambient colour cast per set, so makeup reads pink and the server room blue
   var ROOM_TINT = {
     mirrors: 'rgba(230, 140, 200, 0.05)', tables: 'rgba(120, 200, 160, 0.04)',
@@ -1342,28 +1397,44 @@
     for (var r = 80; r <= 320; r += 80) {
       ctx.beginPath(); ctx.arc(DA.W / 2, DA.H / 2, r, 0, 7); ctx.stroke();
     }
-    // studio spotlights, one per corner: independent wandering sweeps, always —
+    // studio spotlights, one per corner: independent wandering sweeps —
     // unlike the tripod cameras above, these never lock onto a contestant.
-    // Four lights roaming the arena on their own paths reads as a real
-    // broadcast rig; four things all staring at the same two players doesn't.
-    // All four run neon now, mirrored left/right: top pair cyan, bottom pair
-    // magenta — a full cyberpunk rig, not just an accent on one side.
+    // Lighting is the game's strongest environmental language, so every SET
+    // gets its own rig instead of one cyan/magenta pair everywhere: warm
+    // tungsten in makeup, cold unmoving machine light in the server room,
+    // unsteady fire-light in the pyro bay, red followspots hunting the boss.
     var corners = [[A.x0, A.y0], [A.x1, A.y0], [A.x0, A.y1], [A.x1, A.y1]];
-    var CORNER_RGB = ['47, 215, 196', '47, 215, 196', '255, 45, 209', '255, 45, 209'];
+    var rig = LIGHT_RIGS[st.room && st.room.decor] || LIGHT_RIGS.stage;
     // base angle points from each corner straight at the arena's center, so
     // the sweep oscillates across the interior instead of drifting outward
-    // past the wall (the bottom-right corner used to do exactly that — its
-    // old hand-tuned offset pointed the beam away from the floor entirely)
     var CORNER_BASE = [Math.PI / 4, 3 * Math.PI / 4, -Math.PI / 4, -3 * Math.PI / 4];
+    var followTarget = null;
+    if (rig.follow) {                                  // followspots hunt the headliner
+      for (var ft = 0; ft < st.enemies.length; ft++) if (st.enemies[ft].isBoss) { followTarget = st.enemies[ft]; break; }
+      if (!followTarget) followTarget = st.player;
+    }
     for (var li = 0; li < 4; li++) {
       var cpos = corners[li];
-      var a = CORNER_BASE[li] + Math.sin(sweep * (li % 2 ? -1.3 : 1) + li * 1.7) * 0.6;
+      var rgb = rig.rgb[li < 2 ? 0 : 1];
+      var a;
+      if (followTarget) {
+        a = Math.atan2(followTarget.y - cpos[1], followTarget.x - cpos[0]) +
+            Math.sin(sweep * 2.4 + li * 1.7) * 0.04;   // the tiny operator wobble
+      } else if (rig.steady) {
+        a = CORNER_BASE[li];                           // machine light doesn't wander
+      } else {
+        a = CORNER_BASE[li] + Math.sin(sweep * (li % 2 ? -1.3 : 1) + li * 1.7) * 0.6;
+      }
+      var beamAlpha = 0.06;
+      if (rig.flicker) {                               // fire-adjacent light is never steady
+        beamAlpha *= 0.6 + 0.4 * Math.abs(Math.sin(performance.now() / 90 + li * 2.3) * Math.sin(performance.now() / 47));
+      }
       // full brightness for most of the throw, then a soft radial taper to
       // transparent at the very tip instead of the beam just stopping dead
       var beamGrad = ctx.createRadialGradient(cpos[0], cpos[1], 0, cpos[0], cpos[1], 900);
-      beamGrad.addColorStop(0, 'rgba(' + CORNER_RGB[li] + ', 0.06)');
-      beamGrad.addColorStop(0.7, 'rgba(' + CORNER_RGB[li] + ', 0.06)');
-      beamGrad.addColorStop(1, 'rgba(' + CORNER_RGB[li] + ', 0)');
+      beamGrad.addColorStop(0, 'rgba(' + rgb + ', ' + beamAlpha.toFixed(3) + ')');
+      beamGrad.addColorStop(0.7, 'rgba(' + rgb + ', ' + beamAlpha.toFixed(3) + ')');
+      beamGrad.addColorStop(1, 'rgba(' + rgb + ', 0)');
       ctx.fillStyle = beamGrad;
       ctx.beginPath();
       ctx.moveTo(cpos[0], cpos[1]);
