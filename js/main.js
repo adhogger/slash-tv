@@ -78,6 +78,11 @@
     executive: '"YOUR CONTRACT HAS A DEATH CLAUSE. PAGE 40."',
     algorithm: '"I HAVE SEEN EVERY WAY YOU DIE. PICK ONE."'
   };
+  var ENRAGE_TAUNTS = {                   // half health: the mask slips, on camera
+    producer: '"CUT TO COMMERCIAL?! NO. NOBODY LEAVES."',
+    executive: '"DO YOU KNOW WHAT YOU\'RE COSTING ME?!"',
+    algorithm: '"RECALCULATING. YOU ARE A ROUNDING ERROR."'
+  };
   // "We'll be right back" — a fake in-universe commercial break before each
   // boss fight. No real video (this project draws/synthesizes everything,
   // no external assets), just the same satirical corporate-TV voice the
@@ -975,10 +980,15 @@
       if (boss.type === 'executive') DA.updateExecutive(boss, st, dt);
       else if (boss.type === 'algorithm') DA.updateAlgorithm(boss, st, dt);
       else DA.updateBoss(boss, st, dt);
-      if (!boss.enraged && DA.bossPhase(boss) === 2) {   // half health: phase 2 stinger
-        boss.enraged = true;
-        if (DA.audio && DA.audio.bossSting) DA.audio.bossSting();
+      if (!boss.enraged && DA.bossPhase(boss) === 2) {   // half health: a full broadcast beat,
+        boss.enraged = true;                             // not just a sound — the signal stumbles,
+        if (DA.audio && DA.audio.bossSting) DA.audio.bossSting();   // cameras flare, the mask slips on boss cam
         if (DA.addShake) DA.addShake(10);
+        if (DA.broadcast) {
+          DA.broadcast.glitch = Math.max(DA.broadcast.glitch || 0, 0.3);
+          if (DA.broadcast.flashBurst) DA.broadcast.flashBurst(8);
+        }
+        if (ENRAGE_TAUNTS[boss.type] && DA.hostSay) DA.hostSay(ENRAGE_TAUNTS[boss.type], boss.type, 3.5);
       }
     }
     if (boss && boss.hp <= 0 && !boss.dying) startBossDeath(st, boss);

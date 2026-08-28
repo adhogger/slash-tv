@@ -204,6 +204,27 @@
       ctx.fillRect(wi * b.r * 0.75 - 6, -3, 12, 6);
       ctx.beginPath(); ctx.arc(wi * b.r * 1.1, 0, 8, 0, 7); ctx.fill();
     }
+    if (DA.bossPhase(b) === 2) {                       // visible damage: spidered lens, sparking rotor
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();                                 // spiderweb crack radiating off the lens
+      for (var ck = 0; ck < 4; ck++) {
+        var cka = 0.7 + ck * 1.5;
+        ctx.moveTo(Math.cos(cka) * b.r * 0.12, Math.sin(cka) * b.r * 0.12);
+        ctx.lineTo(Math.cos(cka + 0.25) * b.r * 0.4, Math.sin(cka + 0.25) * b.r * 0.4);
+      }
+      ctx.stroke();
+      if (Math.floor(performance.now() / 90) % 3 === 0) {   // the left rotor's dying
+        ctx.fillStyle = '#ffe17a';
+        ctx.fillRect(-b.r * 1.1 - 2, -6, 3, 3);
+        ctx.fillRect(-b.r * 1.02, -10, 2, 2);
+      }
+      ctx.strokeStyle = 'rgba(255, 80, 80, 0.4)';      // chassis stroke flickers hot
+      if (Math.floor(performance.now() / 240) % 2 === 0) {
+        ctx.lineWidth = 2;
+        ctx.beginPath(); DA.polyPath(ctx, 0, 0, b.r + 2, b.r * 0.72 + 2, 6, 0); ctx.stroke();
+      }
+    }
     ctx.restore();
   };
   DA.bossPhase = function (b) { return b.hp <= b.maxHp / 2 ? 2 : 1; };
@@ -325,8 +346,15 @@
     ctx.fillStyle = suitDark;                         // lapels closing over the shirt
     ctx.beginPath(); ctx.moveTo(r * 0.1, -r * 0.5); ctx.lineTo(r * 0.9, -r * 0.28); ctx.lineTo(r * 0.15, -r * 0.05); ctx.closePath(); ctx.fill();
     ctx.beginPath(); ctx.moveTo(r * 0.1, r * 0.5); ctx.lineTo(r * 0.9, r * 0.28); ctx.lineTo(r * 0.15, r * 0.05); ctx.closePath(); ctx.fill();
+    var ph2 = DA.bossPhase(b) === 2;                  // the fight's midpoint shows ON the body
     ctx.fillStyle = b.type === 'executive' ? '#d4a017' : '#8c1c2c';   // the tie
-    ctx.fillRect(r * 0.12, -3.5, r * 0.7, 7);
+    if (ph2 && b.type !== 'executive') {              // kicked loose, swinging with the strut
+      ctx.save(); ctx.translate(r * 0.12, 0);
+      ctx.rotate(0.5 + Math.sin((b.wobble || 0) * 3.1) * 0.2);
+      ctx.fillRect(0, -3.5, r * 0.7, 7); ctx.restore();
+    } else {
+      ctx.fillRect(r * 0.12, -3.5, r * 0.7, 7);
+    }
     var hr = r * 0.5;                                 // head, pushed toward the camera line —
                                                         // a faceted plate, not a round skull
     ctx.fillStyle = '#e0b08c';
@@ -345,6 +373,30 @@
       ctx.fillRect(r * 0.42 + hr * 0.15, -hr * 0.72, hr * 0.45, hr * 0.55);
       ctx.fillRect(r * 0.42 + hr * 0.15, hr * 0.17, hr * 0.45, hr * 0.55);
       ctx.fillRect(r * 0.42 + hr * 0.2, -hr * 0.2, hr * 0.3, hr * 0.4);
+    }
+    if (ph2) {                                        // visible damage: torn suit, cracked eyewear
+      var dmgRng = DA.makeRng((b.id || 7) * 31);      // baked per-entity, never re-rolled per frame
+      ctx.fillStyle = 'rgba(18, 12, 10, 0.5)';        // torn wedges out of the suit
+      for (var tw = 0; tw < 3; tw++) {
+        var ta = dmgRng() * 6.283, td = r * (0.4 + dmgRng() * 0.4);
+        ctx.beginPath();
+        DA.polyPath(ctx, Math.cos(ta) * td, Math.sin(ta) * td, r * 0.15, r * 0.15,
+                    3 + Math.floor(dmgRng() * 2), dmgRng() * 6.28);
+        ctx.fill();
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';     // a crack across the eyewear
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(r * 0.42 + hr * 0.2, -hr * 0.5);
+      ctx.lineTo(r * 0.42 + hr * 0.38, hr * 0.05);
+      ctx.lineTo(r * 0.42 + hr * 0.26, hr * 0.5);
+      ctx.stroke();
+      if (b.type === 'executive' &&                   // the phone sparks intermittently
+          Math.floor(performance.now() / 110) % 3 === 0) {
+        ctx.fillStyle = '#ffe17a';
+        ctx.fillRect(r * 0.6, -r * 0.62, 3, 3);
+        ctx.fillRect(r * 0.68, -r * 0.5, 2, 2);
+      }
     }
     ctx.restore();
   };
