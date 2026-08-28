@@ -39,7 +39,18 @@
       p.firing = !!s.firing;
     }
     if (p.invuln > 0) p.invuln -= dt;
-    if (p.fireCooldown > 0) p.fireCooldown -= dt;
+    if (p.fireCooldown > 0) {
+      p.fireCooldown -= dt;
+      // a heavy gun coming back up is a felt beat: click + barrel glint
+      if (p.fireCooldown <= 0 && !p.bot) {
+        var rg = DA.GUNS && (DA.GUNS[p.gun] || DA.GUNS.pistol);
+        if (rg && rg.rate >= 0.4) {
+          if (DA.audio && DA.audio.ready) DA.audio.ready();
+          p.readyGlintT = 0.12;
+        }
+      }
+    }
+    if (p.readyGlintT > 0) p.readyGlintT -= dt;
     if (p.hurtFlashT > 0) p.hurtFlashT -= dt;
     p.walkT = (p.walkT || 0) + Math.sqrt(p.vx * p.vx + p.vy * p.vy) * dt * 0.06;
     var moving = Math.abs(p.vx) > 20 || Math.abs(p.vy) > 20;
@@ -177,6 +188,11 @@
     }
     var g = DA.GUNS[p.gun] || DA.GUNS.pistol;        // per-gun muzzle flash shapes
     if (p.firing && p.fireCooldown > g.rate - 0.05) drawMuzzleFlash(ctx, p.gun, p.r);
+    if (p.readyGlintT > 0) {                         // heavy gun back up: a glint at the barrel tip
+      var gk = p.readyGlintT / 0.12;
+      ctx.fillStyle = 'rgba(255, 255, 220, ' + (0.7 * gk).toFixed(2) + ')';
+      ctx.beginPath(); ctx.arc(p.r + 16, 0, 2.5 + 2 * gk, 0, 7); ctx.fill();
+    }
     ctx.restore();
   };
 

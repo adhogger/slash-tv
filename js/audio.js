@@ -155,11 +155,35 @@
     swellT: 0.4, holdT: 6, fadeT: 12.3
   };
 
+  // every gun gets its own synth recipe so the arsenal is tellable apart by
+  // ear. Fast guns (smg/minigun/flamer fire 16-28x a second) get short,
+  // quiet ticks so sustained fire doesn't saturate; heavies get real
+  // character — pump clack, rail whine, launch thump, hollow grenade TONK.
+  var SHOT_RECIPES = {
+    pistol:  function () { noise(0.05, 0.28, 2600); blip(300 + DA.rand(-40, 40), 0.05, 'square', 0.11, 90); },
+    triple:  function () { noise(0.06, 0.26, 2100); blip(255 + DA.rand(-25, 25), 0.06, 'square', 0.12, 85); },
+    smg:     function () { noise(0.03, 0.2, 3200); blip(340 + DA.rand(-30, 30), 0.035, 'square', 0.08, 120); },
+    shotgun: function () {
+      noise(0.16, 0.5, 900); blip(120, 0.12, 'square', 0.2, 45);           // the boom
+      setTimeout(function () { blip(1400, 0.03, 'square', 0.07, 900); noise(0.03, 0.1, 4000); }, 180);   // pump clack
+    },
+    minigun: function () { noise(0.03, 0.17, 2800); blip(220 + DA.rand(-60, 60), 0.03, 'sawtooth', 0.07, 100); },
+    railgun: function () {
+      noise(0.08, 0.2, 6000);                                              // the crack
+      blip(1800, 0.18, 'sawtooth', 0.13, 120);                             // descending rail whine
+      blip(90, 0.12, 'sine', 0.18, 50);                                    // low thump under it
+    },
+    flamer:  function () { noise(0.06, 0.11, 500); if (Math.random() < 0.4) blip(70 + DA.rand(0, 40), 0.05, 'sawtooth', 0.05, 40); },
+    rocket:  function () { noise(0.25, 0.28, 600); blip(140, 0.2, 'sine', 0.25, 60); },   // whoosh-thump
+    grenade: function () { blip(180, 0.12, 'square', 0.22, 70); noise(0.06, 0.18, 1200); }   // hollow TONK
+  };
   DA.audio = {
     cheerParams: cheerParams,
-    shot: function () {
-      noise(0.05, 0.28, 2600);
-      blip(300 + DA.rand(-40, 40), 0.05, 'square', 0.11, 90);
+    shot: function (gun) {
+      (SHOT_RECIPES[gun] || SHOT_RECIPES.pistol)();
+    },
+    ready: function () {                 // a heavy gun's cooldown just came back up
+      blip(1150, 0.045, 'square', 0.1, 1600);
     },
     splat: function (r) {
       noise(0.14, 0.46, 500);
@@ -303,8 +327,24 @@
       noise(0.25, 0.4, 300);
       blip(60, 0.3, 'sine', 0.4, 35);
     },
-    pickup: function () {
-      blip(520, 0.08, 'square', 0.15, 700);
+    pickup: function (type) {            // one beep per CATEGORY, not one beep for everything
+      if (type && type.indexOf('gun_') === 0) { DA.audio.sting(); return; }   // sponsor gift: the full fanfare
+      if (type === 'heart') {                                    // warm rising major — relief
+        blip(392, 0.09, 'triangle', 0.14, 523);
+        setTimeout(function () { blip(659, 0.16, 'triangle', 0.13, 784); }, 70);
+        return;
+      }
+      if (type === 'shield') {                                   // glassy shimmer — protection
+        blip(880, 0.12, 'sine', 0.12, 1100);
+        setTimeout(function () { blip(1320, 0.2, 'sine', 0.08, 1760); }, 70);
+        return;
+      }
+      if (type === 'turret' || type === 'drone') {               // servo deploy — machinery
+        blip(520, 0.06, 'square', 0.13, 300);
+        setTimeout(function () { blip(260, 0.1, 'square', 0.12, 520); }, 70);
+        return;
+      }
+      blip(520, 0.08, 'square', 0.15, 700);                      // boots/bomb/anything else: the classic
       setTimeout(function () { blip(780, 0.14, 'square', 0.13, 1040); }, 60);
     },
     roar: function () {

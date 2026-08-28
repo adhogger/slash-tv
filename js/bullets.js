@@ -120,7 +120,7 @@
       if (DA.addShakeDir) DA.addShakeDir(g.shake, -Math.cos(base), -Math.sin(base));
       else if (DA.addShake) DA.addShake(g.shake);
     }
-    if (DA.audio) DA.audio.shot();
+    if (DA.audio) DA.audio.shot(p.gun);
     return g.pellets;
   };
   DA.drawBullets = function (ctx, arr) {

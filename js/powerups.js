@@ -110,7 +110,7 @@
           DA.spawnCompanion(st, pu.type, pu.x, pu.y);
         } else DA.applyPowerup(pl, pu.type);
         if (DA.burst) DA.burst(pu.x, pu.y, colorOf(pu.type), 14);
-        if (DA.audio) DA.audio.pickup();
+        if (DA.audio) DA.audio.pickup(pu.type);
         st.powerups.splice(i, 1);
         break;
       }

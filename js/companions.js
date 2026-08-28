@@ -63,7 +63,7 @@
         if (c.fireT <= 0) {
           DA.fireBullet(st.bullets, c.x, c.y, d.x, d.y, COMPANION_GUN);
           c.fireT = FIRE_RATE;
-          if (DA.audio) DA.audio.shot();
+          if (DA.audio) DA.audio.shot('smg');   // a light auto-gun tick, not the player's pistol crack
         }
       }
     }
