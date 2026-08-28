@@ -42,7 +42,7 @@ function AC() { var t0 = Date.now();
   return { get currentTime() { return (Date.now() - t0) / 1000; }, destination: {}, sampleRate: 44100, state: 'running', resume: function(){},
     createGain: gainNode,
     createOscillator: function () { var g = gainNode(); g.frequency = g.gain; g.start=function(){}; g.stop=function(){}; return g; },
-    createBiquadFilter: function () { var g = gainNode(); g.frequency = g.gain; return g; },
+    createBiquadFilter: function () { var g = gainNode(); g.frequency = g.gain; g.Q = g.gain; return g; },
     createBuffer: function () { return { getChannelData: function(){ return new Float32Array(64); } }; },
     createBufferSource: function () { var g = gainNode(); g.start=function(){}; g.stop=function(){}; return g; } };
 }

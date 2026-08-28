@@ -586,16 +586,38 @@
       if (DA.audio) DA.audio.roar();
       st.enemies.splice(st.enemies.indexOf(boss), 1);
       st.kills = (st.kills || 0) + 1;
-      st.bossDead = true;
-      st.roomCleared = true;
-      st.victoryExit = DA.oppositeDir(st.entryDir || 'N');
-      DA.announce('TAKE THE EXIT');
+      if (boss.rerun) {                                // endless rerun: no exit opens, the show rolls on
+        DA.announce('CANCELLED. AGAIN.');
+      } else {
+        st.bossDead = true;
+        st.roomCleared = true;
+        st.victoryExit = DA.oppositeDir(st.entryDir || 'N');
+        DA.announce('TAKE THE EXIT');
+      }
     }
   }
   function findBoss(st) {
     for (var i = 0; i < st.enemies.length; i++) if (st.enemies[i].isBoss) return st.enemies[i];
     return null;
   }
+  // Endless rerun night: a cancelled episode's boss is back, at syndication
+  // strength (60% hp, half score) — the wave can't clear until he's gone,
+  // but killing him ends in the same staged blowout, minus the victory exit
+  DA.spawnRerunBoss = function (key) {
+    var st = DA.state;
+    if (!st || !st.enemies) return;
+    var boss = key === 'executive' ? DA.makeExecutive() :
+               (key === 'algorithm' ? DA.makeAlgorithm() : DA.makeBoss());
+    boss.rerun = true;
+    boss.hp = boss.maxHp = Math.round(boss.maxHp * 0.6);
+    boss.score = Math.round(boss.score / 2);
+    boss.homeX = boss.x; boss.homeY = boss.y;
+    boss.y = -80;
+    boss.grace = 2.4;
+    st.enemies.push(boss);
+    DA.announce('A RERUN: ' + boss.name + '!');
+    if (DA.audio) (DA.audio.bossSting || DA.audio.roar)();
+  };
 
   function checkExits(st) {
     for (var dir in st.room.exits) {

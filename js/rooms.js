@@ -295,7 +295,31 @@
   DA.roomDeaths = {};
 
   // Procedural wave for the Endless Arena. n starts at 0 and never stops.
+  // Pure-linear ramps flatten into arithmetic after wave ~8, so the format
+  // now breaks: every 10th wave is a boss RERUN ("a cancelled episode,
+  // re-aired"), and every 4th a themed interrupt segment that changes the
+  // SHAPE of the fight, not just its size. Everything else stays the ramp.
   DA.endlessWave = function (n) {
+    if (n > 0 && n % 10 === 0) {                       // rerun night: a boss is back
+      return { doors: 2, boss: ['producer', 'executive', 'algorithm'][((n / 10) - 1) % 3],
+               groups: [{ type: 'shambler', count: 30 + n * 3, interval: 2.0, burst: 5 }] };
+    }
+    if (n >= 4 && n % 4 === 0) {                       // a themed format break
+      var k = Math.floor(n / 4) % 4;
+      if (k === 1) return { doors: 2, announce: 'SEGMENT: THE WALL', elite: 1,
+        groups: [{ type: 'brute',   count: 3 + Math.floor(n / 3), interval: 4 },
+                 { type: 'boomer',  count: 2 + Math.floor(n / 4), interval: 5 },
+                 { type: 'shambler', count: 30 + n * 3, interval: 1.4, burst: 6 }] };
+      if (k === 2) return { doors: 3, announce: 'SEGMENT: STALKER NIGHT',
+        groups: [{ type: 'stalker', count: 4 + Math.floor(n / 2), interval: 2.0 },
+                 { type: 'shambler', count: 35 + n * 3, interval: 1.3, burst: 6 }] };
+      if (k === 3) return { doors: 1, announce: 'SEGMENT: THE FLOOD',
+        groups: [{ type: 'shambler', count: 70 + n * 8, interval: 0.8, burst: 12 },
+                 { type: 'swarmer',  count: 20 + n * 3, interval: 1.2, burst: 8 }] };
+      return { doors: 3, announce: 'SEGMENT: RUSH HOUR',
+        groups: [{ type: 'sprinter', count: 20 + n * 3, interval: 1.0, speed: Math.min(130 + n * 4, 185) },
+                 { type: 'swarmer',  count: 30 + n * 4, interval: 1.0, burst: 6 }] };
+    }
     var groups = [{ type: 'shambler', count: 45 + n * 9,
                     interval: Math.max(0.8, 1.6 - n * 0.05), burst: 7 }];
     if (n >= 1) groups.push({ type: 'swarmer', count: 10 + n * 4, interval: 1.3, burst: 5 });
@@ -374,6 +398,13 @@
                timer: wm.primed ? 0.1 : 0.5 };
     });
     wm.primed = false;
+    // directed elites: a wave can guarantee champions (wave.elite budget)
+    // on top of a base chance that RAMPS with endless depth instead of
+    // staying a flat 2% forever
+    wm.eliteBudget = wave.elite || 0;
+    wm.eliteChance = wm.room.endless ? Math.min(0.08, 0.02 + wm.wave * 0.002) : 0.02;
+    if (wave.announce && DA.announce) DA.announce(wave.announce);
+    if (wave.boss && DA.spawnRerunBoss) DA.spawnRerunBoss(wave.boss);
     if (DA.onWaveStart) DA.onWaveStart(wm.wave + 1);
   }
   DA.updateWaves = function (wm, enemies, dt) {
@@ -437,7 +468,10 @@
           if (DA.onBurstStart) DA.onBurstStart(s.burstDoor);
         }
         s.burstLeft--; s.left--;
-        DA.spawnAtDoor(enemies, s.type, s.speed, [s.burstDoor]);
+        var makeElite;
+        if (wm.eliteBudget > 0 && Math.random() < 0.12) { makeElite = true; wm.eliteBudget--; }
+        else makeElite = Math.random() < (wm.eliteChance != null ? wm.eliteChance : 0.02);
+        DA.spawnAtDoor(enemies, s.type, s.speed, [s.burstDoor], makeElite);
         // packs pour out fast (was 0.12s/zombie) and the quiet gap between
         // packs is much shorter (was 0.7-1.3x interval) — bigger, faster,
         // more relentless waves instead of a slow trickle

@@ -106,12 +106,14 @@
   // Elites: rare gold-ringed champions — triple hp and score, and the
   // audience ALWAYS throws a gift when one goes down (see DA.onKill).
   var ELITE_CHANCE = 0.02;
-  DA.spawnAtDoor = function (arr, type, speed, doors) {
+  // elite: pass true/false to direct the roll (wave elite budgets, ramped
+  // endless chance — js/rooms.js); omit for the classic flat house odds
+  DA.spawnAtDoor = function (arr, type, speed, doors, elite) {
     var pool = (doors && doors.length) ? doors : DA.DOORS;
     var d = pool[Math.floor(Math.random() * pool.length)];
     var e = DA.makeEnemy(type, d.x + DA.rand(-30, 30), d.y + DA.rand(-30, 30), speed);
     e.grace = DA.SPAWN_GRACE;
-    if (Math.random() < ELITE_CHANCE) {
+    if (elite == null ? Math.random() < ELITE_CHANCE : elite) {
       e.elite = true;
       e.hp *= 3;
       e.score *= 3;

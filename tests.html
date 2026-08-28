@@ -334,19 +334,28 @@ test('boost timers freeze when no combat is active', function () {
   DA.updatePlayer(p, null, 1, true);
   assert(p.gunT < 10 && p.bootsT < 10, 'timers tick during combat');
 });
-test('endless waves scale up but keep the door cap and sane spawn rates', function () {
-  var prev = 0;
-  for (var n = 0; n < 20; n++) {
+test('endless waves scale, break format every 4th, and rerun a boss every 10th', function () {
+  var prevLinear = 0;
+  for (var n = 0; n < 32; n++) {
     var w = DA.endlessWave(n);
     assert(w.doors >= 1 && w.doors <= 4, 'doors capped, wave ' + n + ' has ' + w.doors);
-    var total = 0;
     for (var g = 0; g < w.groups.length; g++) {
-      total += w.groups[g].count;
       assert(w.groups[g].interval >= 0.05, 'spawn interval floor');
     }
-    assert(total > prev, 'wave ' + n + ' should be bigger than the last');
-    prev = total;
+    if (n > 0 && n % 10 === 0) {
+      assert(w.boss, 'wave ' + n + ' is a boss rerun');
+    } else if (n >= 4 && n % 4 === 0) {
+      assert(w.announce && !w.boss, 'wave ' + n + ' is a themed format break');
+    } else {
+      var total = 0;
+      for (var g2 = 0; g2 < w.groups.length; g2++) total += w.groups[g2].count;
+      assert(total > prevLinear, 'linear wave ' + n + ' bigger than the last linear one');
+      prevLinear = total;
+      assert(!w.boss && !w.announce, 'ordinary waves stay ordinary');
+    }
   }
+  var reruns = [DA.endlessWave(10).boss, DA.endlessWave(20).boss, DA.endlessWave(30).boss];
+  assert(reruns[0] !== reruns[1] && reruns[1] !== reruns[2], 'reruns rotate through the bosses: ' + reruns.join(','));
 });
 test('endless wave manager never finishes', function () {
   var wm = DA.makeWaveManager(DA.ROOMS.endless);
