@@ -426,6 +426,7 @@
     if (fx.shake > 0) fx.shake = Math.max(0, fx.shake - 30 * dt);
     if (fx.aberration > 0) fx.aberration = Math.max(0, fx.aberration - 1.8 * dt);
     if (fx.neonFlash > 0) fx.neonFlash = Math.max(0, fx.neonFlash - dt / 1.6);
+    if (fx.houseDip > 0) fx.houseDip = Math.max(0, fx.houseDip - dt / 0.9);   // act-break house lights come back up
     for (var d = fx.dust.length - 1; d >= 0; d--) {
       var du = fx.dust[d];
       du.y += du.vy * dt; du.life -= dt;

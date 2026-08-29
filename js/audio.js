@@ -206,6 +206,66 @@
       blip(1400, 0.05, 'triangle', 0.16, 2200);
       noise(0.04, 0.08, 5000);
     },
+    // ---- per-boss voice kits: each headliner leaves the generic roar ----
+    micBark: function () {               // the Producer barks through the PA — his burst warning
+      blip(140, 0.3, 'sawtooth', 0.3, 70);
+      blip(280, 0.18, 'square', 0.12, 110);
+      noise(0.06, 0.12, 1800);
+    },
+    countTick: function () {             // stage-manager talkback tick — the camera count
+      blip(880, 0.07, 'square', 0.14);
+    },
+    camVolley: function () {             // the corner cameras open fire
+      blip(1320, 0.35, 'square', 0.16, 990);
+      noise(0.08, 0.15, 3000);
+    },
+    micFeedback: function () {           // the mask slips: rising PA feedback squeal
+      blip(900, 0.28, 'sawtooth', 0.1, 2400);
+      blip(2350, 0.35, 'sine', 0.05);
+    },
+    execVanish: function () {            // the Executive leaves the meeting — a falling zip
+      noise(0.05, 0.06, 4000);
+      blip(700, 0.12, 'sine', 0.14, 180);
+    },
+    execArrive: function () {            // ...and takes the next one, with a faint cha-ching
+      blip(300, 0.12, 'square', 0.14, 900);
+      setTimeout(function () { blip(1568, 0.05, 'triangle', 0.1, 1568); }, 60);
+      setTimeout(function () { blip(2093, 0.12, 'triangle', 0.09); }, 120);
+    },
+    stamp: function () {                 // the gavel: an asset is claimed
+      noise(0.05, 0.3, 1500);
+      blip(110, 0.15, 'square', 0.25, 60);
+    },
+    sizzle: function () {                // a claimed zone goes hot
+      noise(0.35, 0.12, 700);
+    },
+    kaChing: function () {               // the register: his money moments
+      blip(1567, 0.06, 'triangle', 0.12, 2093);
+      setTimeout(function () { blip(2093, 0.14, 'triangle', 0.11, 2637); }, 60);
+    },
+    shutter: function () {               // the Algorithm photographs you between attacks
+      blip(2400, 0.03, 'square', 0.05, 1800);
+      setTimeout(function () { blip(2100, 0.03, 'square', 0.04, 1600); }, 20);
+    },
+    algoCharge: function (dur) {         // laser warn: a rising interference whine
+      blip(300, dur || 0.9, 'sine', 0.05, 1800);
+    },
+    algoZap: function () {               // laser fire — synthesis, not biology
+      noise(0.3, 0.22, 7000);
+      blip(2400, 0.3, 'sawtooth', 0.18, 180);
+    },
+    replayCue: function () {             // tape rewind + the play-button click
+      blip(1400, 0.25, 'triangle', 0.08, 300);
+      setTimeout(function () { blip(400, 0.06, 'square', 0.1); }, 260);
+    },
+    powerDip: function () {              // the reboot: power drains out of the lens
+      blip(160, 0.7, 'sawtooth', 0.2, 38);
+    },
+    dataChirp: function () {             // relight: three ascending data ticks
+      blip(1200, 0.03, 'square', 0.1, 1600);
+      setTimeout(function () { blip(1600, 0.03, 'square', 0.1); }, 40);
+      setTimeout(function () { blip(2100, 0.04, 'square', 0.1); }, 80);
+    },
     bossSting: function () {             // boss entrance / phase-2 enrage
       blip(110, 0.5, 'sawtooth', 0.28, 55);
       setTimeout(function () { blip(104, 0.55, 'sawtooth', 0.26, 52); }, 180);
@@ -495,7 +555,24 @@
       } else {
         hatBuildT = 0;                             // back to idle: the next fight builds up fresh
       }
-      if (k >= 1 && beatNo % 4 === 2) noteAt(beatNext, hz(45), 0.14, 'square', 0.07); // boss stab
+      if (k >= 1 && beatNo % 4 === 2) {          // boss stab — each headliner gets his own
+        var stabBoss = null;
+        if (DA.state && DA.state.enemies) {
+          for (var sbi = 0; sbi < DA.state.enemies.length; sbi++) {
+            if (DA.state.enemies[sbi].isBoss) { stabBoss = DA.state.enemies[sbi].type; break; }
+          }
+        }
+        if (stabBoss === 'executive') {            // descending minor pair: money going down
+          noteAt(beatNext, hz(48), 0.12, 'square', 0.06);
+          noteAt(beatNext + 0.08, hz(45), 0.14, 'square', 0.06);
+        } else if (stabBoss === 'algorithm') {     // detuned beating pair: no human mixed this
+          noteAt(beatNext, hz(45), 0.14, 'square', 0.05);
+          noteAt(beatNext, hz(45.5), 0.14, 'square', 0.05);
+        } else {                                   // the Producer: a rising showbiz brass pair
+          noteAt(beatNext, hz(45), 0.12, 'sawtooth', 0.06);
+          noteAt(beatNext + 0.06, hz(52), 0.1, 'sawtooth', 0.05);
+        }
+      }
       beatNo++;
       beatNext += T;
     }

@@ -499,11 +499,20 @@ test('The Executive teleports, fires fans, and spirals in phase 2', function () 
   b.fanT = 0.01; b.teleportT = 999;
   DA.updateExecutive(b, st, 0.02);
   assert(st.enemyBullets.length === 5, 'aimed 5-shot fan, got ' + st.enemyBullets.length);
-  b.hp = b.maxHp * 0.3;                        // phase 2
+  // the phase-2 spiral is GONE by design (it was a near-duplicate of the
+  // Algorithm's) — phase-2 pressure comes from chained teleports instead
+  assert(b.spiralT === undefined, 'the executive no longer carries a spiral timer');
+  // ASSET SEIZURE: claims mark where you stand, then burn
   st.enemyBullets.length = 0;
-  b.spiralT = 0.01; b.fanT = 999;
+  b.fanT = 999; b.teleportT = 999; b.tpGhost = 0; b.claimT = 0.01;
+  st.player.x = 500; st.player.y = 400; st.player.invuln = 0;
   DA.updateExecutive(b, st, 0.02);
-  assert(st.enemyBullets.length >= 1, 'spiral stream in phase 2');
+  assert(b.claims.length >= 1 && b.claims[0].phase === 'mark', 'a claim marks the floor');
+  for (var cq = 0; cq < 70 && b.claims[0] && b.claims[0].phase === 'mark'; cq++) DA.updateExecutive(b, st, 0.02);
+  assert(b.claims[0] && b.claims[0].phase === 'active', 'the claim goes hot after its telegraph');
+  var h0 = st.player.hearts;
+  DA.updateExecutive(b, st, 0.02);
+  assert(st.player.hearts === h0 - 1, 'standing on sold floor hurts');
 });
 test('The Algorithm predicts, lasers, rings, and spirals in phase 2', function () {
   var b = DA.makeAlgorithm();
@@ -594,6 +603,34 @@ test('boss fires radial bursts and has phases', function () {
   assert(b.burstWindup > 0 && st.enemyBullets.length === 0, 'burst telegraphs a windup first, no instant spray');
   for (var bw = 0; bw < 30 && b.burstWindup > 0; bw++) DA.updateBoss(b, st, 0.02);
   assert(st.enemyBullets.length >= 10, 'burst sprays after the windup, got ' + st.enemyBullets.length);
+});
+test("WE'RE LIVE: the corner cameras arm, warn, then crossfire", function () {
+  var b = DA.makeBoss();
+  var st = { player: DA.makePlayer(), enemies: [b], enemyBullets: [], bullets: [] };
+  b.burstT = 999; b.aimedT = 999; b.minionT = 999; b.sigT = 0.01;
+  DA.updateBoss(b, st, 0.02);
+  assert(b.sigWarn > 0 && st.sigArmedCams && st.sigArmedCams.length === 2, 'two cameras arm with a warning');
+  var burstTBefore = b.burstT;
+  DA.updateBoss(b, st, 0.02);
+  assert(b.burstT === burstTBefore, 'other attack timers freeze during the count (one telegraph at a time)');
+  for (var wl = 0; wl < 90 && b.sigWarn > 0; wl++) DA.updateBoss(b, st, 0.02);
+  assert(st.enemyBullets.length >= 10, 'the armed cameras + the boss open fire, got ' + st.enemyBullets.length);
+  assert(!st.sigArmedCams, 'cameras stand down after the volley');
+});
+test('INSTANT REPLAY: an echo of the recorded path plays back and fires', function () {
+  var b = DA.makeAlgorithm();
+  var st = { player: DA.makePlayer(), enemies: [b], enemyBullets: [], bullets: [] };
+  b.laserT = 999; b.ringT = 999; b.minionT = 999; b.echoT = 0.01;
+  for (var rc = 0; rc < 40; rc++) {                  // record ~4s of the player's path
+    st.player.x = 300 + rc * 8; st.player.y = 400;
+    DA.updateAlgorithm(b, st, 0.11);
+  }
+  assert(b.echo || st.enemyBullets.length > 0, 'an echo went live during the recording run');
+  for (var ec = 0; ec < 60 && (b.echoWarn > 0 || b.echo); ec++) DA.updateAlgorithm(b, st, 0.1);
+  var echoShots = 0;
+  for (var eb = 0; eb < st.enemyBullets.length; eb++) if (st.enemyBullets[eb].color === '#9ff5ea') echoShots++;
+  assert(echoShots >= 3, 'the footage shot back (echo-colored volleys), got ' + echoShots);
+  assert(!b.echo, 'the replay ends');
 });
 test('enemy bullets hurt the player once, respecting i-frames', function () {
   var p = DA.makePlayer();

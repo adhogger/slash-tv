@@ -649,6 +649,8 @@
   // every zombie on set dies with it (their strings are cut), and then a
   // single glowing exit opens that the player walks into to end the episode.
   function startBossDeath(st, boss) {
+    if (DA.broadcast) DA.broadcast.glitch = Math.max(DA.broadcast.glitch || 0, 0.5);   // the network chokes on air
+    st.sigArmedCams = null;                              // stand the corner cameras down
     boss.dying = true;
     boss.deathT = 3.0;
     boss.burstT = 0;
@@ -677,9 +679,18 @@
       DA.addShake(5);
       if (DA.audio && Math.random() < 0.35) DA.audio.splat(24);
     }
+    if (boss.type === 'algorithm' && DA.broadcast) {     // the network dies ON AIR, the whole 3s
+      DA.broadcast.glitch = Math.max(DA.broadcast.glitch || 0, 0.5);
+    }
     if (boss.deathT <= 0) {                              // the final blowout
       DA.burst(boss.x, boss.y, '#ffe17a', 60);
       DA.burst(boss.x, boss.y, boss.color, 40);
+      if (boss.type === 'algorithm') {                   // the pod halo blows out with it
+        for (var pb = 0; pb < 5; pb++) {
+          var pba = boss.wobble * 0.6 + pb * 1.2566;
+          DA.burst(boss.x + Math.cos(pba) * boss.r * 1.7, boss.y + Math.sin(pba) * boss.r * 1.7, '#2fd7c4', 10);
+        }
+      }
       if (DA.shockwave) DA.shockwave(boss.x, boss.y, 240);
       DA.corpse(boss.x, boss.y, boss.r * 1.6, boss.color);
       DA.addShake(22);
@@ -1120,8 +1131,10 @@
       var homeY = boss.homeY + (boss.type === 'producer' ? Math.sin(boss.wobble * 1.7) * 40 : 0);
       boss.y += (homeY - boss.y) * Math.min(1, 4 * dt);   // tracks the strut bob, so the
       boss.x += (boss.homeX - boss.x) * Math.min(1, 4 * dt); // AI handoff has no visible seam
-      if (DA.fx.host && DA.fx.host.speaker === boss.type) {
+      if (DA.fx.host && DA.fx.host.speaker === boss.type && !boss.enraged) {
         boss.grace = Math.max(boss.grace, 0.25);       // no fight while BOSS CAM is live
+        // (!enraged: the act-break's 1.4s beat must not be pinned open by
+        // the enrage taunt still running on the cam)
       } else if (!boss.actionCalled && boss.grace <= 0.25) {
         boss.actionCalled = true;                      // the cam just cut away
         DA.announce('ACTION!');
@@ -1132,16 +1145,42 @@
       if (boss.type === 'executive') DA.updateExecutive(boss, st, dt);
       else if (boss.type === 'algorithm') DA.updateAlgorithm(boss, st, dt);
       else DA.updateBoss(boss, st, dt);
-      if (!boss.enraged && DA.bossPhase(boss) === 2) {   // half health: a full broadcast beat,
-        boss.enraged = true;                             // not just a sound — the signal stumbles,
-        if (DA.audio && DA.audio.bossSting) DA.audio.bossSting();   // cameras flare, the mask slips on boss cam
+      if (!boss.enraged && DA.bossPhase(boss) === 2) {   // half health: the ACT BREAK — a full
+        boss.enraged = true;                             // staged beat, not just a sound
+        boss.grace = 1.4;                                // the existing grace machinery stages it:
+        st.barGlitchT = 0.4;                             // damage blocked, AI held, he glides back
+        DA.fx.houseDip = 1;                              // to his mark while the house lights cut
+        if (boss.claims) {                               // the Executive's act 2 opens on clean floor
+          boss.claims.forEach(function (cl) { if (DA.burst) DA.burst(cl.x, cl.y, '#d4a017', 10); });
+          boss.claims.length = 0;
+        }
+        if (DA.audio && DA.audio.bossSting) DA.audio.bossSting();
+        if (boss.type === 'producer' && DA.audio && DA.audio.micFeedback) DA.audio.micFeedback();
+        if (boss.type === 'executive' && DA.audio && DA.audio.kaChing) DA.audio.kaChing();
+        if (boss.type === 'algorithm' && DA.audio && DA.audio.powerDip) DA.audio.powerDip();
         if (DA.addShake) DA.addShake(10);
         if (DA.broadcast) {
-          DA.broadcast.glitch = Math.max(DA.broadcast.glitch || 0, 0.3);
+          DA.broadcast.glitch = Math.max(DA.broadcast.glitch || 0, boss.type === 'algorithm' ? 0.5 : 0.3);
           if (DA.broadcast.flashBurst) DA.broadcast.flashBurst(8);
         }
         if (ENRAGE_TAUNTS[boss.type] && DA.hostSay) DA.hostSay(ENRAGE_TAUNTS[boss.type], boss.type, 3.5);
       }
+      // hurt barks at the quarter marks (the enrage beat owns 50%) — never per hit
+      var hpFrac = boss.hp / boss.maxHp;
+      if (boss.nextBark == null) boss.nextBark = 0.75;
+      if (hpFrac <= boss.nextBark) {
+        boss.nextBark = boss.nextBark > 0.5 ? 0.25 : -1;
+        if (DA.audio) {
+          if (boss.type === 'executive') { if (DA.audio.kaChing) DA.audio.kaChing(); }
+          else if (boss.type === 'algorithm') { if (DA.audio.dataChirp) DA.audio.dataChirp(); }
+          else if (DA.audio.micFeedback) DA.audio.micFeedback();
+        }
+      }
+    }
+    if (boss) {                                          // hp GHOST: the bar's chip trail
+      boss.hpGhost = boss.hpGhost == null ? boss.hp : boss.hpGhost + (boss.hp - boss.hpGhost) * Math.min(1, 2.5 * dt);
+      if (st.barGlitchT > 0) st.barGlitchT -= dt;
+      if (st.bossTicker && (st.bossTicker.t -= dt) <= 0) st.bossTicker = null;
     }
     if (boss && boss.hp <= 0 && !boss.dying) startBossDeath(st, boss);
     if (boss && boss.dying) updateBossDeath(st, boss, dt);
@@ -1490,8 +1529,13 @@
     cranebay: 'rgba(255, 190, 110, 0.045)', pyrobay: 'rgba(255, 110, 60, 0.06)',
     corebay: 'rgba(90, 220, 255, 0.05)'
   };
-  // a studio camera on a tripod, aimed at the action
-  function drawTripodCam(ctx, x, y, ang) {
+  // corner tripod positions, exported so the Producer's WE'RE LIVE signature
+  // can fire from the studio's own cameras (js/boss.js)
+  DA.TRIPODS = [[DA.ARENA.x0 + 26, DA.ARENA.y0 + 24], [DA.ARENA.x1 - 26, DA.ARENA.y0 + 24],
+                [DA.ARENA.x0 + 26, DA.ARENA.y1 - 24], [DA.ARENA.x1 - 26, DA.ARENA.y1 - 24]];
+  // a studio camera on a tripod, aimed at the action. armed: this camera is
+  // about to open fire — solid hot tally + a red ring instead of the blink
+  function drawTripodCam(ctx, x, y, ang, armed) {
     ctx.save();
     ctx.translate(x, y);
     ctx.strokeStyle = 'rgba(20, 20, 28, 0.8)';        // tripod legs
@@ -1507,7 +1551,12 @@
     ctx.fillRect(8, -4, 7, 8);
     ctx.fillStyle = '#3a5a7a';                        // lens glass
     ctx.beginPath(); ctx.arc(13, 0, 2.5, 0, 7); ctx.fill();
-    if (Math.floor(performance.now() / 700) % 2 === 0) {
+    if (armed) {
+      ctx.fillStyle = '#ff2020';                      // tally SOLID: this one's live
+      ctx.beginPath(); ctx.arc(-5, -8, 3.5, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 32, 32, 0.8)'; ctx.lineWidth = 1;
+      ctx.strokeRect(-9, -7, 18, 14);
+    } else if (Math.floor(performance.now() / 700) % 2 === 0) {
       ctx.fillStyle = '#d43a4b';                      // tally light
       ctx.beginPath(); ctx.arc(-5, -8, 2, 0, 7); ctx.fill();
     }
@@ -1557,17 +1606,26 @@
     var sweep = performance.now() / 4000;
     var followed = st.players || (st.player ? [st.player] : null);
     for (var tp = 0; tp < 4; tp++) {                   // camera tripods, tucked right into each
-      var tc = [[A.x0 + 26, A.y0 + 24], [A.x1 - 26, A.y0 + 24],           // corner (was 62/58 in from
-                [A.x0 + 26, A.y1 - 24], [A.x1 - 26, A.y1 - 24]][tp];      // the corner) — ACTIVELY
-      var camAng;                                                        // FILMING: they track the cast
-      if (followed) {
+      var tc = DA.TRIPODS[tp];                           // corner — ACTIVELY FILMING: they track the cast
+      var armed = st.sigArmedCams && st.sigArmedCams.indexOf(tp) !== -1;   // WE'RE LIVE: this one FIRES
+      var camAng;
+      var victim = followed && DA.nearestPlayer ? DA.nearestPlayer(followed, tc[0], tc[1]) : null;
+      if (armed && victim) {                             // an armed camera locks dead on
+        camAng = Math.atan2(victim.y - tc[1], victim.x - tc[0]);
+      } else if (followed) {
         var camStar = followed[tp % followed.length];
         camAng = Math.atan2(camStar.y - tc[1], camStar.x - tc[0]) +
                  Math.sin(sweep * 2.3 + tp * 2.1) * 0.05;   // a slower, steadier operator
       } else {
         camAng = Math.atan2(DA.H / 2 - tc[1], DA.W / 2 - tc[0]);
       }
-      drawTripodCam(ctx, tc[0], tc[1], camAng);
+      if (armed && victim) {                             // the spitter warn-line idiom, already learned
+        var camFlash = Math.sin(performance.now() / 40) > 0 ? 1 : 0.4;
+        ctx.strokeStyle = 'rgba(255, 60, 60, ' + (0.35 + camFlash * 0.25).toFixed(3) + ')';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(tc[0], tc[1]); ctx.lineTo(victim.x, victim.y); ctx.stroke();
+      }
+      drawTripodCam(ctx, tc[0], tc[1], camAng, armed);
       // ON-CAMERA LIGHT: cool blue-white, distinct from the warm followspots —
       // a soft radial taper at the far reach instead of a hard-edged cutoff
       var camGrad = ctx.createRadialGradient(tc[0], tc[1], 0, tc[0], tc[1], 520);
@@ -1609,6 +1667,9 @@
     for (var li = 0; li < 4; li++) {
       var cpos = corners[li];
       var rgb = rig.rgb[li < 2 ? 0 : 1];
+      if (followTarget && followTarget.isBoss) {         // the followspots take the headliner's color
+        rgb = ({ producer: '255, 150, 60', executive: '122, 138, 255', algorithm: '47, 215, 196' })[followTarget.type] || rgb;
+      }
       var a;
       if (followTarget) {
         a = Math.atan2(followTarget.y - cpos[1], followTarget.x - cpos[0]) +
@@ -2852,7 +2913,7 @@
       ctx.fillText('LINK LOST — RETRYING', DA.W - 20, 90 + puLines.length * 22);
     }
     var boss = findBoss(st);
-    if (boss) DA.drawBossBar(ctx, boss);
+    if (boss) DA.drawBossBar(ctx, boss, st);
   }
 
   function drawWorld(ctx, st) {
@@ -2883,6 +2944,19 @@
     for (var pw = 0; pw < st.players.length; pw++) {
       if (st.players[pw].dead) drawDeadPlayer(ctx, st.players[pw], st);
       else DA.drawPlayer(ctx, st.players[pw]);
+    }
+    if (DA.fx.houseDip > 0) {                          // the network cuts the house lights for
+      var hd = DA.fx.houseDip;                           // the act break — one hard ring stays on him
+      ctx.fillStyle = 'rgba(0, 0, 0, ' + (0.45 * hd).toFixed(3) + ')';
+      ctx.fillRect(0, 0, DA.W, DA.H);
+      var hb = findBoss(st);
+      if (hb) {
+        var dipGrad = ctx.createRadialGradient(hb.x, hb.y, 10, hb.x, hb.y, hb.r * 3);
+        dipGrad.addColorStop(0, 'rgba(255, 255, 255, ' + (0.1 * hd).toFixed(3) + ')');
+        dipGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = dipGrad;
+        ctx.beginPath(); ctx.arc(hb.x, hb.y, hb.r * 3, 0, 7); ctx.fill();
+      }
     }
     if (DA.broadcast) DA.broadcast.drawWorldFx(ctx, st);
     DA.drawFxOver(ctx);

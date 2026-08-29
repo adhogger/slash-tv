@@ -314,6 +314,7 @@
       var e = arr[i];
       if (e.isBoss) {
         if (e.type === 'algorithm' && DA.drawAlgorithm) DA.drawAlgorithm(ctx, e);
+        else if (e.type === 'executive' && DA.drawExecutive) DA.drawExecutive(ctx, e);
         else if (DA.drawBoss) DA.drawBoss(ctx, e);
         continue;
       }
