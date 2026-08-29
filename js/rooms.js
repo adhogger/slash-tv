@@ -158,7 +158,7 @@
     },
     serverroom: {
       ep: 2, map: { x: 1, y: 2 },
-      name: 'SERVER ROOM', floor: '#2c323a', decor: 'servers', hazard: 'crane',
+      name: 'SERVER ROOM', floor: '#2c323a', decor: 'servers',
       exits: { E: 'suite' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 125, interval: 1.1, burst: 7 },

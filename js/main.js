@@ -1887,15 +1887,19 @@
       opts.x = X; opts.y = Y0 + G * row++; opts.w = BW; opts.h = BH;
       m.push(opts);
     }
-    push({ color: '#7ee081', primary: true, label: '▶  1 PLAYER', state: 'PILOT SEASON',
+    var bestCash = load('deadset_best');
+    push({ color: '#7ee081', primary: true, label: '▶  1 PLAYER',
+           state: 'PILOT SEASON' + (bestCash ? ' · best $' + parseInt(bestCash, 10).toLocaleString('en-US') : ''),
            act: function () { seatFill = ['human', 'empty', 'empty', 'empty']; startShow(); } });
     push({ color: '#9ad7ff', label: '👥  2 PLAYER', state: 'local, online, or with a bot',
            act: function () { showCoopChoice = true; coopSel = 0; } });
     var hosting = DA.net && DA.net.status === 'hosting';
     push({ color: '#9ad7ff', locked: !DA.net,
            label: (hosting && DA.net.code ? '📋  ' : '🌍  ') + 'ONLINE MULTIPLAYER',
-           state: hosting ? (DA.net.code ? 'ROOM ' + DA.net.code + ' — click to copy invite link' : 'ROOM ····')
-                           : 'get a link to share',
+           state: DA.net && DA.net.status === 'error' ? 'relay error — unavailable' :
+                  hosting ? (DA.net.code ? 'ROOM ' + DA.net.code +
+                              (DA.net.remoteJoined ? ' — CONTESTANT 2 READY ✓' : ' — copy invite link') : 'ROOM ····')
+                          : 'get a link to share',
            act: function () {
              if (hosting && DA.net.code) { copyInviteLink(); return; }
              seatFill = ['human', 'empty', 'empty', 'empty']; if (DA.net) DA.net.host();
@@ -1906,8 +1910,11 @@
     push({ color: '#5bc8d6', label: '♾  ENDLESS MODE',
            state: 'best: wave ' + (load('deadset_best_waves') || '0'),
            act: function () { DA.state = newGame('endless'); } });
+    var lbLeader = DA.lb && DA.lb.today && DA.lb.today.length &&
+                   DA.lb.todaySeed === synSeed() ? DA.lb.today[0] : null;
     push({ color: '#b78bff', label: '📡  TONIGHT\'S EPISODE',
-           state: '#' + synSeed() + ' · one world board',
+           state: lbLeader ? '🏆 tonight: ' + lbLeader.name + ' $' + lbLeader.score.toLocaleString('en-US')
+                           : '#' + synSeed() + ' · one world board',
            act: function () {
              seatFill = ['human', 'empty', 'empty', 'empty'];
              DA.generateEpisode(synSeed());
@@ -2003,7 +2010,10 @@
   // matching how ONLINE MULTIPLAYER's locked flag already behaves.
   function buildBackstageMenu() {
     var touch = DA.input.touchActive();
-    var BW = 640, X = (DA.W - BW) / 2, Y0 = 96, G = touch ? 46 : 42, BH = touch ? 40 : 36;
+    // wide rows: label sits left, cost + full effect description sit right,
+    // and the descriptions are the whole point of this screen — 640 made
+    // the long ones collide with their labels
+    var BW = 860, X = (DA.W - BW) / 2, Y0 = 96, G = touch ? 46 : 42, BH = touch ? 40 : 36;
     var rpBal = parseInt(load('deadset_rp') || '0', 10);
     var rows = MANDATE_DEFS.map(function (m, i) {
       var unlocked = load('deadset_mandate_' + m.id) === '1';
@@ -2293,11 +2303,20 @@
       ctx.font = 'bold ' + (b.primary ? (touch ? 26 : 22) : (touch ? 22 : 19)) + 'px monospace';
       ctx.fillStyle = b.locked ? '#4a4a58' : b.color;
       ctx.fillText(b.label, b.x + 18, b.y + b.h / 2 + 7);
+      var labelEnd = b.x + 18 + ctx.measureText(b.label).width;
       if (b.state) {
         ctx.textAlign = 'right';
-        ctx.font = (b.locked ? '' : 'bold ') + (touch ? 17 : 14) + 'px monospace';
+        // the state must never run into the label: step the font down one
+        // size if it would, then ellipsize as a last resort
+        var stateMax = (b.x + b.w - 14) - (labelEnd + 16);
+        var sBold = b.locked ? '' : 'bold ', s0 = touch ? 17 : 14;
+        ctx.font = sBold + s0 + 'px monospace';
+        if (ctx.measureText(b.state).width > stateMax) ctx.font = sBold + (s0 - 3) + 'px monospace';
+        var sTxt = b.state;
+        while (sTxt.length > 1 && ctx.measureText(sTxt + '…').width > stateMax) sTxt = sTxt.slice(0, -1);
+        if (sTxt !== b.state) sTxt += '…';
         ctx.fillStyle = b.locked ? '#4a4a58' : '#8888a0';
-        ctx.fillText(b.state, b.x + b.w - 14, b.y + b.h / 2 + 5);
+        ctx.fillText(sTxt, b.x + b.w - 14, b.y + b.h / 2 + 5);
       }
       if (b.hint) {
         ctx.textAlign = 'right';
@@ -2974,41 +2993,18 @@
     }
   }
 
-  function favoriteGun(st) {
-    var best = null, n = 0;
-    for (var g in st.stats.killsByGun) {
-      if (st.stats.killsByGun[g] > n) { n = st.stats.killsByGun[g]; best = g; }
-    }
-    return best ? best + ' (' + n + ' kills)' : '—';
-  }
-
+  // one line, everything worth keeping — the old two-line version (plus a
+  // separate "highlight stat" callout) repeated the kill count up to three
+  // times and crowded the end screens
   function statsLines(st, y) {
     var acc = st.stats.shots ? Math.round(st.stats.hits / st.stats.shots * 100) : 0;
     var mins = Math.floor(st.stats.seconds / 60), secs = st.stats.seconds % 60;
     var run = st.room.endless ? (st.waveManager.wave + ' waves survived') :
                                 (st.roomsCleared + ' rooms cleared');
     return [
-      { text: run + '  ·  ' + st.kills + ' kills  ·  ' + acc + '% accuracy',
-        font: '22px monospace', color: '#f2f2e9', y: y },
-      { text: 'favorite gun: ' + favoriteGun(st) + '  ·  ' + mins + 'm ' + secs + 's on air',
-        font: '20px monospace', color: '#8888a0', y: y + 32 }
+      { text: run + '  ·  ' + st.kills + ' kills  ·  ' + acc + '% accuracy  ·  ' + mins + 'm ' + secs + 's on air',
+        font: '20px monospace', color: '#c9c9d4', y: y }
     ];
-  }
-
-  // the single most impressive stat of the run, called out instead of buried in the list
-  function highlightStat(st) {
-    var acc = st.stats.shots ? Math.round(st.stats.hits / st.stats.shots * 100) : 0;
-    var candidates = [];
-    if (acc >= 55) candidates.push({ label: '🎯 SHARPSHOOTER', text: acc + '% ACCURACY', w: acc });
-    if (st.stats.maxCombo >= 6) candidates.push({ label: '🔥 ON A STREAK', text: 'x' + st.stats.maxCombo + ' MULTIPLIER HIT', w: st.stats.maxCombo * 12 });
-    if (st.kills >= 120) candidates.push({ label: '💀 BODY COUNT', text: st.kills + ' KILLS', w: st.kills / 3 });
-    // the inverse: went down at least once but still walked out a winner
-    if (st.mode === 'winner' && st.everDowned) {
-      candidates.push({ label: '🎬 SAVED BY THE BELL', text: 'DOWNED, NOT OUT', w: 80 });
-    }
-    if (!candidates.length) return null;
-    candidates.sort(function (a, b) { return b.w - a.w; });
-    return candidates[0];
   }
 
   function topFiveLines(st, y) {
@@ -3153,23 +3149,10 @@
         drawScreenFx(ctx);
         return;
       }
-      // one-line status strip: hosting / tonight's leader / personal best
-      var status = [];
-      if (DA.net && DA.net.status === 'hosting') {
-        status.push('ROOM ' + (DA.net.code || '····') +
-                    (DA.net.remoteJoined ? ' — CONTESTANT 2 READY' : ' — waiting for contestant 2'));
-      } else if (DA.net && DA.net.status === 'error') {
-        status.push('RELAY ERROR — online co-op unavailable');
-      }
-      if (DA.lb && DA.lb.today && DA.lb.today.length && DA.lb.todaySeed === synSeed()) {
-        status.push('🏆 tonight: ' + DA.lb.today[0].name + ' $' + DA.lb.today[0].score.toLocaleString('en-US'));
-      }
-      var best = load('deadset_best');
-      if (best) status.push('your best: $' + parseInt(best, 10).toLocaleString('en-US'));
-      if (status.length) {
-        ctx.font = 'bold 15px monospace'; ctx.fillStyle = '#9ad7ff';
-        ctx.fillText(status.join('   ·   '), DA.W / 2, 292);
-      }
+      // the old one-line status strip (hosting / tonight's leader / personal
+      // best) is gone: the menu's first row moved up to y272 and the strip at
+      // y292 printed straight across it. Each item now lives in the state
+      // text of the menu row it describes (1 PLAYER / ONLINE / TONIGHT'S).
       menuSel = drawMenu(ctx, titleMenu, menuSel);
       var hint = DA.input.touchActive() ?
         (window.innerHeight > window.innerWidth ? '📺 rotate your phone for the full show' :
@@ -3275,27 +3258,25 @@
     if (st.mode === 'gameover') {
       // no more "CUT TO COMMERCIAL" banner here — it's redundant, the actual
       // commercial-break screen right after this one already says it
-      var goHi = highlightStat(st);
       var go = [
-        { text: '+' + (st.rpEarned || 0) + ' RATINGS POINTS', font: 'bold 17px monospace', color: '#e8843c', y: 192 },
         { text: 'You leave with $' + st.score.toLocaleString('en-US') +
                 (st.newBest ? '  —  NEW BEST!' : ''),
-          font: '26px monospace', color: st.newBest ? '#e8d44d' : '#f2f2e9', y: 218 }
+          font: '26px monospace', color: st.newBest ? '#e8d44d' : '#f2f2e9', y: 216 },
+        { text: '+' + (st.rpEarned || 0) + ' RATINGS POINTS', font: 'bold 17px monospace', color: '#e8843c', y: 246 }
       ];
-      if (goHi) go.push({ text: goHi.label + ': ' + goHi.text, font: 'bold 20px monospace', color: '#e8d44d', y: 250 });
-      go = go.concat(statsLines(st, goHi ? 282 : 266)).concat(topFiveLines(st, goHi ? 362 : 346));
+      go = go.concat(statsLines(st, 280)).concat(topFiveLines(st, 330));
       if (st.room.ep === 'syn') {
-        go.push({ text: "TONIGHT'S SEED: #" + st.room.seed + '  ·  challenge a friend: ?seed=' + st.room.seed,
-                  font: '16px monospace', color: '#b78bff', y: 538 });
         if (st.globalRank && st.globalRank !== 'sending') {
           go.push({ text: '🌍 GLOBAL RANK #' + st.globalRank + ' on this episode',
-                    font: 'bold 22px monospace', color: '#b78bff', y: 512 });
+                    font: 'bold 22px monospace', color: '#b78bff', y: 490 });
         }
+        go.push({ text: "TONIGHT'S SEED: #" + st.room.seed + '  ·  challenge a friend: ?seed=' + st.room.seed,
+                  font: '16px monospace', color: '#b78bff', y: 516 });
       }
       go.push({ text: 'PRESS FIRE TO RESTART', font: 'bold 28px monospace', color: '#7ee081', y: 566 });
-      // was gated behind endlessUnlocked() — Endless is available from the
-      // start now, and this is exactly the screen a struggling player sees
-      go.push({ text: 'E (or 🎮 Y) for Endless Arena — good place to practice', font: '19px monospace', color: '#5bc8d6', y: 598 });
+      // Endless is available from the start, and this is exactly the screen
+      // a struggling player sees
+      go.push({ text: 'E — ♾ ENDLESS ARENA — good place to practice', font: '16px monospace', color: '#5bc8d6', y: 600 });
       if (window.SLASHTV_FEEDBACK_URL) {
         go.push({ text: 'F — 📝 TELL US WHAT YOU THOUGHT', font: '16px monospace', color: '#8888a0', y: 624 });
       }
@@ -3317,35 +3298,38 @@
                  '"Ladies and gentlemen... nobody went down tonight. Standards and Practices has no idea what to file this under." — static — nothing.') :
                 (isEp2 ? 'The Executive is cancelled. The network is yours.' :
                          'Episode 1 survived — The Producer is done for.');
-      var winHi = highlightStat(st);
       var w = [
         { text: headline, font: 'bold ' + (isSeasonFinale ? 60 : 84) + 'px monospace', color: '#e8d44d', y: 196 },
         { text: sub, font: '24px monospace', color: '#f2f2e9', y: 246 },
-        { text: '+' + (st.rpEarned || 0) + ' RATINGS POINTS', font: 'bold 17px monospace', color: '#e8843c', y: 268 },
         { text: 'You take home $' + st.score.toLocaleString('en-US') +
                 (st.newBest ? '  —  NEW BEST!' : ''),
-          font: 'bold 28px monospace', color: '#7ee081', y: 288 }
+          font: 'bold 28px monospace', color: '#7ee081', y: 300 },
+        { text: '+' + (st.rpEarned || 0) + ' RATINGS POINTS', font: 'bold 17px monospace', color: '#e8843c', y: 330 }
       ];
-      if (winHi) w.push({ text: winHi.label + ': ' + winHi.text, font: 'bold 20px monospace', color: '#e8d44d', y: 316 });
-      w = w.concat(statsLines(st, winHi ? 348 : 334)).concat(topFiveLines(st, winHi ? 418 : 404));
+      w = w.concat(statsLines(st, 364)).concat(topFiveLines(st, 414));
       if (st.room.ep === 'syn' && st.globalRank && st.globalRank !== 'sending') {
         w.push({ text: '🌍 GLOBAL RANK #' + st.globalRank + " on tonight's episode (#" + st.room.seed + ')',
-                 font: 'bold 22px monospace', color: '#b78bff', y: 534 });
+                 font: 'bold 22px monospace', color: '#b78bff', y: 554 });
       }
       var isEp1 = (st.room.ep || 1) === 1 && st.room.ep !== 'syn';
-      w.push({ text: isSeasonFinale ? 'Thanks for watching SLASH TV. That was the whole show.' :
-                     (isEp2 ? 'The run continues — your score carries over.' :
-                     (isEp1 ? 'Endless Arena is always open (press E) — or keep the run going:' :
-                              'Same seed, same studio — can you rank higher?')),
-               font: 'bold 22px monospace', color: '#5bc8d6', y: 566 });
+      // ep1's old "Endless is always open" banner moved into the small key
+      // hints below — the big cyan line only appears when it says something
+      if (!isEp1) {
+        w.push({ text: isSeasonFinale ? 'Thanks for watching SLASH TV. That was the whole show.' :
+                       (isEp2 ? 'The run continues — your score carries over.' :
+                                'Same seed, same studio — can you rank higher?'),
+                 font: 'bold 22px monospace', color: '#5bc8d6', y: 580 });
+      }
       w.push({ text: isEp2 ? 'PRESS FIRE — EPISODE 3: LIVE FINALE' :
                      (isEp1 ? 'PRESS FIRE — EPISODE 2: SWEEPS WEEK' :
                               'PRESS FIRE TO PLAY AGAIN'),
-               font: 'bold 26px monospace', color: '#7ee081', y: 598 });
+               font: 'bold 26px monospace', color: '#7ee081', y: 610 });
+      var ky = 636;
+      if (isEp1) { w.push({ text: 'E — ♾ ENDLESS ARENA', font: '16px monospace', color: '#5bc8d6', y: ky }); ky += 22; }
       if (window.SLASHTV_FEEDBACK_URL) {
-        w.push({ text: 'F — 📝 TELL US WHAT YOU THOUGHT', font: '16px monospace', color: '#8888a0', y: 624 });
+        w.push({ text: 'F — 📝 TELL US WHAT YOU THOUGHT', font: '16px monospace', color: '#8888a0', y: ky }); ky += 22;
       }
-      w.push({ text: 'ESC — 📺 BACK TO TITLE SCREEN', font: '16px monospace', color: '#8888a0', y: 648 });
+      w.push({ text: 'ESC — 📺 BACK TO TITLE SCREEN', font: '16px monospace', color: '#8888a0', y: ky });
       drawCenteredScreen(ctx, w);
     }
   }
